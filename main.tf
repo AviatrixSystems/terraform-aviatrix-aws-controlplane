@@ -272,60 +272,7 @@ resource "aws_lambda_permission" "with_sns" {
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.controller_updates.arn
 }
-/*
-resource "aws_autoscaling_notification" "asg_notifications" {
-  group_names = [aws_autoscaling_group.avtx_ctrl.name]
 
-  notifications = [
-    "autoscaling:EC2_INSTANCE_LAUNCH",
-    "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
-  ]
-
-  topic_arn = aws_sns_topic.controller_updates.arn
-}
-*/
-/*
-provider "aviatrix" {
-  username      = "admin"
-  password      = "Pappu_123"
-  controller_ip = module.aviatrix-controller-build.public_ip
-  skip_version_validation = true
-}
-
-resource "aviatrix_account" "akbhat_gcp" {
-  account_name                        = "akbhat_gcp"
-  cloud_type                          = 4
-  gcloud_project_id                   = "avtx-ea"
-  gcloud_project_credentials_filepath = "./avtx-ea-gcp.json"
-
-  depends_on = [module.aviatrix-controller-initialize]
-}
-
-resource "aviatrix_controller_config" "controller_config" {
-  target_version             = "latest"
-  backup_configuration       = true
-  backup_cloud_type          = 1
-  backup_account_name        = "akbhat_aws"
-  backup_bucket_name         = "avtx-controller-bkups"
-  multiple_backups           = true
-}
-
-resource "aviatrix_account" "akbhat_azure" {
-  account_name        = "akbhat_azure"
-  cloud_type          = 8
-  arm_subscription_id = "1c8fb3b5-a0bb-4c28-9f79-cde8e12e0f9a"
-  arm_directory_id    = "4780055e-ce37-4f02-b33d-fdad8493a4b6"
-  arm_application_id  = "51fcbb39-e50d-4196-890a-30200f4f9d30"
-  arm_application_key = "8ZXuE_4.c8B0MmLrF6K7I_1M.~3Yyw0GHL"
-
-  depends_on = [module.aviatrix-controller-initialize]
-}
-*/
-/*
-output "result" {
-  value = module.aviatrix-controller-initialize.result
-}
-*/
 output "controller_private_ip" {
   value = aws_eip.controller_eip.private_ip
 }
