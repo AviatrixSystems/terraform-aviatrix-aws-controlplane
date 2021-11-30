@@ -101,13 +101,11 @@ resource aws_iam_role_policy_attachment attach-policy {
 }
 
 resource aws_lambda_function lambda {
-  #s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
-  #s3_key        = "aviatrix_ha.zip"
-  filename      = "aviatrix_ha.zip"
-  layers        = ["arn:aws:lambda:us-east-1:493018848597:layer:requests:1","arn:aws:lambda:us-east-1:493018848597:layer:lambda_layer:2"]
+  s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
+  s3_key        = "aws_controller.zip"
   function_name = "AVX_Controller"
   role          = aws_iam_role.iam_for_lambda.arn
-  handler       = "aviatrix_ha.lambda_handler"
+  handler       = "aws_controller.lambda_handler"
   runtime       = "python3.9"
   description   = "MANAGED BY TERRAFORM"
   timeout       = 900
@@ -181,28 +179,7 @@ resource "aws_launch_template" "avtx-controller" {
       Name = "AviatrixController"
     }
   }
-
-#  user_data = base64encode(data.template_file.user_data_hw.rendered)
 }
-
-/*
-data "template_file" "user_data_hw" {
-  template = <<EOF
-#!/bin/bash -xe
-apt install -y jq
-output="/tmp/assume-role-output.json"
-aws sts assume-role --role-arn ${module.aviatrix-iam-roles.aviatrix-role-app-arn} --role-session-name AWSCLI-Session > $output
-AccessKeyId=$(cat $output | jq -r '.Credentials''.AccessKeyId')
-SecretAccessKey=$(cat $output | jq -r '.Credentials''.SecretAccessKey')
-SessionToken=$(cat $output | jq -r '.Credentials''.SessionToken')
-export AWS_ACCESS_KEY_ID=$AccessKeyId
-export AWS_SECRET_ACCESS_KEY=$SecretAccessKey
-export AWS_SESSION_TOKEN=$SessionToken
-export AWS_DEFAULT_REGION=us-east-1
-aws ec2 associate-address --instance-id "$(wget -q -O - http://169.254.169.254/latest/meta-data/instance-id)" --allocation-id ${aws_eip.controller_eip.allocation_id}
-EOF
-}
-*/
 
 resource "aws_autoscaling_group" "avtx_ctrl" {
   name                      = "avtx_controller"
@@ -218,7 +195,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     id      = aws_launch_template.avtx-controller.id
     version = "$Latest"
   }
-  vpc_zone_identifier = ["subnet-0616d68b7e6b0309e","subnet-0948c4e0fef5ddfb8"]
+  vpc_zone_identifier = var.subnet_names
 
   warm_pool {
     pool_state                  = "Running"
@@ -233,7 +210,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn
-    role_arn                = "arn:aws:iam::493018848597:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+    role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
   }
 
   #  tag {
@@ -257,13 +234,11 @@ resource "aws_sns_topic_subscription" "asg_updates_for_lambda" {
   endpoint  = aws_lambda_function.lambda.arn
 }
 
-/*
 resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
   topic_arn = aws_sns_topic.controller_updates.arn
   protocol  = "email"
-  endpoint  = var.asg_notif_email ? var.asg_notif_email : var.admin_email
+  endpoint  = var.asg_notif_email
 }
-*/
 
 resource "aws_lambda_permission" "with_sns" {
   statement_id  = "AllowExecutionFromSNS"

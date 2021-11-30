@@ -42,7 +42,12 @@ variable termination_protection {
 
 variable admin_email {
   type        = string
-  description = "Aviatrix admin email address"
+  description = "Controller admin email address"
+}
+
+variable asg_notif_email {
+  type        = string
+  description = "Email address for Controller failover notifications"
 }
 
 variable admin_password {
@@ -70,6 +75,10 @@ variable controller_version {
   type        = string
   default     = "latest"
   description = "The version in which you want launch Aviatrix controller"
+}
+
+variable "subnet_names" {
+  type    = list(string)
 }
 
 /*

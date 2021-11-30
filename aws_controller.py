@@ -1,4 +1,4 @@
-""" Aviatrix Controller HA Lambda script """
+""" Aviatrix Controller Deployment with HA Lambda script """
 
 import time
 import os
@@ -33,13 +33,10 @@ AWS_US_EAST_REGION = 'us-east-1'
 
 mask = lambda input: input[0:5] + '*' * 15 if isinstance(input, str) else ''
 
-
 class AvxError(Exception):
     """ Error class for Aviatrix exceptions"""
 
-
 print('Loading function')
-
 
 def lambda_handler(event, context):
     """ Entry point of the lambda script"""
