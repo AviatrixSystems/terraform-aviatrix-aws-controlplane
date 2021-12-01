@@ -107,7 +107,7 @@ resource aws_lambda_function lambda {
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "aws_controller.lambda_handler"
   runtime       = "python3.9"
-  description   = "MANAGED BY TERRAFORM"
+  description   = "AVIATRIX CONTROLLER HIGH AVAILABILITY"
   timeout       = 900
 
   environment {
@@ -132,6 +132,34 @@ resource aws_lambda_function lambda {
 resource aws_eip controller_eip {
   vpc   = true
   tags  = local.common_tags
+}
+
+resource aws_security_group AviatrixSecurityGroup {
+  name        = "${local.name_prefix}AviatrixSecurityGroup"
+  description = "Aviatrix - Controller Security Group"
+  vpc_id      = var.vpc
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}AviatrixSecurityGroup"
+  })
+}
+
+resource aws_security_group_rule ingress_rule {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = var.incoming_ssl_cidr
+  security_group_id = aws_security_group.AviatrixSecurityGroup.id
+}
+
+resource aws_security_group_rule egress_rule {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.AviatrixSecurityGroup.id
 }
 
 resource "aws_launch_template" "avtx-controller" {
@@ -168,9 +196,8 @@ resource "aws_launch_template" "avtx-controller" {
   network_interfaces {
     device_index = 0
     associate_public_ip_address = true
+    security_groups = [aws_security_group.AviatrixSecurityGroup.id]
   }
-
-  #  vpc_security_group_ids = ["sg-12345678"]
 
   tag_specifications {
     resource_type = "instance"
@@ -206,7 +233,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   initial_lifecycle_hook {
     name                 = "init"
     default_result       = "CONTINUE"
-    heartbeat_timeout    = 2000
+    heartbeat_timeout    = 1200
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn

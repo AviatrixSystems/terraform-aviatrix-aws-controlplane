@@ -8,3 +8,5 @@ admin_password = "XXXXXXXXXX"
 access_account_name = "xxxxxxxxxxxx"
 aws_account_id = "1234556789"
 subnet_names = ["subnet-0616d68b7e6b0309e","subnet-0948c4e0fef5ddfb8"]
+vpc = "vpc-xxxxxxxxxxxx"
+incoming_ssl_cidr = ["0.0.0.0/0"]

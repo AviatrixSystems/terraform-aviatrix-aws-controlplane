@@ -565,7 +565,7 @@ def restore_security_group_access(client, sg_id):
             print(str(err))
 
 
-def handle_login_failure(priv_ipi,client, lambda_client,
+def handle_login_failure(priv_ip,client, lambda_client,
                         controller_instanceobj, context,eip):
     """ Handle login failure through private IP"""
 
@@ -576,6 +576,7 @@ def handle_login_failure(priv_ipi,client, lambda_client,
         retrieve_controller_version(new_version_file)
     except Exception as err:
         print(str(err))
+        # TODO: Infinite loop if unable to login to first instance?
         print("Could not retrieve new version file. Stopping instance. ASG will terminate and "
               "launch a new instance")
         inst_id = controller_instanceobj['InstanceId']
@@ -836,6 +837,7 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
             Filters=[{'Name': 'instance-id', 'Values': [asg_inst]}]
         )['Reservations'][0]['Instances'][0]
 
+    # Assign EIP when new ASG instance is launched or handling switchover event
     if asg_dest == "AutoScalingGroup":
         if not assign_eip(client, controller_instanceobj, os.environ.get('EIP')):
             raise AvxError("Could not assign EIP")
@@ -952,10 +954,14 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
             # Should this be done before initialization?
             if initial_setup_complete and not priv_ip and asg_orig == "EC2" and asg_dest == "AutoScalingGroup":
                 response_json = set_admin_email(controller_api_ip,cid,os.environ.get("ADMIN_EMAIL"))
-
+                if response_json.get('return', False) is not True:
+                    print(f"Unable to set admin email - {response_json.get('reason', '')}")
                 response_json = set_admin_password(controller_api_ip,cid,new_private_ip,os.environ.get("ADMIN_PWD"))
-
+                if response_json.get('return', False) is not True:
+                    print(f"Unable to set admin password - {response_json.get('reason', '')}")
                 response_json = create_cloud_account(cid, controller_api_ip, os.environ.get("PRIMARY_ACC_NAME"))
+                if response_json.get('return', False) is not True:
+                    print(f"Unable to set create cloud account - {response_json.get('reason', '')}")
 
                 if response_json.get('return', False) is True:
                     created_prim_acc = True
@@ -982,7 +988,6 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
                 print(response_json)
                 # Create a new backup so that filename uses new_private_ip
                 response_json = setup_ctrl_backup(controller_api_ip,cid,temp_acc_name,'true')
-
             else: # When first deploying, need to run set_environ()
                 response_json['return'] = True
                 created_temp_acc = True
@@ -1042,10 +1047,12 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
                         LifecycleActionResult='CONTINUE',
                         LifecycleActionToken=sns_msg_json['LifecycleActionToken'],
                         LifecycleHookName=sns_msg_json['LifecycleHookName'])
-        print(f"Complete lifecycle action response = {response}")
+
+        print(f"Complete lifecycle action response {response}")
         if not duplicate:
-            print("Reverting sg %s" % sg_modified)
-            update_env_dict(lambda_client, context, {'TMP_SG_GRP': ''})
+            print(f"Reverting sg {sg_modified}")
+            if asg_orig == "EC2" and asg_dest == "AutoScalingGroup":
+                update_env_dict(lambda_client, context, {'TMP_SG_GRP': ''})
             restore_security_group_access(client, sg_modified)
 
 

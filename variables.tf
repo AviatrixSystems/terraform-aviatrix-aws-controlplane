@@ -24,6 +24,11 @@ variable root_volume_size {
   default     = 32
 }
 
+variable incoming_ssl_cidr {
+  type        = list(string)
+  description = "Incoming cidr for security group used by controller"
+}
+
 variable s3_backup_bucket {
   type        = string
   description = "S3 bucket for Controller DB backup"
@@ -75,6 +80,11 @@ variable controller_version {
   type        = string
   default     = "latest"
   description = "The version in which you want launch Aviatrix controller"
+}
+
+variable vpc {
+  type        = string
+  description = "VPC in which you want launch Aviatrix controller"
 }
 
 variable "subnet_names" {
