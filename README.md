@@ -1,8 +1,9 @@
 ## Aviatrix with High Availability
 
 ### Goals:
-Ensure Aviatrix Controller is always deployed with high availability
-Support a hot standby Controller instance to reduce the Controller switchover time to under a minute
+1. Ensure Aviatrix Controller is always deployed with high availability
+
+2. Support a hot standby Controller instance to reduce the Controller switchover time to under a minute
 
 ### Description:
 This module creates AWS IAM credentials (IAM roles, policies, etc...), which are used to grant AWS API
