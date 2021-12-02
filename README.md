@@ -2,17 +2,16 @@
 
 ### Description:
 This module creates AWS IAM credentials (IAM roles, policies, etc...), which are used to grant AWS API
-permissions for Aviatrix controller in order to allow the controller to access resources in AWS account(s). This
-Terraform module should be run in the AWS account where you are installing the Controller and any additional AWS 
-accounts that will be connected to the Controller.
+permissions to Aviatrix Controller in order to allow it to access resources in AWS account(s). This
+Terraform module should be run in the AWS account where you are installing the Controller.
 
 This script will create the following:
 
 1. An Aviatrix Role for Lambda with corresponding role policy with required permissions. 
 
-2. An Aviatrix Role for controller with corresponding role policy with required permissions.
+2. An Aviatrix Role for Controller with corresponding role policy with required permissions.
 
-3. A lambda function for setting up HA and restoring configuration automatically.
+3. A lambda function for handling Controller failover events and restoring configuration automatically on a new instance.
 
 4. AWS launch template for Aviatrix controller instance.
 
@@ -20,12 +19,12 @@ This script will create the following:
 
 6. SNS topic to trigger lambda.
 
-7. Deploys 1 active controller ans 1 stadby controller.
+7. Deploys 1 active controller ans 1 standby controller.
 
 ### Pre-requisites:
-- This module assumes that customer already has a vpc with 2 public subnets allocated for controller deployment.
-- AWS Keypair should pre-exist and will be used by the lauch template to spin up controller.
-- S3 bucket for controller backup should pre-exist.
+- This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.
+- AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
+- S3 bucket for Controller backup should pre-exist.
 
 ### Step by step Procedure:
 1. Edit terraform.tfvars with approprite variables.
@@ -59,13 +58,13 @@ When SNS HA event is triggered there are 3 scenarios depending on `autoscaling_s
 
     v) Setup S3 backup.
 
-    vi) Update environment variables in lambda. Which will be used by next event.
+    vi) Update environment variables in lambda which will be used by next event.
 
 2. When `autoscaling_source = EC2` and `autoscaling_destination = WarmPool`:
 
     i) Update Name tag to indicate standby Controller.
 
-    ii) Run initial setup and boot to specific version parsed from backup.
+    ii) Run initial setup and boot to specific version parsed from DB backup.
 
 3. When `autoscaling_source = WarmPool` and `autoscaling_destination = AutoScalingGroup`:
 
