@@ -112,26 +112,26 @@ resource aws_lambda_function lambda {
 
   environment {
     variables = {
-      AWS_PRIM_ACC_ID   = var.aws_account_id
-      AVIATRIX_TAG      = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
-      AWS_ROLE_APP_NAME = module.aviatrix-iam-roles.aviatrix-role-app-name,
-      AWS_ROLE_EC2_NAME = module.aviatrix-iam-roles.aviatrix-role-ec2-name,
-      CTRL_INIT_VER     = var.controller_version
-      EIP               = aws_eip.controller_eip.public_ip,
-      S3_BUCKET_BACK    = var.s3_backup_bucket,
-      S3_BUCKET_REGION  = var.s3_backup_region,
-      API_PRIVATE_ACCESS= "False",
-      ADMIN_PWD         = var.admin_password,
-      ADMIN_EMAIL       = var.admin_email,
-      NOTIF_EMAIL       = var.admin_email,
-      PRIMARY_ACC_NAME  = var.access_account_name
+      AWS_PRIM_ACC_ID    = var.aws_account_id
+      AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
+      AWS_ROLE_APP_NAME  = module.aviatrix-iam-roles.aviatrix-role-app-name,
+      AWS_ROLE_EC2_NAME  = module.aviatrix-iam-roles.aviatrix-role-ec2-name,
+      CTRL_INIT_VER      = var.controller_version
+      EIP                = aws_eip.controller_eip.public_ip,
+      S3_BUCKET_BACK     = var.s3_backup_bucket,
+      S3_BUCKET_REGION   = var.s3_backup_region,
+      API_PRIVATE_ACCESS = "False",
+      ADMIN_PWD          = var.admin_password,
+      ADMIN_EMAIL        = var.admin_email,
+      NOTIF_EMAIL        = var.admin_email,
+      PRIMARY_ACC_NAME   = var.access_account_name
     }
   }
 }
 
 resource aws_eip controller_eip {
-  vpc   = true
-  tags  = local.common_tags
+  vpc  = true
+  tags = local.common_tags
 }
 
 resource aws_security_group AviatrixSecurityGroup {
@@ -163,7 +163,7 @@ resource aws_security_group_rule egress_rule {
 }
 
 resource "aws_launch_template" "avtx-controller" {
-  name = "avtx-controller"
+  name        = "avtx-controller"
   description = "Launch template for Aviatrix Controller"
 
   block_device_mappings {
@@ -184,19 +184,19 @@ resource "aws_launch_template" "avtx-controller" {
     name = module.aviatrix-iam-roles.aviatrix-role-ec2-name
   }
 
-  image_id = local.ami_id
+  image_id                             = local.ami_id
   instance_initiated_shutdown_behavior = "terminate"
-  instance_type = var.instance_type
-  key_name = var.keypair
+  instance_type                        = var.instance_type
+  key_name                             = var.keypair
 
   #  monitoring {
   #    enabled = true
   #  }
 
   network_interfaces {
-    device_index = 0
+    device_index                = 0
     associate_public_ip_address = true
-    security_groups = [aws_security_group.AviatrixSecurityGroup.id]
+    security_groups             = [aws_security_group.AviatrixSecurityGroup.id]
   }
 
   tag_specifications {
@@ -209,26 +209,29 @@ resource "aws_launch_template" "avtx-controller" {
 }
 
 resource "aws_autoscaling_group" "avtx_ctrl" {
-  name                      = "avtx_controller"
-  max_size                  = 1
-  min_size                  = 0
-#If you add a lifecycle hook, the grace period does not start until the lifecycle
-#hook actions are completed and the instance enters the InService state.
+  name     = "avtx_controller"
+  max_size = 1
+  min_size = 0
+  #If you add a lifecycle hook, the grace period does not start until the lifecycle
+  #hook actions are completed and the instance enters the InService state.
   health_check_grace_period = 300
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
+
   launch_template {
     id      = aws_launch_template.avtx-controller.id
     version = "$Latest"
   }
-  vpc_zone_identifier = var.subnet_names
 
-  warm_pool {
-    pool_state                  = "Running"
-    min_size                    = 1
-    max_group_prepared_capacity = 1
-  }
+  vpc_zone_identifier = var.subnet_names
+  target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
+
+  #  warm_pool {
+  #    pool_state                  = "Running"
+  #    min_size                    = 1
+  #    max_group_prepared_capacity = 1
+  #  }
 
   initial_lifecycle_hook {
     name                 = "init"

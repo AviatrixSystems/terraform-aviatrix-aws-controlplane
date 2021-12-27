@@ -88,7 +88,7 @@ variable vpc {
 }
 
 variable "subnet_names" {
-  type    = list(string)
+  type = list(string)
 }
 
 /*
@@ -117,7 +117,7 @@ variable app_role_name {
 variable name_prefix {
   type        = string
   description = "Additional name prefix for your environment resources"
-  default     = ""
+  default     = "avx"
 }
 
 variable license_type {
