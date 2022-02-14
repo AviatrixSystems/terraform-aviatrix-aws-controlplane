@@ -24,12 +24,14 @@ This script will create the following:
 
 6. SNS topic to trigger lambda.
 
-7. Deploys 1 active controller ans 1 standby controller.
+7. Deploys 1 active Controller and another standby Controller which can be in running or stopped state.
 
 ### Pre-requisites:
 - This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.
 - AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
 - S3 bucket for Controller backup should pre-exist.
+- The admin password required to initilaize the Controller should be available in AWS Systems Manager parameter store at /aviatrix/controller/password
+    aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX"
 
 ### Step by step Procedure:
 1. Edit terraform.tfvars with approprite variables.
@@ -40,13 +42,11 @@ This script will create the following:
     termination_protection = false
     admin_email = "username@aviatrix.com"
     asg_notif_email = "username@aviatrix.com"
-    admin_password = "******$"
     access_account_name = "primary-avx"
     aws_account_id = "2945643167690"
     subnet_names = ["subnet-0eae17dc69a55b4c6","subnet-05050d18292ee5de7"]
     ```
 2. Terraform apply
-
 
 ### Additional Information:
 When SNS HA event is triggered there are 3 scenarios depending on `autoscaling_source` and `autoscaling_destination`:
