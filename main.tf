@@ -46,8 +46,6 @@ resource aws_iam_policy lambda-policy {
         "ec2:AssociateAddress",
         "ec2:DescribeImages",
         "ec2:DeregisterImage",
-        "ec2:DescribeSnapshots",
-        "ec2:DeleteSnapshot",
         "ec2:CreateImage",
         "ec2:CreateSecurityGroup",
         "ec2:CreateTags",
@@ -57,19 +55,12 @@ resource aws_iam_policy lambda-policy {
         "ec2:DescribeSubnets",
         "ec2:DescribeKeyPairs",
         "ec2:CreateKeyPair",
-        "ec2:DescribeVolumes",
-        "ec2:ModifyInstanceCreditSpecification",
         "ec2:CreateNetworkInterface",
         "ec2:DescribeNetworkInterfaces",
         "ec2:DeleteNetworkInterface",
         "lambda:UpdateFunctionConfiguration",
         "lambda:GetFunction",
         "lambda:AddPermission",
-        "autoscaling:AttachInstances",
-        "autoscaling:DetachInstances",
-        "autoscaling:PutNotificationConfiguration",
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:UpdateAutoScalingGroup",
         "autoscaling:CompleteLifecycleAction",
         "ssm:SendCommand",
         "ssm:ListCommandInvocations",
@@ -80,6 +71,15 @@ resource aws_iam_policy lambda-policy {
         "s3:GetObject"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect":"Allow",
+      "Action":[
+        "ssm:GetParametersByPath",
+        "ssm:GetParameters",
+        "ssm:GetParameter"
+      ],
+      "Resource":"arn:aws:ssm:*:*:parameter/aviatrix/*"
     },
     {
       "Action": [
@@ -107,25 +107,40 @@ resource aws_lambda_function lambda {
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "aws_controller.lambda_handler"
   runtime       = "python3.9"
-  description   = "AVIATRIX CONTROLLER HIGH AVAILABILITY"
+  description   = "AVIATRIX HIGH AVAILABILITY"
   timeout       = 900
 
   environment {
     variables = {
-      AWS_PRIM_ACC_ID    = var.aws_account_id
+      AWS_PRIM_ACC_ID    = var.aws_account_id,
       AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
+      AVIATRIX_COP_TAG   = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
       AWS_ROLE_APP_NAME  = module.aviatrix-iam-roles.aviatrix-role-app-name,
       AWS_ROLE_EC2_NAME  = module.aviatrix-iam-roles.aviatrix-role-ec2-name,
-      CTRL_INIT_VER      = var.controller_version
+      NAME_PREFIX        = local.name_prefix,
+      AMI_ID             = local.ami_id
+      CTRL_INIT_VER      = var.controller_version,
+      INST_TYPE          = var.instance_type,
+      VPC_ID             = var.vpc,
       EIP                = aws_eip.controller_eip.public_ip,
+      COP_EIP            = aws_eip.copilot_eip.public_ip,
+      COP_VOL_TAG        = aws_launch_template.avtx-copilot.tag_specifications[0].tags.Name,
+      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a dependency
+      CTRL_ASG           = "avtx_controller",
+      COP_ASG            = "avtx_copilot",
+      TMP_SG_GRP         = "",
       S3_BUCKET_BACK     = var.s3_backup_bucket,
       S3_BUCKET_REGION   = var.s3_backup_region,
       API_PRIVATE_ACCESS = "False",
-      ADMIN_PWD          = var.admin_password,
       ADMIN_EMAIL        = var.admin_email,
-      NOTIF_EMAIL        = var.admin_email,
       PRIMARY_ACC_NAME   = var.access_account_name
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      environment,
+    ]
   }
 }
 
@@ -189,10 +204,6 @@ resource "aws_launch_template" "avtx-controller" {
   instance_type                        = var.instance_type
   key_name                             = var.keypair
 
-  #  monitoring {
-  #    enabled = true
-  #  }
-
   network_interfaces {
     device_index                = 0
     associate_public_ip_address = true
@@ -209,11 +220,9 @@ resource "aws_launch_template" "avtx-controller" {
 }
 
 resource "aws_autoscaling_group" "avtx_ctrl" {
-  name     = "avtx_controller"
-  max_size = 1
-  min_size = 0
-  #If you add a lifecycle hook, the grace period does not start until the lifecycle
-  #hook actions are completed and the instance enters the InService state.
+  name                      = "avtx_controller"
+  max_size                  = 1
+  min_size                  = 0
   health_check_grace_period = 300
   health_check_type         = "ELB"
   desired_capacity          = 1
@@ -227,11 +236,11 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   vpc_zone_identifier = var.subnet_names
   target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
 
-  #  warm_pool {
-  #    pool_state                  = "Running"
-  #    min_size                    = 1
-  #    max_group_prepared_capacity = 1
-  #  }
+  warm_pool {
+    pool_state                  = var.ha_distribution == "inter-az" ? "Stopped" : null
+    min_size                    = var.ha_distribution == "inter-az" ? 1 : null
+    max_group_prepared_capacity = var.ha_distribution == "inter-az" ? 1 : null
+  }
 
   initial_lifecycle_hook {
     name                 = "init"
@@ -276,12 +285,4 @@ resource "aws_lambda_permission" "with_sns" {
   function_name = aws_lambda_function.lambda.function_name
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.controller_updates.arn
-}
-
-output "controller_private_ip" {
-  value = aws_eip.controller_eip.private_ip
-}
-
-output "controller_public_ip" {
-  value = aws_eip.controller_eip.public_ip
 }

@@ -27,7 +27,7 @@ INITIAL_SETUP_WAIT = 180
 INITIAL_SETUP_DELAY = 10
 
 INITIAL_SETUP_API_WAIT = 20
-AMI_ID = 'https://aviatrix-download.s3-us-west-2.amazonaws.com/AMI_ID/ami_id.json'
+#AMI_ID = 'https://aviatrix-download.s3-us-west-2.amazonaws.com/AMI_ID/ami_id.json'
 MAXIMUM_BACKUP_AGE = 24 * 3600 * 3  # 3 days
 AWS_US_EAST_REGION = 'us-east-1'
 
@@ -86,40 +86,18 @@ def _lambda_handler(event, context):
         update_env_dict(lambda_client, context, {'TMP_SG_GRP': ''})
         restore_security_group_access(client, tmp_sg)
 
-    try:
-        instance_name = os.environ.get('AVIATRIX_TAG')
-        # describe_instances will return more than one because of warm pools
-        controller_instanceobj = client.describe_instances(
-            Filters=[
-                {'Name': 'instance-state-name', 'Values': ['running']},
-                {'Name': 'tag:Name', 'Values': [instance_name]}]
-        )['Reservations'][0]['Instances'][0]
-    except Exception as err:
-        print(f"Can't find Controller with name {instance_name}. {str(err)}")
-
-        try:
-            sns_msg_event = (json.loads(event["Records"][0]["Sns"]["Message"]))['LifecycleTransition']
-            print(sns_msg_event)
-        except (KeyError, IndexError, ValueError) as err:
-            raise AvxError("1.Could not parse SNS message %s" % str(err)) from err
-
-        if not sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCH_ERROR":
-            print("Not from launch error. Exiting")
-            return
-
-        print("From the instance launch error. Will attempt to re-create Auto scaling group")
-
     if sns_event:
         try:
             sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
-            sns_msg_event = sns_msg_json['LifecycleTransition']
+            sns_msg_asg = sns_msg_json.get('AutoScalingGroupName', "")
+            sns_msg_event = sns_msg_json.get('LifecycleTransition', "")
             sns_msg_desc = sns_msg_json.get('Description', "")
             # https://docs.aws.amazon.com/autoscaling/ec2/userguide/warm-pools-eventbridge-events.html
             sns_msg_orig = sns_msg_json.get('Origin', "")
             sns_msg_dest = sns_msg_json.get('Destination', "")
             sns_msg_inst = sns_msg_json.get('EC2InstanceId', "")
         except (KeyError, IndexError, ValueError) as err:
-            raise AvxError("2. Could not parse SNS message %s" % str(err)) from err
+            raise AvxError("Could not parse SNS message %s" % str(err)) from err
 
         print(f"SNS Event {sns_msg_event} Description {sns_msg_desc}")
 
@@ -133,25 +111,29 @@ def _lambda_handler(event, context):
             else:
                 print(f"Unknown instance launch origin {sns_msg_orig} and/or dest {sns_msg_dest}")
 
-            handle_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
+            if sns_msg_asg == os.environ.get('CTRL_ASG'):
+                handle_ctrl_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
+            elif sns_msg_asg == os.environ.get('COP_ASG'):
+                handle_cop_ha_event (client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
 
         elif sns_msg_event == "autoscaling:TEST_NOTIFICATION":
             print("Successfully received Test Event from ASG")
         elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
             # and "The security group" in sns_msg_desc and "does not exist in VPC" in sns_msg_desc:
+            # TODO: Change handling of LAUNC_ERROR. May not require below env variables?
             print("Instance launch error, recreating with new security group configuration")
-            sg_id = create_new_sg(client)
-            ami_id = os.environ.get('AMI_ID')
-            inst_type = os.environ.get('INST_TYPE')
-            key_name = os.environ.get('KEY_NAME')
-            #delete_resources(None, detach_instances=False)
-            #setup_ha(ami_id, inst_type, None, key_name, [sg_id], context, attach_instance=False)
+            #sg_id = create_new_sg(client)
+            #ami_id = os.environ.get('AMI_ID')
+            #inst_type = os.environ.get('INST_TYPE')
+            #key_name = os.environ.get('KEY_NAME')
     else:
         print("Unexpected source. Not from SNS")
 
-
+# Why was HA not allowed on non-latest AMI?
+# TODO: Not used anywhere now
 def _check_ami_id(ami_id):
     """ Check if AMI is latest"""
+
     print("Verifying AMI ID")
     resp = requests.get(AMI_ID)
     ami_dict = json.loads(resp.content)
@@ -208,20 +190,20 @@ def update_env_dict(lambda_client, context, replace_dict):
 
     env_dict = {
         'EIP': os.environ.get('EIP'),
+        'COP_EIP': os.environ.get('COP_EIP'),
         'AMI_ID': os.environ.get('AMI_ID'),
         'VPC_ID': os.environ.get('VPC_ID'),
         'INST_TYPE': os.environ.get('INST_TYPE'),
         'KEY_NAME': os.environ.get('KEY_NAME'),
-        'CTRL_SUBNET': os.environ.get('CTRL_SUBNET'),
         'AVIATRIX_TAG': os.environ.get('AVIATRIX_TAG'),
+        'AVIATRIX_COP_TAG': os.environ.get('AVIATRIX_COP_TAG'),
+        'CTRL_ASG': os.environ.get('CTRL_ASG'),
+        'COP_ASG': os.environ.get('COP_ASG'),
         'API_PRIVATE_ACCESS': os.environ.get('API_PRIVATE_ACCESS', "False"),
         'PRIV_IP': os.environ.get('PRIV_IP'),
         'INST_ID': os.environ.get('INST_ID'),
         'S3_BUCKET_BACK': os.environ.get('S3_BUCKET_BACK'),
         'S3_BUCKET_REGION': os.environ.get('S3_BUCKET_REGION', ''),
-        'NOTIF_EMAIL': os.environ.get('NOTIF_EMAIL'),
-        'IAM_ARN': os.environ.get('IAM_ARN'),
-        'MONITORING': os.environ.get('IAM_ARN'),
         'DISKS': os.environ.get('DISKS'),
         'TAGS': os.environ.get('TAGS', '[]'),
         'TMP_SG_GRP': os.environ.get('TMP_SG_GRP', ''),
@@ -240,6 +222,7 @@ def update_env_dict(lambda_client, context, replace_dict):
 
 def login_to_controller(ip_addr, username, pwd):
     """ Logs into the controller and returns the cid"""
+
     base_url = "https://" + ip_addr + "/v1/api"
     url = base_url + "?action=login&username=" + username + "&password=" + \
           urllib.parse.quote(pwd, '%')
@@ -279,11 +262,10 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
     vpc_id = controller_instanceobj['VpcId']
     inst_type = controller_instanceobj['InstanceType']
     keyname = controller_instanceobj.get('KeyName', '')
-    ctrl_subnet = controller_instanceobj['SubnetId']
     priv_ip = controller_instanceobj.get('NetworkInterfaces')[0].get('PrivateIpAddress')
     iam_arn = controller_instanceobj.get('IamInstanceProfile', {}).get('Arn', '')
-    mon_bool = controller_instanceobj.get('Monitoring', {}).get('State', 'disabled') != 'disabled'
-    monitoring = 'enabled' if mon_bool else 'disabled'
+    #mon_bool = controller_instanceobj.get('Monitoring', {}).get('State', 'disabled') != 'disabled'
+    #monitoring = 'enabled' if mon_bool else 'disabled'
 
     tags = controller_instanceobj.get("Tags", [])
     tags_stripped = []
@@ -313,16 +295,12 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
         'VPC_ID': vpc_id,
         'INST_TYPE': inst_type,
         'KEY_NAME': keyname,
-        'CTRL_SUBNET': ctrl_subnet,
         'AVIATRIX_TAG': os.environ.get('AVIATRIX_TAG'),
         'API_PRIVATE_ACCESS': os.environ.get('API_PRIVATE_ACCESS', "False"),
         'PRIV_IP': priv_ip,
         'INST_ID': inst_id,
         'S3_BUCKET_BACK': os.environ.get('S3_BUCKET_BACK'),
         'S3_BUCKET_REGION': os.environ.get('S3_BUCKET_REGION', ''),
-        'NOTIF_EMAIL': os.environ.get('NOTIF_EMAIL'),
-        'IAM_ARN': iam_arn,
-        'MONITORING': monitoring,
         'DISKS': json.dumps(disks),
         'TAGS': json.dumps(tags_stripped),
         'TMP_SG_GRP': os.environ.get('TMP_SG_GRP', ''),
@@ -588,19 +566,6 @@ def handle_login_failure(priv_ip,client, lambda_client,
         set_environ(client, lambda_client, controller_instanceobj, context, eip)
 
 
-def enable_t2_unlimited(client, inst_id):
-    """ Modify instance credit to unlimited for T2 """
-
-    print("Enabling T2 unlimited for %s" % inst_id)
-    try:
-        client.modify_instance_credit_specification(ClientToken=inst_id,
-                                                    InstanceCreditSpecifications=[{
-                                                        'InstanceId': inst_id,
-                                                        'CpuCredits': 'unlimited'}])
-    except botocore.exceptions.ClientError as err:
-        print(str(err))
-
-
 def get_role(role, default):
     name = os.environ.get(role)
     if len(name) == 0 :
@@ -759,8 +724,16 @@ def set_admin_email(controller_ip,cid,admin_email):
     return output
 
 
-def set_admin_password(controller_ip,cid,old_admin_password,new_admin_password):
+def set_admin_password(controller_ip,cid,old_admin_password):
     """ Set admin password """
+
+    # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
+    ssm_client = boto3.client('ssm')
+    resp = ssm_client.get_parameters_by_path(Path="/aviatrix/controller/",WithDecryption=True)
+
+    avx_params = {}
+    for param in resp['Parameters']:
+        avx_params[param['Name'].split("/")[-1]] = param['Value']
 
     base_url = "https://%s/v1/api" % controller_ip
 
@@ -770,7 +743,7 @@ def set_admin_password(controller_ip,cid,old_admin_password,new_admin_password):
         "account_name": "admin",
         "user_name": "admin",
         "old_password": old_admin_password,
-        "password": new_admin_password
+        "password": avx_params['password']
     }
 
     payload_with_hidden_password = dict(post_data)
@@ -795,7 +768,7 @@ def set_admin_password(controller_ip,cid,old_admin_password,new_admin_password):
 
 
 
-def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
+def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
 
     """ Restores the backup by doing the following
     1. Login to new controller
@@ -835,7 +808,7 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
 
     controller_instanceobj = client.describe_instances(
             Filters=[{'Name': 'instance-id', 'Values': [asg_inst]}]
-        )['Reservations'][0]['Instances'][0]
+                    )['Reservations'][0]['Instances'][0]
 
     # Assign EIP when new ASG instance is launched or handling switchover event
     if asg_dest == "AutoScalingGroup":
@@ -956,7 +929,7 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
                 response_json = set_admin_email(controller_api_ip,cid,os.environ.get("ADMIN_EMAIL"))
                 if response_json.get('return', False) is not True:
                     print(f"Unable to set admin email - {response_json.get('reason', '')}")
-                response_json = set_admin_password(controller_api_ip,cid,new_private_ip,os.environ.get("ADMIN_PWD"))
+                response_json = set_admin_password(controller_api_ip,cid,new_private_ip)
                 if response_json.get('return', False) is not True:
                     print(f"Unable to set admin password - {response_json.get('reason', '')}")
                 response_json = create_cloud_account(cid, controller_api_ip, os.environ.get("PRIMARY_ACC_NAME"))
@@ -1056,6 +1029,38 @@ def handle_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, a
             restore_security_group_access(client, sg_modified)
 
 
+def handle_cop_ha_event (client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
+    try:
+        instance_name = os.environ.get('AVIATRIX_COP_TAG')
+        print(f"Copilot instance name: {instance_name}")
+
+        copilot_instanceobj = client.describe_instances(
+            Filters=[
+                {'Name': 'instance-state-name', 'Values': ['running']},
+                {'Name': 'tag:Name', 'Values': [instance_name]}]
+                )['Reservations'][0]['Instances'][0]
+
+        print(f"{copilot_instanceobj}")
+
+        # Assign COP_EIP
+        if json.loads(event["Records"][0]["Sns"]["Message"]).get('Destination', "") == "AutoScalingGroup":
+            if not assign_eip(client, copilot_instanceobj, os.environ.get('COP_EIP')):
+                raise AvxError("Could not assign EIP to Copilot")
+    except Exception as err:
+        print(f"Can't find Copilot with name {instance_name}. {str(err)}")
+    finally:
+        sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
+        asg_client = boto3.client('autoscaling')
+        response = asg_client.complete_lifecycle_action(
+                        AutoScalingGroupName=sns_msg_json['AutoScalingGroupName'],
+                        LifecycleActionResult='CONTINUE',
+                        LifecycleActionToken=sns_msg_json['LifecycleActionToken'],
+                        LifecycleHookName=sns_msg_json['LifecycleHookName'])
+
+        print(f"Complete lifecycle action response {response}")
+        return
+
+
 def assign_eip(client, controller_instanceobj, eip):
     """ Assign the EIP to the new instance"""
 
@@ -1098,28 +1103,3 @@ def validate_keypair(key_name):
             raise AvxError(str(err)) from err
     else:
         print("Key exists")
-
-
-def validate_subnets(subnet_list):
-    """ Validates subnets"""
-    vpc_id = os.environ.get('VPC_ID')
-    if not vpc_id:
-        print("New creation. Assuming subnets are valid as selected from CFT")
-        return ",".join(subnet_list)
-
-    try:
-        client = boto3.client('ec2')
-        response = client.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
-    except botocore.exceptions.ClientError as err:
-        raise AvxError(str(err)) from err
-
-    sub_aws_list = [sub['SubnetId'] for sub in response['Subnets']]
-    sub_list_new = [sub for sub in subnet_list if sub.strip() in sub_aws_list]
-    if not sub_list_new:
-        ctrl_subnet = os.environ.get('CTRL_SUBNET')
-        if ctrl_subnet not in sub_aws_list:
-            raise AvxError("All subnets %s or controller subnet %s are not found in vpc %s")
-        print("All subnets are invalid. Using existing controller subnet")
-        return ctrl_subnet
-
-    return ",".join(sub_list_new)
