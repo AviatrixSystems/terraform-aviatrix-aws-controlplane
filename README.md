@@ -30,8 +30,10 @@ This script will create the following:
 - This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.
 - AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
 - S3 bucket for Controller backup should pre-exist.
+- ASG uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alert to SNS
 - The admin password required to initilaize the Controller should be available in AWS Systems Manager parameter store at /aviatrix/controller/password
     aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX"
+    
 
 ### Step by step Procedure:
 1. Edit terraform.tfvars with approprite variables.
