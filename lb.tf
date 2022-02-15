@@ -7,11 +7,6 @@ resource "aws_lb" "avtx-controller" {
   subnets                          = var.subnet_names
   enable_deletion_protection       = var.termination_protection
 
-  # access_logs {
-  #   bucket = var.s3_backup_bucket
-  #   prefix = "avtx-controller-lb"
-  # }
-
   tags = {
     Name = "${local.name_prefix}AviatrixControllerLB"
   }

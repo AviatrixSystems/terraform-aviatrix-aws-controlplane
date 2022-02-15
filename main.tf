@@ -187,7 +187,7 @@ resource "aws_launch_template" "avtx-controller" {
     ebs {
       volume_size = var.root_volume_size
       volume_type = var.root_volume_type
-      #      encrypted   = true
+      # encrypted   = true
     }
   }
 
@@ -252,11 +252,11 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
   }
 
-  #  tag {
-  #    key                 = "foo"
-  #    value               = "bar"
-  #    propagate_at_launch = true
-  #  }
+  tag {
+    key                 = "Aviatrix"
+    value               = "Controller"
+    propagate_at_launch = true
+  }
   wait_for_capacity_timeout = "20m"
   timeouts {
     delete = "15m"
