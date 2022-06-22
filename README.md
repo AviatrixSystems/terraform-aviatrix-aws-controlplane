@@ -3,7 +3,7 @@
 ### Goals:
 1. Ensure Aviatrix Controller is always deployed with high availability
 
-2. Support a hot standby Controller instance to reduce the Controller switchover time to under a minute
+2. Optionally support a hot standby Controller instance to reduce the Controller switchover time to under a minute
 
 ### Description:
 This module creates AWS IAM credentials (IAM roles, policies, etc...), which are used to grant AWS API
@@ -18,13 +18,13 @@ This script will create the following:
 
 3. A lambda function for handling Controller failover events and restoring configuration automatically on a new instance.
 
-4. AWS launch template for Aviatrix controller instance.
+4. AWS launch template for Aviatrix Controller instance.
 
-5. An Aviatrix Autoscaling group with size 1 along with a warm pool instance.
+5. An Aviatrix Autoscaling group with size 1 along with a optional warm pool instance.
 
 6. SNS topic to trigger lambda.
 
-7. Deploys 1 active Controller and another standby Controller which can be in running or stopped state.
+7. Deploys 1 active Controller and another optional standby Controller which can be in running or stopped state.
 
 ### Pre-requisites:
 - This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.
