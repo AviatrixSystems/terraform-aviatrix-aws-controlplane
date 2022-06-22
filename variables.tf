@@ -38,7 +38,7 @@ variable root_volume_type {
 variable root_volume_size {
   type        = number
   description = "Root volume disk size for controller"
-  default     = 32
+  default     = 64
 }
 
 variable copilot_name {
@@ -109,11 +109,6 @@ variable access_account_name {
   description = "The controller account friendly name (mapping to the AWS account ID)"
 }
 
-variable aws_account_id {
-  type        = string
-  description = "AWS account ID"
-}
-
 variable tags {
   type        = map(string)
   description = "Map of common tags which should be used for module resources"
@@ -122,7 +117,7 @@ variable tags {
 
 variable controller_version {
   type        = string
-  default     = "latest"
+  default     = ""
   description = "The initial version of the Aviatrix Controller at launch"
 }
 

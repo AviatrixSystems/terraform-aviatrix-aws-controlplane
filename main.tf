@@ -42,30 +42,19 @@ resource aws_iam_policy lambda-policy {
         "ec2:DescribeInstances",
         "ec2:DescribeInstanceAttribute",
         "ec2:DescribeAddresses",
+        "ec2:DescribeVolumes",
         "ec2:StopInstances",
         "ec2:AssociateAddress",
-        "ec2:DescribeImages",
-        "ec2:DeregisterImage",
-        "ec2:CreateImage",
         "ec2:CreateSecurityGroup",
         "ec2:CreateTags",
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:RevokeSecurityGroupIngress",
         "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeKeyPairs",
-        "ec2:CreateKeyPair",
-        "ec2:CreateNetworkInterface",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DeleteNetworkInterface",
         "lambda:UpdateFunctionConfiguration",
-        "lambda:GetFunction",
-        "lambda:AddPermission",
         "autoscaling:CompleteLifecycleAction",
         "ssm:SendCommand",
         "ssm:ListCommandInvocations",
         "iam:PassRole",
-        "iam:CreateServiceLinkedRole",
         "s3:GetBucketLocation",
         "s3:ListBucket",
         "s3:GetObject"
@@ -103,29 +92,24 @@ resource aws_iam_role_policy_attachment attach-policy {
 resource aws_lambda_function lambda {
   s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
   s3_key        = "aws_controller.zip"
-  function_name = "AVX_Controller"
+  function_name = "AVX_Platform_HA"
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "aws_controller.lambda_handler"
   runtime       = "python3.9"
-  description   = "AVIATRIX HIGH AVAILABILITY"
+  description   = "AVIATRIX PLATFORM HIGH AVAILABILITY"
   timeout       = 900
 
   environment {
     variables = {
-      AWS_PRIM_ACC_ID    = var.aws_account_id,
       AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG   = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
       AWS_ROLE_APP_NAME  = module.aviatrix-iam-roles.aviatrix-role-app-name,
       AWS_ROLE_EC2_NAME  = module.aviatrix-iam-roles.aviatrix-role-ec2-name,
-      NAME_PREFIX        = local.name_prefix,
-      AMI_ID             = local.ami_id
       CTRL_INIT_VER      = var.controller_version,
-      INST_TYPE          = var.instance_type,
       VPC_ID             = var.vpc,
       EIP                = aws_eip.controller_eip.public_ip,
       COP_EIP            = aws_eip.copilot_eip.public_ip,
-      COP_VOL_TAG        = aws_launch_template.avtx-copilot.tag_specifications[0].tags.Name,
-      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a dependency
+      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
       CTRL_ASG           = "avtx_controller",
       COP_ASG            = "avtx_copilot",
       TMP_SG_GRP         = "",
@@ -146,7 +130,7 @@ resource aws_lambda_function lambda {
 
 resource aws_eip controller_eip {
   vpc  = true
-  tags = local.common_tags
+  tags = merge(local.common_tags,map("Name","Avx-Controller"))
 }
 
 resource aws_security_group AviatrixSecurityGroup {
@@ -213,9 +197,13 @@ resource "aws_launch_template" "avtx-controller" {
   tag_specifications {
     resource_type = "instance"
 
-    tags = {
-      Name = "AviatrixController"
-    }
+    tags = {Name = "AviatrixController"}
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+
+    tags = { Name = "AvxController" }
   }
 }
 
@@ -237,7 +225,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
 
   warm_pool {
-    pool_state                  = var.ha_distribution == "inter-az" ? "Stopped" : null
+    pool_state                  = var.ha_distribution == "inter-az" ? "Running" : null
     min_size                    = var.ha_distribution == "inter-az" ? 1 : null
     max_group_prepared_capacity = var.ha_distribution == "inter-az" ? 1 : null
   }

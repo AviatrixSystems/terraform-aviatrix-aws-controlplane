@@ -20,6 +20,7 @@ import botocore
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
+HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
 WAIT_DELAY = 30
 
@@ -27,9 +28,9 @@ INITIAL_SETUP_WAIT = 180
 INITIAL_SETUP_DELAY = 10
 
 INITIAL_SETUP_API_WAIT = 20
-#AMI_ID = 'https://aviatrix-download.s3-us-west-2.amazonaws.com/AMI_ID/ami_id.json'
 MAXIMUM_BACKUP_AGE = 24 * 3600 * 3  # 3 days
 AWS_US_EAST_REGION = 'us-east-1'
+VERSION_PREFIX = "UserConnect-"
 
 mask = lambda input: input[0:5] + '*' * 15 if isinstance(input, str) else ''
 
@@ -51,11 +52,10 @@ def lambda_handler(event, context):
 
 def _lambda_handler(event, context):
     """ Entry point of the lambda script without exception handling
-        This lambda function will serve 2 kinds of requests:
-        one time request from CFT - Request to setup HA (setup_ha method)
-         made by Cloud formation template.
+        This lambda function will serve spinning up Controller
+        during first launch and after a failover event.
         sns_event - Request from sns to attach elastic ip to new instance
-         created after controller failover. """
+         created after Controller failover. """
 
     sns_event = False
     print(f"Event: {event}")
@@ -63,8 +63,9 @@ def _lambda_handler(event, context):
     try:
         sns_event = event["Records"][0]["EventSource"] == "aws:sns"
         print("From SNS Event")
-    except (AttributeError, IndexError, KeyError, TypeError):
-        pass
+    except (AttributeError, IndexError, KeyError, TypeError) as e:
+        print(e)
+        return
 
     if os.environ.get("TESTPY") == "True":
         print("Testing")
@@ -89,6 +90,7 @@ def _lambda_handler(event, context):
     if sns_event:
         try:
             sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
+
             sns_msg_asg = sns_msg_json.get('AutoScalingGroupName', "")
             sns_msg_event = sns_msg_json.get('LifecycleTransition', "")
             sns_msg_desc = sns_msg_json.get('Description', "")
@@ -107,7 +109,7 @@ def _lambda_handler(event, context):
             elif sns_msg_orig == "EC2" and sns_msg_dest == "WarmPool":
                 print("New instance launched into WarmPool")
             elif sns_msg_orig == "WarmPool" and sns_msg_dest == "AutoScalingGroup":
-                print("HA event..Instance moving from WarmPool into AutoScaling")
+                print("Failover event..Instance moving from WarmPool into AutoScaling")
             else:
                 print(f"Unknown instance launch origin {sns_msg_orig} and/or dest {sns_msg_dest}")
 
@@ -119,32 +121,9 @@ def _lambda_handler(event, context):
         elif sns_msg_event == "autoscaling:TEST_NOTIFICATION":
             print("Successfully received Test Event from ASG")
         elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
-            # and "The security group" in sns_msg_desc and "does not exist in VPC" in sns_msg_desc:
-            # TODO: Change handling of LAUNC_ERROR. May not require below env variables?
-            print("Instance launch error, recreating with new security group configuration")
-            #sg_id = create_new_sg(client)
-            #ami_id = os.environ.get('AMI_ID')
-            #inst_type = os.environ.get('INST_TYPE')
-            #key_name = os.environ.get('KEY_NAME')
+            print("Instance launch error, refer to logs for failure reason ")
     else:
         print("Unexpected source. Not from SNS")
-
-# Why was HA not allowed on non-latest AMI?
-# TODO: Not used anywhere now
-def _check_ami_id(ami_id):
-    """ Check if AMI is latest"""
-
-    print("Verifying AMI ID")
-    resp = requests.get(AMI_ID)
-    ami_dict = json.loads(resp.content)
-    for image_type in ami_dict:
-        if ami_id in list(ami_dict[image_type].values()):
-            print("AMI is valid")
-            return True
-    print("AMI is not latest. Cannot enable Controller HA. Please backup restore to the latest AMI"
-          "before enabling controller HA")
-    return False
-
 
 def create_new_sg(client):
     """ Creates a new security group"""
@@ -191,10 +170,7 @@ def update_env_dict(lambda_client, context, replace_dict):
     env_dict = {
         'EIP': os.environ.get('EIP'),
         'COP_EIP': os.environ.get('COP_EIP'),
-        'AMI_ID': os.environ.get('AMI_ID'),
         'VPC_ID': os.environ.get('VPC_ID'),
-        'INST_TYPE': os.environ.get('INST_TYPE'),
-        'KEY_NAME': os.environ.get('KEY_NAME'),
         'AVIATRIX_TAG': os.environ.get('AVIATRIX_TAG'),
         'AVIATRIX_COP_TAG': os.environ.get('AVIATRIX_COP_TAG'),
         'CTRL_ASG': os.environ.get('CTRL_ASG'),
@@ -251,16 +227,14 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
     """ Sets Environment variables """
 
     if eip is None:
-        # From cloud formation. EIP is not known at this point. So get from controller inst
+        # If EIP is not known at this point, get from controller inst
         eip = controller_instanceobj[
             'NetworkInterfaces'][0]['Association'].get('PublicIp')
     else:
         eip = os.environ.get('EIP')
 
     inst_id = controller_instanceobj['InstanceId']
-    ami_id = controller_instanceobj['ImageId']
     vpc_id = controller_instanceobj['VpcId']
-    inst_type = controller_instanceobj['InstanceType']
     keyname = controller_instanceobj.get('KeyName', '')
     priv_ip = controller_instanceobj.get('NetworkInterfaces')[0].get('PrivateIpAddress')
     iam_arn = controller_instanceobj.get('IamInstanceProfile', {}).get('Arn', '')
@@ -290,12 +264,16 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
                           })
 
     env_dict = {
+        'ADMIN_EMAIL':os.environ.get('ADMIN_EMAIL'),
+        'PRIMARY_ACC_NAME':os.environ.get('PRIMARY_ACC_NAME'),
+        'CTRL_INIT_VER':os.environ.get('CTRL_INIT_VER'),
         'EIP': eip,
-        'AMI_ID': ami_id,
+        'COP_EIP': os.environ.get('COP_EIP'),
         'VPC_ID': vpc_id,
-        'INST_TYPE': inst_type,
-        'KEY_NAME': keyname,
         'AVIATRIX_TAG': os.environ.get('AVIATRIX_TAG'),
+        'AVIATRIX_COP_TAG': os.environ.get('AVIATRIX_COP_TAG'),
+        'CTRL_ASG': os.environ.get('CTRL_ASG'),
+        'COP_ASG': os.environ.get('COP_ASG'),
         'API_PRIVATE_ACCESS': os.environ.get('API_PRIVATE_ACCESS', "False"),
         'PRIV_IP': priv_ip,
         'INST_ID': inst_id,
@@ -318,6 +296,7 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
 
 def verify_iam(controller_instanceobj):
     """ Verify IAM roles"""
+
     print("Verifying IAM roles ")
     iam_arn = controller_instanceobj.get('IamInstanceProfile', {}).get('Arn', '')
     if not iam_arn:
@@ -326,14 +305,14 @@ def verify_iam(controller_instanceobj):
 
 
 def verify_bucket(controller_instanceobj):
-    """ Verify S3 and controller account credentials """
+    """ Verify S3 and Controller account credentials """
+
     print("Verifying bucket")
     try:
         s3_client = boto3.client('s3')
         resp = s3_client.get_bucket_location(Bucket=os.environ.get('S3_BUCKET_BACK'))
     except Exception as err:
-        print("S3 bucket used for backup is not "
-              "valid. %s" % str(err))
+        print(f"S3 bucket used for backup is not valid. {str(err)}")
         return False, ""
 
     try:
@@ -379,34 +358,7 @@ def is_backup_file_is_recent(backup_file):
         return False
 
 
-def verify_backup_file(controller_instanceobj):
-    """ Verify if s3 file exists"""
-    print("Verifying Backup file")
-    try:
-        s3c = boto3.client('s3', region_name=os.environ['S3_BUCKET_REGION'])
-        priv_ip = controller_instanceobj['NetworkInterfaces'][0]['PrivateIpAddress']
-        version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
-
-        retrieve_controller_version(version_file)
-        s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
-
-        try:
-            with open('/tmp/tmp.enc', 'wb') as data:
-                s3c.download_fileobj(os.environ.get('S3_BUCKET_BACK'), s3_file, data)
-        except botocore.exceptions.ClientError as err:
-            if err.response['Error']['Code'] == "404":
-                print("The object %s does not exist." % s3_file)
-                return False, ""
-            print(str(err))
-            return False, ""
-    except Exception as err:
-        print("Verify Backup failed %s" % str(err))
-        return False, ""
-    else:
-        return True, s3_file
-
-
-def retrieve_controller_version(version_file):
+def retrieve_controller_version(version_file, ip_addr, cid):
     """ Get the controller version from backup file"""
 
     print("Retrieving version from file " + str(version_file))
@@ -430,17 +382,48 @@ def retrieve_controller_version(version_file):
 
     if not buf:
         raise AvxError("Version file is empty")
-    print("Parsing version")
 
-    # TODO: Starting 6.5.2608(6.5c), ctrl_version should return buf[12:]
+    print("Parsing version")
+    if buf.startswith(VERSION_PREFIX):
+        buf = buf[len(VERSION_PREFIX):]
+
     try:
-        ctrl_version = ".".join(((buf[12:]).split("."))[:-1])
+        ver_list = buf.split(".")
+        ctrl_version = ".".join(ver_list[:-1])
+        ctrl_version_with_build = ".".join(ver_list)
     except (KeyboardInterrupt, IndexError, ValueError) as err:
         raise AvxError("Could not decode version") from err
     else:
-        print("Parsed version sucessfully " + str(ctrl_version))
-        return ctrl_version
+        print(f"Parsed version sucessfully {ctrl_version} and {ctrl_version_with_build}")
+        if is_upgrade_to_build_supported(ip_addr, cid):
+            return ctrl_version_with_build
+        else:
+            return ctrl_version
 
+
+def is_upgrade_to_build_supported(ip_addr, cid):
+    """ Check if the version supports upgrade to build """
+
+    print("Checking if upgrade to build is suppported")
+    base_url = "https://" + ip_addr + "/v1/api"
+    post_data = {"CID": cid,
+                 "action": "get_feature_info"}
+    try:
+        response = requests.post(base_url, data=post_data, verify=False)
+        print(response.content)
+        response_json = json.loads(response.content)
+        if response_json.get("return") is True and \
+                response_json.get("results", {}) \
+                .get("allow_build_upgrade") is True:
+            print("Upgrade to build is supported")
+            return True
+    except requests.exceptions.ConnectionError as err:
+        print(str(err))
+    except (ValueError, TypeError):
+        print(f"json decode failed: {response.content}")
+    print("Upgrade to build is not supported")
+
+    return False
 
 def get_initial_setup_status(ip_addr, cid):
     """ Get status of the initial setup completion execution"""
@@ -544,21 +527,20 @@ def restore_security_group_access(client, sg_id):
 
 
 def handle_login_failure(priv_ip,client, lambda_client,
-                        controller_instanceobj, context,eip):
+                        controller_instanceobj, context,eip,cid):
     """ Handle login failure through private IP"""
 
     print("Checking for backup file")
     new_version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
 
     try:
-        retrieve_controller_version(new_version_file)
+        retrieve_controller_version(new_version_file,priv_ip,cid)
     except Exception as err:
         print(str(err))
-        # TODO: Infinite loop if unable to login to first instance?
         print("Could not retrieve new version file. Stopping instance. ASG will terminate and "
               "launch a new instance")
         inst_id = controller_instanceobj['InstanceId']
-        print("Stopping %s" % inst_id)
+        print(f"Stopping {inst_id}")
         client.stop_instances(InstanceIds=[inst_id])
     else:
         print("Successfully retrieved version. Previous restore operation had succeeded. "
@@ -575,7 +557,7 @@ def get_role(role, default):
 def create_cloud_account(cid, controller_ip, account_name):
     """ Create a temporary account to restore the backup"""
 
-    print("Creating temporary account")
+    print(f"Creating {account_name} account")
     client = boto3.client('sts')
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
@@ -694,7 +676,7 @@ def setup_ctrl_backup(controller_ip,cid,acc_name,now=None):
             output = {"return": False, "reason": str(err)}
     else:
         output = response.json()
-        print(output)
+        #print(output)
 
     return output
 
@@ -706,7 +688,7 @@ def set_admin_email(controller_ip,cid,admin_email):
                  "CID": cid,
                  "admin_email": admin_email}
 
-    print("Creating admin account: " + str(json.dumps(obj=post_data)))
+    print("Setting admin email: " + str(json.dumps(obj=post_data)))
 
     try:
         response = requests.post(base_url, data=post_data, verify=False)
@@ -748,8 +730,10 @@ def set_admin_password(controller_ip,cid,old_admin_password):
 
     payload_with_hidden_password = dict(post_data)
     payload_with_hidden_password["password"] = "************"
-    print("Request payload: \n" +
-        str(json.dumps(obj=payload_with_hidden_password, indent=4)))
+    #print("Request payload: \n" +
+    #    str(json.dumps(obj=payload_with_hidden_password, indent=4)))
+
+    print("Setting admin password: " + str(json.dumps(obj=post_data)))
 
     try:
         response = requests.post(base_url, data=post_data, verify=False)
@@ -769,26 +753,35 @@ def set_admin_password(controller_ip,cid,old_admin_password):
 
 
 def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
-
     """ Restores the backup by doing the following
     1. Login to new controller
-    2. There are 3 cases depending on asg_orig and asg_dest:
+    2. There are 3 cases depending on asg_orig and asg_dest. Note that
+       asg_orig  and asg_dest are among (EC2, WarmPool, AutoScalingGroup)
         a) asg_orig = EC2 and asg_dest = AutoScalingGroup
-            i) Assign the EIP to the new Controller
-            ii) Run initial setup and boot to latest version
-            iii) Set admin email and password
-            iv) Create primary AWS account
-            v) Setup S3 backup
-        b) asg_orig = EC2 and asg_dest = WarmPool
-            i) Update Name tag to indicate standby Controller
-            ii) Run initial setup and boot to specific version parsed from backup
-        c) asg_orig = WarmPool and asg_dest = AutoScalingGroup
-            i) Update Name tag to indicate standby instance is now active
-            ii) Assign the EIP to the new Controller
-            iii) Login and create temp AWS account
-            ii) Restore configuration from backup """
+            i)   Assign the EIP to the new Controller
+            ii)  If first boot:
+                - Run initial setup and boot to input version
+                - Set admin email and password
+                - Create primary AWS account
+                - Setup S3 backup
+            iii) For non-first case (priv_ip & backup exist):
+                - Run initial setup and boot to version parsed from backup
+                - Login and create temp AWS account
+                - Restore configuration from backup
 
-    # asg_orig  and asg_dest are among (EC2, WarmPool, AutoScalingGroup)
+        b) asg_orig = EC2 and asg_dest = WarmPool
+            i)  Update Name tag to indicate standby Controller
+            ii) Run initial setup and boot to version parsed from backup
+
+        c) asg_orig = WarmPool and asg_dest = AutoScalingGroup
+            i)   Update Name tag to indicate standby instance is now active
+            ii)  Assign the EIP to the new Controller
+            iii) Login and create temp AWS account
+            ii)  Restore configuration from backup
+    """
+
+    start_time = time.time()
+
     print(f"ASG event from origin {asg_orig} to destination {asg_dest}")
     if asg_orig == "EC2" and asg_dest == "WarmPool":
         warm_inst = True
@@ -800,6 +793,7 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
     old_inst_id = os.environ.get('INST_ID')
     print(f"Old instance ID = {old_inst_id}")
     if old_inst_id == asg_inst:
+        # TODO: Is this ever executed?
         if asg_orig == "WarmPool" and asg_dest == "AutoScalingGroup":
             print("Handling instance moving from WarmPool to ASG")
         else:
@@ -807,19 +801,19 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
             return
 
     controller_instanceobj = client.describe_instances(
-            Filters=[{'Name': 'instance-id', 'Values': [asg_inst]}]
-                    )['Reservations'][0]['Instances'][0]
+                            Filters=[{'Name': 'instance-id', 'Values': [asg_inst]}]
+                            )['Reservations'][0]['Instances'][0]
 
     # Assign EIP when new ASG instance is launched or handling switchover event
+    eip = os.environ.get('EIP')
     if asg_dest == "AutoScalingGroup":
-        if not assign_eip(client, controller_instanceobj, os.environ.get('EIP')):
+        if not assign_eip(client, controller_instanceobj, eip):
             raise AvxError("Could not assign EIP")
 
-    eip = os.environ.get('EIP')
     api_private_access = os.environ.get('API_PRIVATE_ACCESS')
     new_private_ip = controller_instanceobj.get(
-        'NetworkInterfaces')[0].get('PrivateIpAddress')
-    print("New Private IP " + str(new_private_ip))
+                    'NetworkInterfaces')[0].get('PrivateIpAddress')
+    print(f"New Private IP {str(new_private_ip)}")
 
     if api_private_access == "True":
         controller_api_ip = new_private_ip
@@ -829,7 +823,7 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
             controller_api_ip = controller_instanceobj['PublicIpAddress']
         else:
             controller_api_ip = eip
-    print("API Access to Controller will use Public IP : " + str(controller_api_ip))
+    print("API Access to Controller will use IP : " + str(controller_api_ip))
 
     duplicate, sg_modified = temp_add_security_group_access(client, controller_instanceobj,
                                                             api_private_access)
@@ -838,9 +832,8 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
            "" if duplicate else ". Modified Security group %s" % sg_modified))
 
     # This priv_ip belongs to older terminated instance
-    # When first deploying, priv_ip will be None
     priv_ip = os.environ.get('PRIV_IP')
-    if priv_ip and asg_orig == "WarmPool" and asg_dest == "AutoScalingGroup":
+    if priv_ip and asg_dest == "AutoScalingGroup":
         s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
         print(f"S3 backup file name is {s3_file}")
 
@@ -853,7 +846,8 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
             update_env_dict(lambda_client, context, {'TMP_SG_GRP': sg_modified})
 
         total_time = 0
-        while total_time <= MAX_LOGIN_TIMEOUT:
+        #while total_time <= MAX_LOGIN_TIMEOUT:
+        while time.time() - start_time < HANDLE_HA_TIMEOUT:
             try:
                 cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
             except Exception as err:
@@ -864,36 +858,45 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
             else:
                 break
 
-        if total_time >= MAX_LOGIN_TIMEOUT:
+        #if total_time >= MAX_LOGIN_TIMEOUT:
+        if time.time() - start_time >= HANDLE_HA_TIMEOUT:
             print("Could not login to the controller. Attempting to handle login failure")
             handle_login_failure(controller_api_ip, client, lambda_client, controller_instanceobj,
-                                 context, eip)
+                                 context, eip, cid)
             return
 
         # When first deploying, priv_ip will be None
         if priv_ip and asg_orig == "EC2":
             version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
             print(f"Controller version file name is {version_file}")
-            ctrl_version = retrieve_controller_version(version_file)
+            ctrl_version = retrieve_controller_version(version_file, controller_api_ip, cid)
+        elif os.environ.get("CTRL_INIT_VER"):
+            ctrl_version = os.environ.get("CTRL_INIT_VER")
         else:
             ctrl_version = "latest"
 
-        # Initialize new Controller instance
-        # Skip init when asg_orig = WarmPool and asg_dest = ASG
+        print(f"Controller version is {ctrl_version}")
+
+        # Initialize new Controller instance when asg_dest = ASG or WarmPool
         if asg_orig == "EC2":
             initial_setup_complete = run_initial_setup(controller_api_ip, cid, ctrl_version)
         else:
-            initial_setup_complete = True
+            initial_setup_complete = True   # No INIT needed for failover transition
 
         temp_acc_name = "tempacc"
         total_time = 0
         sleep = False
         created_temp_acc = False
-        created_prim_acc = False
+        #created_prim_acc = False
         login_complete = False
         response_json = {}
 
-        while total_time <= INITIAL_SETUP_WAIT:
+        #while total_time <= INITIAL_SETUP_WAIT:
+        while time.time() - start_time < HANDLE_HA_TIMEOUT:
+            print("Maximum of " +
+                  str(int(HANDLE_HA_TIMEOUT - (time.time() - start_time))) +
+                  " seconds remaining")
+
             if sleep:
                 print("Waiting for safe initial setup completion, maximum of " +
                       str(INITIAL_SETUP_WAIT - total_time) + " seconds remaining")
@@ -918,100 +921,115 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
 
             if not initial_setup_complete:
                 response_json = get_initial_setup_status(controller_api_ip, cid)
-                print("Initial setup status %s" % response_json)
+                print(f"Initial setup status {response_json}")
+
                 if response_json.get('return', False) is True:
                     initial_setup_complete = True
-                #else:
-                    # TODO: Does it make sense to re-attempt init?
+                else:
+                    print("Controller initialization failed")
+                    return
 
-            # Should this be done before initialization?
+            # Set admin email/password and create temp account
             if initial_setup_complete and not priv_ip and asg_orig == "EC2" and asg_dest == "AutoScalingGroup":
                 response_json = set_admin_email(controller_api_ip,cid,os.environ.get("ADMIN_EMAIL"))
                 if response_json.get('return', False) is not True:
                     print(f"Unable to set admin email - {response_json.get('reason', '')}")
+
                 response_json = set_admin_password(controller_api_ip,cid,new_private_ip)
                 if response_json.get('return', False) is not True:
                     print(f"Unable to set admin password - {response_json.get('reason', '')}")
+
                 response_json = create_cloud_account(cid, controller_api_ip, os.environ.get("PRIMARY_ACC_NAME"))
                 if response_json.get('return', False) is not True:
                     print(f"Unable to set create cloud account - {response_json.get('reason', '')}")
 
                 if response_json.get('return', False) is True:
-                    created_prim_acc = True
-                elif "already exists" in response_json.get('reason', ''):
-                    created_prim_acc = True
+                    response_json = setup_ctrl_backup(controller_api_ip,cid,os.environ.get("PRIMARY_ACC_NAME"))
 
-                response_json = setup_ctrl_backup(controller_api_ip,cid,os.environ.get("PRIMARY_ACC_NAME"))
-                print(response_json)
+                    print("Updating lambda configuration")
+                    set_environ(client, lambda_client, controller_instanceobj, context, eip)
+                    break
+                else:
+                    print(f"Unable to create primary account {os.environ.get('PRIMARY_ACC_NAME')}")
+
+                #print(response_json)
+
+            print(f"initial_setup_complete = {initial_setup_complete}")
+            print(f"priv_ip= {priv_ip}")
+            print(f"created_temp_acc = {created_temp_acc}")
+            print(f"asg_dest = {asg_dest}")
+
+            if asg_dest == "WarmPool":
+                print("New WarmPool instance ready")
+                return
 
             # Create temp account for DB restore
-            if initial_setup_complete and priv_ip and not created_temp_acc and asg_orig == "WarmPool" and asg_dest == "AutoScalingGroup":
+            if initial_setup_complete and priv_ip and not created_temp_acc and asg_dest == "AutoScalingGroup":
+                print("Creating temp account for DB restore")
                 response_json = create_cloud_account(cid, controller_api_ip, temp_acc_name)
                 print(response_json)
+
                 if response_json.get('return', False) is True:
                     created_temp_acc = True
                 elif "already exists" in response_json.get('reason', ''):
                     created_temp_acc = True
 
-            # DB restore
-            if created_temp_acc and initial_setup_complete and asg_orig == "WarmPool" and asg_dest == "AutoScalingGroup":
-                if os.environ.get("CUSTOMER_ID"):  # Support for license migration scenario
+                # DB restore
+                if os.environ.get("CUSTOMER_ID"):  # Support for migration to BYOL
                     set_customer_id(cid, controller_api_ip)
+
                 response_json = restore_backup(cid, controller_api_ip, s3_file, temp_acc_name)
                 print(response_json)
-                # Create a new backup so that filename uses new_private_ip
-                response_json = setup_ctrl_backup(controller_api_ip,cid,temp_acc_name,'true')
-            else: # When first deploying, need to run set_environ()
-                response_json['return'] = True
-                created_temp_acc = True
 
-            # If restore succeeded, update private IP to that of the new instance now.
-            # During fresh install, they will be None. No backup restore on first run
-            if response_json.get('return', False) is True and created_temp_acc:
-                print("Successfully restored backup. Updating lambda configuration")
-                if asg_dest == "AutoScalingGroup":
+                ## Create a new backup so that filename uses new_private_ip
+                if response_json.get('return', False) is True:
+                    print("Successfully restored backup")
+
+                    # If restore succeeded, update private IP to that of the new instance now.
+                    print("Creating new backup")
+                    setup_ctrl_backup(controller_api_ip,cid,temp_acc_name,'true')
+
+                    print("Updating lambda configuration")
                     set_environ(client, lambda_client, controller_instanceobj, context, eip)
-                    print("Updated lambda configuration")
-                print("Controller HA event has been successfully handled")
-                return
+                    return
 
-            # Parsing response from restore_backup()
-            if response_json.get('reason', '') == 'account_password required.':
-                print("API is not ready yet, requires account_password")
-                total_time += WAIT_DELAY
-            elif response_json.get('reason', '') == 'valid action required':
-                print("API is not ready yet")
-                total_time += WAIT_DELAY
-            elif response_json.get('reason', '') == 'CID is invalid or expired.' or \
-                    "Invalid session. Please login again." in response_json.get('reason', '') or \
-                    f"Session {cid} not found" in response_json.get('reason', '') or \
-                    f"Session {cid} expired" in response_json.get('reason', ''):
-                print("Service abrupty restarted")
-                sleep = False
+                # Parsing response from restore_backup()
+                if response_json.get('reason', '') == 'account_password required.':
+                    print("API is not ready yet, requires account_password")
+                    total_time += WAIT_DELAY
+                elif response_json.get('reason', '') == 'valid action required':
+                    print("API is not ready yet")
+                    total_time += WAIT_DELAY
+                elif response_json.get('reason', '') == 'CID is invalid or expired.' or \
+                        "Invalid session. Please login again." in response_json.get('reason', '') or \
+                        f"Session {cid} not found" in response_json.get('reason', '') or \
+                        f"Session {cid} expired" in response_json.get('reason', ''):
+                    print("Service abrupty restarted")
+                    sleep = False
 
-                try:
-                    cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
-                except AvxError:
-                    pass
-            elif response_json.get('reason', '') == 'not run':
-                print('Initial setup not complete..waiting')
-                time.sleep(INITIAL_SETUP_DELAY)
-                total_time += INITIAL_SETUP_DELAY
-                sleep = False
-            elif 'Remote end closed connection without response' in response_json.get('reason', ''):
-                print('Remote side closed the connection..waiting')
-                time.sleep(INITIAL_SETUP_DELAY)
-                total_time += INITIAL_SETUP_DELAY
-                sleep = False
-            elif "Failed to establish a new connection" in response_json.get('reason', '') \
-                    or "Max retries exceeded with url" in response_json.get('reason', ''):
-                print('Failed to connect to the controller')
-                total_time += WAIT_DELAY
-            else:
-                print("Restoring backup failed due to " +
-                      str(response_json.get('reason', '')))
-                return
-        raise AvxError("Restore failed, did not update lambda config")
+                    try:
+                        cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
+                    except AvxError:
+                        pass
+                elif response_json.get('reason', '') == 'not run':
+                    print('Initial setup not complete..waiting')
+                    time.sleep(INITIAL_SETUP_DELAY)
+                    total_time += INITIAL_SETUP_DELAY
+                    sleep = False
+                elif 'Remote end closed connection without response' in response_json.get('reason', ''):
+                    print('Remote side closed the connection..waiting')
+                    time.sleep(INITIAL_SETUP_DELAY)
+                    total_time += INITIAL_SETUP_DELAY
+                    sleep = False
+                elif "Failed to establish a new connection" in response_json.get('reason', '') \
+                        or "Max retries exceeded with url" in response_json.get('reason', ''):
+                    print('Failed to connect to the controller')
+                    total_time += WAIT_DELAY
+                else:
+                    print("Restoring backup failed due to " +
+                        str(response_json.get('reason', '')))
+                    return
+        #raise AvxError("Restore failed, did not update lambda config")
     finally:
         sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
         asg_client = boto3.client('autoscaling')
@@ -1083,23 +1101,3 @@ def assign_eip(client, controller_instanceobj, eip):
     else:
         print("Assigned/verified elastic IP")
         return True
-
-
-def validate_keypair(key_name):
-    """ Validates Keypairs"""
-    try:
-        client = boto3.client('ec2')
-        response = client.describe_key_pairs()
-    except botocore.exceptions.ClientError as err:
-        raise AvxError(str(err)) from err
-
-    key_aws_list = [key['KeyName'] for key in response['KeyPairs']]
-    if key_name not in key_aws_list:
-        print("Key does not exist. Creating")
-        try:
-            client = boto3.client('ec2')
-            client.create_key_pair(KeyName=key_name)
-        except botocore.exceptions.ClientError as err:
-            raise AvxError(str(err)) from err
-    else:
-        print("Key exists")
