@@ -37,7 +37,7 @@ mask = lambda input: input[0:5] + '*' * 15 if isinstance(input, str) else ''
 class AvxError(Exception):
     """ Error class for Aviatrix exceptions"""
 
-print('Loading function')
+print('-##Loading function##-')
 
 def lambda_handler(event, context):
     """ Entry point of the lambda script"""
@@ -62,7 +62,9 @@ def _lambda_handler(event, context):
 
     try:
         sns_event = event["Records"][0]["EventSource"] == "aws:sns"
+        region = event['Records'][0]['Sns']['TopicArn'].split(':')[3]
         print("From SNS Event")
+        print(f"Region : {region}")
     except (AttributeError, IndexError, KeyError, TypeError) as e:
         print(e)
         return
@@ -78,9 +80,13 @@ def _lambda_handler(event, context):
             aws_access_key_id=os.environ["AWS_ACCESS_KEY_BACK"],
             aws_secret_access_key=os.environ["AWS_SECRET_KEY_BACK"])
     else:
-        client = boto3.client('ec2')
-        lambda_client = boto3.client('lambda')
-
+        if os.environ.get("INTER_REGION") == "True":
+            client = boto3.client('ec2',region)
+            region = os.environ["PRI_REGION"]
+            lambda_client = boto3.client('lambda',region)
+        else:
+            client = boto3.client('ec2',region)
+            lambda_client = boto3.client('lambda',region)
     tmp_sg = os.environ.get('TMP_SG_GRP', '')
     if tmp_sg:
         print("Lambda probably did not complete last time. Reverting sg %s" % tmp_sg)
@@ -98,6 +104,12 @@ def _lambda_handler(event, context):
             sns_msg_orig = sns_msg_json.get('Origin', "")
             sns_msg_dest = sns_msg_json.get('Destination', "")
             sns_msg_inst = sns_msg_json.get('EC2InstanceId', "")
+            sns_msg_test_event = sns_msg_json.get('Event', "")
+            sns_msg_trigger = sns_msg_json.get('Trigger', "")
+            if sns_msg_trigger:
+                namespace = sns_msg_trigger['Namespace']
+            else:
+                namespace = ""
         except (KeyError, IndexError, ValueError) as err:
             raise AvxError("Could not parse SNS message %s" % str(err)) from err
 
@@ -117,9 +129,12 @@ def _lambda_handler(event, context):
                 handle_ctrl_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
             elif sns_msg_asg == os.environ.get('COP_ASG'):
                 handle_cop_ha_event (client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
+        
+        if os.environ.get("INTER_REGION") == "True" and namespace == "AWS/Route53":
+            print("-## Route 53 Event Occured ##-")
 
-        elif sns_msg_event == "autoscaling:TEST_NOTIFICATION":
-            print("Successfully received Test Event from ASG")
+        elif sns_msg_event == "autoscaling:TEST_NOTIFICATION" or sns_msg_test_event == "autoscaling:TEST_NOTIFICATION":
+            print("-## Successfully received Test Event ##-")
         elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
             print("Instance launch error, refer to logs for failure reason ")
     else:
@@ -228,10 +243,17 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
 
     if eip is None:
         # If EIP is not known at this point, get from controller inst
-        eip = controller_instanceobj[
-            'NetworkInterfaces'][0]['Association'].get('PublicIp')
+        if os.environ.get("INTER_REGION") == "True" and client.meta.region_name == os.environ.get('SEC_REGION'):
+            dr_eip = controller_instanceobj[
+                'NetworkInterfaces'][0]['Association'].get('PublicIp')
+        else:
+            eip = controller_instanceobj[
+                'NetworkInterfaces'][0]['Association'].get('PublicIp')
     else:
-        eip = os.environ.get('EIP')
+        if os.environ.get("INTER_REGION") == "True" and client.meta.region_name == os.environ.get('SEC_REGION'):
+            dr_eip = os.environ.get('DR_EIP')
+        else:
+            eip = os.environ.get('EIP')
 
     inst_id = controller_instanceobj['InstanceId']
     vpc_id = controller_instanceobj['VpcId']
@@ -284,11 +306,20 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
         'TMP_SG_GRP': os.environ.get('TMP_SG_GRP', ''),
         'AWS_ROLE_APP_NAME': os.environ.get('AWS_ROLE_APP_NAME'),
         'AWS_ROLE_EC2_NAME': os.environ.get('AWS_ROLE_EC2_NAME'),
+        'INTER_REGION': os.environ.get('INTER_REGION'),
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
-    print("Setting environment %s" % env_dict)
 
+    if os.environ.get("INTER_REGION") == "True":
+        env_dict["PRI_REGION"] = os.environ.get('PRI_REGION')
+        env_dict["SEC_REGION"] = os.environ.get('SEC_REGION')
+        if client.meta.region_name == os.environ.get('SEC_REGION'):
+            env_dict["DR_EIP"] = dr_eip
+        if client.meta.region_name == os.environ.get('PRI_REGION'):
+            env_dict["DR_EIP"] = os.environ.get('DR_EIP')
+    print("Setting environment %s" % env_dict)
+    print(f"lambda client is in region: {lambda_client.meta.region_name}")
     lambda_client.update_function_configuration(FunctionName=context.function_name,
                                                 Environment={'Variables': env_dict})
     os.environ.update(env_dict)
@@ -805,7 +836,10 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                             )['Reservations'][0]['Instances'][0]
 
     # Assign EIP when new ASG instance is launched or handling switchover event
-    eip = os.environ.get('EIP')
+    if os.environ.get("INTER_REGION") == "True" and client.meta.region_name == os.environ.get('SEC_REGION'):
+        eip = os.environ.get('DR_EIP')
+    else:
+        eip = os.environ.get('EIP')
     if asg_dest == "AutoScalingGroup":
         if not assign_eip(client, controller_instanceobj, eip):
             raise AvxError("Could not assign EIP")
@@ -944,11 +978,15 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                     print(f"Unable to set create cloud account - {response_json.get('reason', '')}")
 
                 if response_json.get('return', False) is True:
-                    response_json = setup_ctrl_backup(controller_api_ip,cid,os.environ.get("PRIMARY_ACC_NAME"))
-
-                    print("Updating lambda configuration")
-                    set_environ(client, lambda_client, controller_instanceobj, context, eip)
-                    break
+                    if os.environ.get("INTER_REGION") == "True":
+                        print("Updating lambda configuration")
+                        set_environ(client, lambda_client, controller_instanceobj, context, eip)
+                        break
+                    else:
+                        response_json = setup_ctrl_backup(controller_api_ip,cid,os.environ.get("PRIMARY_ACC_NAME"))
+                        print("Updating lambda configuration")
+                        set_environ(client, lambda_client, controller_instanceobj, context, eip)
+                        break
                 else:
                     print(f"Unable to create primary account {os.environ.get('PRIMARY_ACC_NAME')}")
 
@@ -1032,7 +1070,8 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
         #raise AvxError("Restore failed, did not update lambda config")
     finally:
         sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
-        asg_client = boto3.client('autoscaling')
+        region = event['Records'][0]['Sns']['TopicArn'].split(':')[3]
+        asg_client = boto3.client('autoscaling',region)
         response = asg_client.complete_lifecycle_action(
                         AutoScalingGroupName=sns_msg_json['AutoScalingGroupName'],
                         LifecycleActionResult='CONTINUE',

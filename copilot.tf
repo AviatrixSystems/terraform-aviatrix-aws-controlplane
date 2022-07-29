@@ -61,7 +61,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     version = "$Latest"
   }
 
-  vpc_zone_identifier = var.subnet_names
+  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id,aws_subnet.subnet_ha[0].id])
   target_group_arns   = [aws_lb_target_group.avtx-copilot.arn]
 
   initial_lifecycle_hook {
@@ -101,7 +101,7 @@ resource "aws_lb_target_group" "avtx-copilot" {
   name     = "${local.name_prefix}-copilot"
   port     = 443
   protocol = "TCP"
-  vpc_id   = var.vpc
+  vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   depends_on = [aws_lb.avtx-controller]
 
@@ -113,8 +113,8 @@ resource "aws_lb_target_group" "avtx-copilot" {
 resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   name        = "${local.name_prefix}AviatrixCopilotSecurityGroup"
   description = "Aviatrix - Copilot Security Group"
-  #  vpc_id      = var.use_existing_vpc == false ? aws_vpc.copilot_vpc[0].id : var.vpc_id
-  vpc_id = var.vpc
+  vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+  # vpc_id = var.vpc
 
   dynamic "ingress" {
     for_each = var.cop_allowed_cidrs

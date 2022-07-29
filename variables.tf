@@ -6,14 +6,48 @@ variable ha_distribution {
   default     = "inter-az"
 
   validation {
-    condition     = contains(["inter-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (inter-az, inter-region)."
+    condition     = contains(["inter-az", "single-az"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (inter-az, single-az)."
   }
 }
 
 variable keypair {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
+}
+
+variable region {
+  type        = string
+  description = "The region to deploy this module in"
+}
+
+variable "create_iam_roles" {
+  type = bool
+}
+
+variable "ec2_role_name" {
+  type = string
+  default = "aviatrix-role-ec2"
+}
+
+variable "app_role_name" {
+  type = string
+  default = "aviatrix-role-app"
+}
+
+variable "vpc_name" {
+  type = string
+  default     = "Aviatrix-VPC"
+}
+
+variable "subnet_name" {
+  type = string
+  default     = "Aviatrix-Public-Subnet"
+}
+
+variable "vpc_cidr" {
+  type = string
+  default     = "10.0.0.0/24"
 }
 
 variable instance_type {
@@ -76,8 +110,24 @@ variable cop_allowed_cidrs {
     port     = number
     cidrs    = set(string),
   }))
+  default =     {
+    "tcp_cidrs" = {
+      protocol = "tcp"
+      port     = "443"
+      cidrs    = ["0.0.0.0/0"]
+    }
+    "udp_cidrs_1" = {
+      protocol = "udp"
+      port     = "5000"
+      cidrs    = ["0.0.0.0/0"]
+    }
+    "udp_cidrs_2" = {
+      protocol = "udp"
+      port     = "31283"
+      cidrs    = ["0.0.0.0/0"]
+    }
 }
-
+}
 variable s3_backup_bucket {
   type        = string
   description = "S3 bucket for Controller DB backup"
@@ -121,13 +171,21 @@ variable controller_version {
   description = "The initial version of the Aviatrix Controller at launch"
 }
 
+variable "use_existing_vpc" {
+  description = "Set to true to use existing VPC."
+  type        = bool
+  default     = false
+}
+
 variable vpc {
   type        = string
   description = "VPC in which you want launch Aviatrix controller"
+  default     = ""
 }
 
 variable "subnet_names" {
   type = list(string)
+  default     = []
 }
 
 /*
@@ -167,14 +225,15 @@ variable license_type {
 
 locals {
   name_prefix     = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol     = jsondecode(data.http.avx_iam_id.body).BYOL
-  images_platinum = jsondecode(data.http.avx_iam_id.body).MeteredPlatinum
-  images_custom   = jsondecode(data.http.avx_iam_id.body).Custom
-  #  images_copilot  = jsondecode(data.http.avx_iam_id.body).MeteredPlatinumCopilot
-  images_copilot    = jsondecode(data.http.copilot_iam_id.body).Copilot
-  images_copilotarm = jsondecode(data.http.copilot_iam_id.body).CopilotARM
+  images_byol     = jsondecode(data.http.avx_iam_id.response_body).BYOL
+  images_platinum = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
+  images_custom   = jsondecode(data.http.avx_iam_id.response_body).Custom
+  #  images_copilot  = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinumCopilot
+  images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
+  images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
+  dr_ami_id = var.enable_inter_region ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
 
   common_tags = merge(
     var.tags, {
@@ -198,3 +257,41 @@ data http copilot_iam_id {
   }
 }
 
+variable "dr_region" {
+  type        = string
+  description = "DR Region for Aviatrix Controller"
+  default     = ""
+}
+
+variable "dr_vpc_name" {
+  type = string
+  default     = "Aviatrix-DR-VPC"
+}
+
+
+variable dr_vpc {
+  type        = string
+  description = "VPC in which you want launch Aviatrix controller"
+  default     = ""
+}
+
+variable "dr_subnet_names" {
+  type = list(string)
+  default     = []
+}
+
+variable "dr_vpc_cidr" {
+  type = string
+  default     = "10.0.0.0/24"
+}
+
+variable dr_keypair {
+  type        = string
+  description = "Key pair which should be used by Aviatrix controller"
+}
+
+variable "enable_inter_region" {
+  type        = bool
+  description = "Enable inter region HA"
+  default     = false
+}
