@@ -49,8 +49,13 @@ resource aws_iam_policy lambda-policy {
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:RevokeSecurityGroupIngress",
         "ec2:DescribeSecurityGroups",
+        "ec2:StopInstances",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "autoscaling:DescribeLoadBalancerTargetGroups",
+        "autoscaling:DetachLoadBalancerTargetGroups",
         "autoscaling:CompleteLifecycleAction",
+        "cloudwatch:DescribeAlarmHistory",
         "ssm:SendCommand",
         "ssm:ListCommandInvocations",
         "iam:PassRole",
@@ -122,15 +127,14 @@ resource aws_lambda_function lambda {
   depends_on = [null_resource.lambda]
 
   environment {
-    variables = var.enable_inter_region ? ({
+    variables = var.ha_distribution == "inter-region" ? ({
       AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG   = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
       AWS_ROLE_APP_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
       AWS_ROLE_EC2_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
       CTRL_INIT_VER      = var.controller_version,
-      VPC_ID             = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id,
+      VPC_ID             = var.vpc,
       EIP                = aws_eip.controller_eip.public_ip,
-      DR_EIP             = aws_eip.dr_controller_eip[0].public_ip,
       COP_EIP            = aws_eip.copilot_eip.public_ip,
       # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
       CTRL_ASG           = "avtx_controller",
@@ -141,16 +145,16 @@ resource aws_lambda_function lambda {
       API_PRIVATE_ACCESS = "False",
       ADMIN_EMAIL        = var.admin_email,
       PRIMARY_ACC_NAME   = var.access_account_name
-      INTER_REGION = var.enable_inter_region ? "True" : "False"
-      PRI_REGION = var.region
-      SEC_REGION = var.dr_region
+      INTER_REGION = "True"
+      DR_REGION =  var.dr_region
+      PREEMPTIVE = var.preemptive ? "True" : "False"
     }) : ({
       AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG   = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
       AWS_ROLE_APP_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
       AWS_ROLE_EC2_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
       CTRL_INIT_VER      = var.controller_version,
-      VPC_ID             = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id,
+      VPC_ID             = var.vpc,
       EIP                = aws_eip.controller_eip.public_ip,
       COP_EIP            = aws_eip.copilot_eip.public_ip,
       # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
@@ -162,8 +166,8 @@ resource aws_lambda_function lambda {
       API_PRIVATE_ACCESS = "False",
       ADMIN_EMAIL        = var.admin_email,
       PRIMARY_ACC_NAME   = var.access_account_name
-      INTER_REGION = var.enable_inter_region ? "True" : "False"
-    })
+      INTER_REGION = "False"
+      })
   }
 
   lifecycle {
@@ -193,8 +197,9 @@ resource aws_security_group_rule ingress_rule {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = var.incoming_ssl_cidr
+  cidr_blocks       = var.ha_distribution == "inter-region" ? concat(var.incoming_ssl_cidr,data.aws_ip_ranges.health_check_ip_range[0].cidr_blocks,tolist([var.vpc_cidr])) : concat(var.incoming_ssl_cidr,tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixSecurityGroup.id
+  description = "DO NOT DELETE"
 }
 
 resource aws_security_group_rule egress_rule {
@@ -322,16 +327,62 @@ resource "aws_lambda_permission" "with_sns" {
 
 
 #####################################################
+resource aws_lambda_function dr_lambda {
+  provider = aws.region2
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  # s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
+  # s3_key        = "aws_controller.zip"
+  filename = "${path.module}/aws_controller.zip" 
+  function_name = "AVX_Platform_HA"
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "aws_controller.lambda_handler"
+  runtime       = "python3.9"
+  description   = "AVIATRIX PLATFORM HIGH AVAILABILITY"
+  timeout       = 900
+  # source_code_hash = filebase64sha256("aws_controller.zip")
+
+  depends_on = [null_resource.lambda]
+
+  environment {
+    variables = {
+      AVIATRIX_TAG       = aws_launch_template.dr_avtx-controller[0].tag_specifications[0].tags.Name,
+      AVIATRIX_COP_TAG   = "None",
+      AWS_ROLE_APP_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
+      AWS_ROLE_EC2_NAME  = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
+      CTRL_INIT_VER      = var.controller_version,
+      VPC_ID             = var.use_existing_vpc ? var.dr_vpc : aws_vpc.dr_vpc[0].id,
+      EIP                = aws_eip.dr_controller_eip[0].public_ip,
+      COP_EIP            = "None",
+      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
+      CTRL_ASG           = "avtx_controller",
+      COP_ASG            = "None",
+      TMP_SG_GRP         = "",
+      S3_BUCKET_BACK     = var.s3_backup_bucket,
+      S3_BUCKET_REGION   = var.s3_backup_region,
+      API_PRIVATE_ACCESS = "False",
+      ADMIN_EMAIL        = var.admin_email,
+      PRIMARY_ACC_NAME   = var.access_account_name
+      INTER_REGION = "True"
+      DR_REGION =  var.region
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      environment,
+    ]
+  }
+}
 
 resource aws_eip dr_controller_eip {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   vpc  = true
   tags = merge(local.common_tags,tomap({"Name" = "Avx-Controller"}))
 }
 
 resource aws_security_group dr_AviatrixSecurityGroup {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name        = "${local.name_prefix}AviatrixSecurityGroup"
   description = "Aviatrix - Controller Security Group"
@@ -343,18 +394,19 @@ resource aws_security_group dr_AviatrixSecurityGroup {
 }
 
 resource aws_security_group_rule dr_ingress_rule {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = var.incoming_ssl_cidr
+  cidr_blocks       = concat(var.incoming_ssl_cidr,data.aws_ip_ranges.health_check_ip_range[0].cidr_blocks,tolist([var.dr_vpc_cidr]))
   security_group_id = aws_security_group.dr_AviatrixSecurityGroup[0].id
+  description = "DO NOT DELETE"
 }
 
 resource aws_security_group_rule dr_egress_rule {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   type              = "egress"
   from_port         = 0
@@ -365,7 +417,7 @@ resource aws_security_group_rule dr_egress_rule {
 }
 
 resource "aws_launch_template" "dr_avtx-controller" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name        = "avtx-controller"
   description = "Launch template for DR Aviatrix Controller"
@@ -413,7 +465,7 @@ resource "aws_launch_template" "dr_avtx-controller" {
 }
 
 resource "aws_autoscaling_group" "dr_avtx_ctrl" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name                      = "avtx_controller"
   max_size                  = 1
@@ -459,21 +511,21 @@ resource "aws_autoscaling_group" "dr_avtx_ctrl" {
 }
 
 resource "aws_sns_topic" "dr_controller_updates" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name = "dr-controller-ha-updates"
 }
 
 resource "aws_sns_topic_subscription" "dr_asg_updates_for_lambda" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   topic_arn = aws_sns_topic.dr_controller_updates[0].arn
   protocol  = "lambda"
-  endpoint  = aws_lambda_function.lambda.arn
+  endpoint  = aws_lambda_function.dr_lambda[0].arn
 }
 
 resource "aws_sns_topic_subscription" "dr_asg_updates_for_notif_email" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   topic_arn = aws_sns_topic.dr_controller_updates[0].arn
   protocol  = "email"
@@ -481,75 +533,95 @@ resource "aws_sns_topic_subscription" "dr_asg_updates_for_notif_email" {
 }
 
 resource "aws_lambda_permission" "dr_with_sns" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  provider = aws.region2
   statement_id  = "AllowExecutionFromSNS-2"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda.arn
+  function_name = aws_lambda_function.dr_lambda[0].arn
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.dr_controller_updates[0].arn
 }
 
 
-# data "aws_route53_zone" "zone" {
-#   name         = "aviatrix.link"
-#   # private_zone = true
-# }
+data "aws_route53_zone" "avx_zone" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  name         = var.zone_name
+}
 
-# resource "aws_route53_record" "primary" {
-#   zone_id = data.aws_route53_zone.zone.zone_id
-#   name    = "controller.aviatrix.link"
-#   type    = "A"
-#   ttl     = "60"
+data "aws_ip_ranges" "health_check_ip_range" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  services = ["route53_healthchecks"]
+}
 
-#   weighted_routing_policy {
-#     weight = 200
-#   }
+resource "aws_route53_record" "avx_primary" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  zone_id         = data.aws_route53_zone.avx_zone[0].zone_id
+  name            = var.record_name
+  type            = "A"
+  set_identifier  = "${var.dr_region}-avx-controller"
 
-#   set_identifier = "primary"
-#   records        = ["54.167.136.95"]
-# }
+  alias {
+    zone_id                = aws_lb.avtx-controller.zone_id
+    name                   = aws_lb.avtx-controller.dns_name
+    evaluate_target_health = true
+  }
 
-# resource "aws_cloudwatch_metric_alarm" "primary" {
-#     count                = var.enable_inter_region ? 1 : 0
-#     actions_enabled           = true
-#     alarm_actions             = [
-#         aws_sns_topic.controller_updates.arn,
-#     ]
-#     alarm_name                = "primary"
-#     comparison_operator       = "LessThanOrEqualToThreshold"
-#     datapoints_to_alarm       = 1
-#     dimensions                = {
-#         "HealthCheckId" = aws_route53_health_check.primary[0].id
-#     }
-#     evaluation_periods        = 1
-#     insufficient_data_actions = []
-#     metric_name               = "HealthCheckStatus"
-#     namespace                 = "AWS/Route53"
-#     ok_actions                = [
-#         aws_sns_topic.controller_updates.arn,
-#     ]
-#     period                    = 60
-#     statistic                 = "Maximum"
-#     tags                      = {}
-#     tags_all                  = {}
-#     threshold                 = 0
-# }
+  failover_routing_policy {
+    type = "PRIMARY"
+  }
+  health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
+}
 
-# resource "aws_route53_health_check" "primary" {
-#     count                = var.enable_inter_region ? 1 : 0
-#     child_health_threshold = 0
-#     child_healthchecks     = []
-#     disabled               = false
-#     enable_sni             = false
-#     failure_threshold      = 2
-#     invert_healthcheck     = false
-#     ip_address             = aws_eip.controller_eip.public_ip
-#     measure_latency        = false
-#     port                   = 443
-#     regions                = ["us-west-1","us-east-1","eu-west-1"]
-#     request_interval       = 30
-#     tags                   = {
-#         "Name" = "primary"
-#     }
-#     type                   = "TCP"
-# }
+resource "aws_route53_record" "avx_secondary" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  zone_id         = data.aws_route53_zone.avx_zone[0].zone_id
+  name            = var.record_name
+  type            = "A"
+  set_identifier  = "${var.region}-avx-controller"
+
+  alias {
+    zone_id                = aws_lb.dr_avtx-controller[0].zone_id
+    name                   = aws_lb.dr_avtx-controller[0].dns_name
+    evaluate_target_health = true
+  }
+
+  failover_routing_policy {
+    type = "SECONDARY"
+  }
+}
+
+resource "aws_route53_health_check" "aviatrix_controller_health_check" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  type                            = "CLOUDWATCH_METRIC"
+  cloudwatch_alarm_name           = aws_cloudwatch_metric_alarm.avx-alarm[0].alarm_name
+  cloudwatch_alarm_region         = var.region
+  insufficient_data_health_status = "Unhealthy"
+  tags                   = {
+    Name = "aviatrix_controller_health_check"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "avx-alarm" {
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
+  alarm_name                = "${var.region}-avx-alarm"
+  dimensions = tomap({
+    "LoadBalancer" = aws_lb.avtx-controller.arn_suffix
+    "TargetGroup" = aws_lb_target_group.avtx-controller.arn_suffix
+  })
+  alarm_actions             = [
+      aws_sns_topic.controller_updates.arn,
+  ]
+  comparison_operator       = "LessThanThreshold"
+  datapoints_to_alarm       = "1"
+  evaluation_periods        = "1"
+  metric_name               = "HealthyHostCount"
+  namespace                 = "AWS/NetworkELB"
+  period                    = "60"
+  statistic                 = "Minimum"
+  threshold = 1
+  treat_missing_data = "missing"
+  ok_actions             = [
+      aws_sns_topic.controller_updates.arn,
+  ]
+  depends_on = [aws_autoscaling_group.avtx_ctrl]
+  }

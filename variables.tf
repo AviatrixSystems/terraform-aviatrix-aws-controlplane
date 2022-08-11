@@ -3,11 +3,11 @@ data aws_region current {}
 variable ha_distribution {
   type        = string
   description = "Desired Controller high availability distribution"
-  default     = "inter-az"
+  default     = "single-az"
 
   validation {
-    condition     = contains(["inter-az", "single-az"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (inter-az, single-az)."
+    condition     = contains(["inter-az", "single-az", "inter-region"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
   }
 }
 
@@ -188,29 +188,6 @@ variable "subnet_names" {
   default     = []
 }
 
-/*
-variable private_ip {
-  type        = string
-  description = "Private IP of Aviatrix controller"
-}
-
-variable public_ip {
-  type        = string
-  description = "Public IP of Aviatrix controller"
-}
-
-variable ec2_role_name {
-  type        = string
-  description = "EC2 role name"
-  default     = "aviatrix-role-ec2"
-}
-
-variable app_role_name {
-  type        = string
-  description = "APP role name"
-  default     = "aviatrix-role-app"
-}
-*/
 variable name_prefix {
   type        = string
   description = "Additional name prefix for your environment resources"
@@ -233,7 +210,7 @@ locals {
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
-  dr_ami_id = var.enable_inter_region ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
+  dr_ami_id = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
 
   common_tags = merge(
     var.tags, {
@@ -269,7 +246,7 @@ variable "dr_vpc_name" {
 }
 
 
-variable dr_vpc {
+variable "dr_vpc" {
   type        = string
   description = "VPC in which you want launch Aviatrix controller"
   default     = ""
@@ -285,13 +262,25 @@ variable "dr_vpc_cidr" {
   default     = "10.0.0.0/24"
 }
 
-variable dr_keypair {
+variable "dr_keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
 }
 
-variable "enable_inter_region" {
+variable "preemptive" {
   type        = bool
-  description = "Enable inter region HA"
-  default     = false
+  description = "If it is true and when primary region controller is back online, the network automatically switches back to using that primary controller."
+  default     = true
+}
+
+variable "zone_name" {
+  type        = string
+  description = "The exisitng route 53 zone name"
+  default     = true
+}
+
+variable "record_name" {
+  type        = string
+  description = "The record name to be created under exisitng route 53 zone"
+  default     = true
 }

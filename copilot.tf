@@ -17,10 +17,6 @@ resource "aws_launch_template" "avtx-copilot" {
 
   ebs_optimized = true
 
-  #  iam_instance_profile {
-  #    name = module.aviatrix-iam-roles.aviatrix-role-ec2-name
-  #  }
-
   image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.cop_instance_type
@@ -114,7 +110,6 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   name        = "${local.name_prefix}AviatrixCopilotSecurityGroup"
   description = "Aviatrix - Copilot Security Group"
   vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
-  # vpc_id = var.vpc
 
   dynamic "ingress" {
     for_each = var.cop_allowed_cidrs

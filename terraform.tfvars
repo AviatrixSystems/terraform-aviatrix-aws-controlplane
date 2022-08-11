@@ -1,20 +1,18 @@
-keypair                = "avx-ohio"
-dr_keypair = "Aviatrix-ireland"
+keypair                = "aviatrix"
+dr_keypair             = "avx-ohio"
 s3_backup_bucket       = "test-aviatrix-backup"
 s3_backup_region       = "us-east-2"
 termination_protection = false
-admin_email            = "pbomma@aviatrix.com"
-asg_notif_email        = "pbomma@aviatrix.com"
-access_account_name    = "pbomma-avx"
-create_iam_roles = false
-use_existing_vpc = false
-# subnet_names           = ["subnet-04262f4d3b52cbc1e", "subnet-0d9db21881453147c"]
-# vpc                    = "vpc-07a080e59b83698a1"
-region = "us-east-1"
-dr_region = "us-east-2"
-incoming_ssl_cidr      = ["0.0.0.0/0"]
+admin_email            = "test@aviatrix.com"
+asg_notif_email        = "test@aviatrix.com"
+access_account_name    = "test-avx"
+create_iam_roles       = false
+use_existing_vpc       = false
+region                 = "us-east-1"
+dr_region              = "us-east-2"
+incoming_ssl_cidr      = ["x.x.x.x/32"]
 controller_version     = "6.6"
-ha_distribution        = "single-az"
+ha_distribution        = "inter-region"
 cop_allowed_cidrs = {
   "tcp_cidrs" = {
     protocol = "tcp"
@@ -33,4 +31,7 @@ cop_allowed_cidrs = {
   }
 }
 
-enable_inter_region = false
+dr_vpc_cidr = "10.100.0.0/24"
+
+zone_name         = "aviatrix.link"
+record_name       = "controller.aviatrix.link"

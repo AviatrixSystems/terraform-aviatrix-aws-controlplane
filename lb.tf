@@ -41,7 +41,7 @@ resource "aws_lb_target_group" "avtx-controller" {
 ####################################
 
 resource "aws_lb" "dr_avtx-controller" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
@@ -58,7 +58,7 @@ resource "aws_lb" "dr_avtx-controller" {
 
 # Define a listener
 resource "aws_lb_listener" "dr_avtx-ctrl" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   load_balancer_arn = aws_lb.dr_avtx-controller[0].arn
   port              = "443"
@@ -71,7 +71,7 @@ resource "aws_lb_listener" "dr_avtx-ctrl" {
 }
 
 resource "aws_lb_target_group" "dr_avtx-controller" {
-  count                = var.enable_inter_region ? 1 : 0
+  count                = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
   name     = "${local.name_prefix}-controller"
   port     = 443
