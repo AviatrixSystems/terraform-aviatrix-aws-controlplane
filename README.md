@@ -84,3 +84,5 @@ When SNS HA event is triggered there are 3 scenarios depending on `autoscaling_s
     iv) Restore configuration from backup.
 
     v) Update environment variables in lambda.
+
+###
