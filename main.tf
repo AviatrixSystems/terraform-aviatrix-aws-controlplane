@@ -108,7 +108,7 @@ resource "null_resource" "lambda" {
   }
 
   triggers = {
-    source_file = filebase64sha256("${path.cwd}/aws_controller.py")
+    source_file = filebase64sha256("${path.module}/aws_controller.py")
   }
 }
 
