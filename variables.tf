@@ -90,13 +90,13 @@ variable "cop_type" {
 
 variable "cop_root_volume_size" {
   type        = number
-  description = "Root volume disk size for controller"
+  description = "Root volume disk size for Copilot"
   default     = 2000
 }
 
 variable "cop_root_volume_type" {
   type        = string
-  description = "Root volume type for controller"
+  description = "Root volume type for Copilot"
   default     = "gp3"
 }
 
