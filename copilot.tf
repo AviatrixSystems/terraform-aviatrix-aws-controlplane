@@ -9,7 +9,6 @@ resource "aws_launch_template" "avtx-copilot" {
       volume_size           = var.cop_root_volume_size
       volume_type           = var.cop_root_volume_type
       delete_on_termination = false
-      #      encrypted   = true
     }
   }
 

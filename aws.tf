@@ -150,17 +150,3 @@ resource "aws_route_table_association" "dr_rtb_association_ha" {
 
 
 
-
-
-
-
-
-# resource "tls_private_key" "keypair_material" {
-#   algorithm = "RSA"
-#   rsa_bits  = 4096
-# }
-
-# resource "aws_key_pair" "keypair" {
-#   key_name   = var.keypair
-#   public_key = tls_private_key.keypair_material.public_key_openssh
-# }

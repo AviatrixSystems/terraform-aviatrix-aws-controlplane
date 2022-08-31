@@ -113,8 +113,6 @@ resource "null_resource" "lambda" {
 }
 
 resource "aws_lambda_function" "lambda" {
-  # s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
-  # s3_key        = "aws_controller.zip"
   filename      = "${path.cwd}/aws_controller.zip"
   function_name = "AVX_Platform_HA"
   role          = aws_iam_role.iam_for_lambda.arn
@@ -122,9 +120,7 @@ resource "aws_lambda_function" "lambda" {
   runtime       = "python3.9"
   description   = "AVIATRIX PLATFORM HIGH AVAILABILITY"
   timeout       = 900
-  # source_code_hash = filebase64sha256("aws_controller.zip")
-
-  depends_on = [null_resource.lambda]
+  depends_on    = [null_resource.lambda]
 
   environment {
     variables = var.ha_distribution == "inter-region" ? ({
@@ -221,7 +217,6 @@ resource "aws_launch_template" "avtx-controller" {
     ebs {
       volume_size = var.root_volume_size
       volume_type = var.root_volume_type
-      # encrypted   = true
     }
   }
 
@@ -328,10 +323,8 @@ resource "aws_lambda_permission" "with_sns" {
 
 #####################################################
 resource "aws_lambda_function" "dr_lambda" {
-  provider = aws.region2
-  count    = var.ha_distribution == "inter-region" ? 1 : 0
-  # s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
-  # s3_key        = "aws_controller.zip"
+  provider      = aws.region2
+  count         = var.ha_distribution == "inter-region" ? 1 : 0
   filename      = "${path.cwd}/aws_controller.zip"
   function_name = "AVX_Platform_HA"
   role          = aws_iam_role.iam_for_lambda.arn
@@ -339,9 +332,7 @@ resource "aws_lambda_function" "dr_lambda" {
   runtime       = "python3.9"
   description   = "AVIATRIX PLATFORM HIGH AVAILABILITY"
   timeout       = 900
-  # source_code_hash = filebase64sha256("aws_controller.zip")
-
-  depends_on = [null_resource.lambda]
+  depends_on    = [null_resource.lambda]
 
   environment {
     variables = {
@@ -428,7 +419,6 @@ resource "aws_launch_template" "dr_avtx-controller" {
     ebs {
       volume_size = var.root_volume_size
       volume_type = var.root_volume_type
-      # encrypted   = true
     }
   }
 
