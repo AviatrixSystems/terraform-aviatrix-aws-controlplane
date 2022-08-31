@@ -1,11 +1,11 @@
 ## Aviatrix with High Availability
 
-### Goals:
+### Goals
 
 - Ensure an Aviatrix Controller is always deployed with high availability
 - Optionally support a hot standby Controller instance which reduces Controller switchover time to under a minute
 
-### Description:
+### Description
 
 This module creates AWS IAM credentials (IAM roles, policies, etc...), which are used to grant AWS API permissions to Aviatrix Controller in order to allow it to access resources in AWS account(s). This Terraform module should be run in the AWS account where you are installing the Controller.
 
@@ -19,12 +19,12 @@ The module will create the following:
 6. An SNS topic to trigger Lambda.
 7. An active Controller and a standby Controller which can be in running or stopped state.
 
-### Prerequisites:
+### Prerequisites
 
 - ~~This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.~~
 - The AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
 - The S3 bucket for Controller backup should pre-exist.
-- The Auto Scalng group uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alerts to SNS.
+- The Auto Scaling group uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alerts to SNS.
 - The admin password required to initilaize the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/password.
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX"`
@@ -47,7 +47,7 @@ module "aws_controller_ha" {
 }
 ```
 
-### Variables:
+### Variables
 
 | Key                    | Default Value                              | Description                                                                                                                                   |
 | ---------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,7 +62,7 @@ module "aws_controller_ha" {
 | cop_root_volume_size   | 2000                                       | Root volume disk size for CoPilot                                                                                                             |
 | cop_root_volume_type   | gp3                                        | Root volume type for CoPilot                                                                                                                  |
 | copilot_name           |                                            | Name of CoPilot                                                                                                                               |
-| create_iam_roles       | true                                      | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
+| create_iam_roles       | true                                       | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
 | dr_keypair             |                                            | Key pair which should be used by DR Controller                                                                                                |
 | dr_region              | ""                                         | Region to deploy the DR Controller                                                                                                            |
 | dr_subnet_names        |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
@@ -76,7 +76,7 @@ module "aws_controller_ha" {
 | keypair                |                                            | Key pair which should be used by Controller.                                                                                                  |
 | license_type           | BYOL                                       | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'.                                                                                |
 | name_prefix            | avx                                        | Additional name prefix for resources created by this module                                                                                   |
-| preemptive             | false                                       | Whether to switch back to the primary Controller when it comes back online.                                                                   |
+| preemptive             | false                                      | Whether to switch back to the primary Controller when it comes back online.                                                                   |
 | record_name            | true                                       | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.     |
 | region                 |                                            | Region to deploy the Controller and CoPilot                                                                                                   |
 | root_volume_size       | 64                                         | Root volume disk size for Controller                                                                                                          |
@@ -86,14 +86,14 @@ module "aws_controller_ha" {
 | subnet_name            | Aviatrix-Public-Subnet                     | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                 |
 | subnet_names           |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
 | tags                   |                                            | Map of common tags which should be used for module resources.                                                                                 |
-| termination_protection | true                                       | Whether to enable termination protection on the Controller, CoPilot and load balancers.                                                          |
+| termination_protection | true                                       | Whether to enable termination protection on the Controller, CoPilot and load balancers.                                                       |
 | use_existing_vpc       | false                                      | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                |
 | vpc                    | ""                                         | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                      |
 | vpc_cidr               | 10.0.0.0/24                                | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
 | vpc_name               | Aviatrix-VPC                               | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
 | zone_name              | true                                       | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                            |
 
-### Additional Information:
+### Additional Information
 
 When an SNS HA event is triggered there are 3 scenarios depending on `autoscaling_source` and `autoscaling_destination` are set to:
 

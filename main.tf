@@ -332,7 +332,7 @@ resource "aws_lambda_function" "dr_lambda" {
   count    = var.ha_distribution == "inter-region" ? 1 : 0
   # s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
   # s3_key        = "aws_controller.zip"
-  filename = "${path.cwd}/aws_controller.zip"
+  filename      = "${path.cwd}/aws_controller.zip"
   function_name = "AVX_Platform_HA"
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "aws_controller.lambda_handler"
