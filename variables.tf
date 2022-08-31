@@ -23,7 +23,7 @@ variable "region" {
 
 variable "create_iam_roles" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "ec2_role_name" {
@@ -271,7 +271,7 @@ variable "dr_keypair" {
 variable "preemptive" {
   type        = bool
   description = "If it is true and when primary region controller is back online, the network automatically switches back to using that primary controller."
-  default     = true
+  default     = false
 }
 
 variable "zone_name" {

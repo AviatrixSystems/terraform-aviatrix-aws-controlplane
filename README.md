@@ -62,7 +62,7 @@ module "aws_controller_ha" {
 | cop_root_volume_size   | 2000                                       | Root volume disk size for CoPilot                                                                                                             |
 | cop_root_volume_type   | gp3                                        | Root volume type for CoPilot                                                                                                                  |
 | copilot_name           |                                            | Name of CoPilot                                                                                                                               |
-| create_iam_roles       | false                                      | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
+| create_iam_roles       | true                                      | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
 | dr_keypair             |                                            | Key pair which should be used by DR Controller                                                                                                |
 | dr_region              | ""                                         | Region to deploy the DR Controller                                                                                                            |
 | dr_subnet_names        |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
@@ -76,7 +76,7 @@ module "aws_controller_ha" {
 | keypair                |                                            | Key pair which should be used by Controller.                                                                                                  |
 | license_type           | BYOL                                       | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'.                                                                                |
 | name_prefix            | avx                                        | Additional name prefix for resources created by this module                                                                                   |
-| preemptive             | true                                       | Whether to switch back to the primary Controller when it comes back online.                                                                   |
+| preemptive             | false                                       | Whether to switch back to the primary Controller when it comes back online.                                                                   |
 | record_name            | true                                       | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.     |
 | region                 |                                            | Region to deploy the Controller and CoPilot                                                                                                   |
 | root_volume_size       | 64                                         | Root volume disk size for Controller                                                                                                          |
