@@ -126,8 +126,8 @@ resource "aws_lambda_function" "lambda" {
     variables = var.ha_distribution == "inter-region" ? ({
       AVIATRIX_TAG      = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG  = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
-      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
-      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
+      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
+      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
       CTRL_INIT_VER     = var.controller_version,
       VPC_ID            = var.vpc,
       EIP               = aws_eip.controller_eip.public_ip,
@@ -147,8 +147,8 @@ resource "aws_lambda_function" "lambda" {
       }) : ({
       AVIATRIX_TAG      = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG  = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
-      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
-      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
+      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
+      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
       CTRL_INIT_VER     = var.controller_version,
       VPC_ID            = var.vpc,
       EIP               = aws_eip.controller_eip.public_ip,
@@ -225,7 +225,7 @@ resource "aws_launch_template" "avtx-controller" {
   ebs_optimized = true
 
   iam_instance_profile {
-    name = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name
+    name = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
   }
 
   image_id                             = local.ami_id
@@ -338,8 +338,8 @@ resource "aws_lambda_function" "dr_lambda" {
     variables = {
       AVIATRIX_TAG      = aws_launch_template.dr_avtx-controller[0].tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG  = "None",
-      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-app-name : var.app_role_name,
-      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name,
+      AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
+      AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
       CTRL_INIT_VER     = var.controller_version,
       VPC_ID            = var.use_existing_vpc ? var.dr_vpc : aws_vpc.dr_vpc[0].id,
       EIP               = aws_eip.dr_controller_eip[0].public_ip,
@@ -427,7 +427,7 @@ resource "aws_launch_template" "dr_avtx-controller" {
   ebs_optimized = true
 
   iam_instance_profile {
-    name = var.create_iam_roles ? module.aviatrix-iam-roles.aviatrix-role-ec2-name : var.ec2_role_name
+    name = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
   }
 
   image_id                             = local.dr_ami_id
