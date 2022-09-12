@@ -70,7 +70,7 @@ module "aws_controller_ha" {
 | dr_vpc_cidr            | 10.0.0.0/24                                | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
 | dr_vpc_name            | ""                                         | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
 | ec2_role_name          | aviatrix-role-ec2                          | The name of the Aviatrix EC2 role                                                                                                             |
-| ha_distribution        | single_az                                  | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                              |
+| ha_distribution        | single-az                                  | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                              |
 | incoming_ssl_cidr      |                                            | Incoming CIDR for security group used by Controller                                                                                           |
 | instance_type          | t3.xlarge                                  | Controller instance size                                                                                                                      |
 | keypair                |                                            | Key pair which should be used by Controller.                                                                                                  |
@@ -95,7 +95,7 @@ module "aws_controller_ha" {
 
 ### Additional Information
 
-When an SNS HA event is triggered there are 3 scenarios depending on `autoscaling_source` and `autoscaling_destination` are set to:
+When an SNS HA event is triggered there are 3 scenarios depending on what `autoscaling_source` and `autoscaling_destination` are set to:
 
 1. When `autoscaling_source = EC2` and `autoscaling_destination = AutoScalingGroup`:
 
