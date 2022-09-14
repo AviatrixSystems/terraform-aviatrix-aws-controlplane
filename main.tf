@@ -102,7 +102,7 @@ resource "null_resource" "lambda" {
     cd lambda
     zip -r ../aws_controller.zip .
     cd ..
-    zip -g aws_controller.zip aws_controller.py
+    zip -gj aws_controller.zip ${path.module}/aws_controller.py
     rm -rf lambda
     EOT
   }
