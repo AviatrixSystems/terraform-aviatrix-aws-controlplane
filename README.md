@@ -33,7 +33,8 @@ The module will create the following:
 
 ```
 module "aws_controller_ha" {
-  source              = "github.com/rlee-aviatrix/AWS_Controller?ref=inter-region"
+  source              = "github.com/aviatrix-automation/AWS_Controller?ref=inter-region"
+  # source              = "github.com/rlee-aviatrix/AWS_Controller?ref=inter-region"
   region              = "us-east-1"
   dr_region           = "us-east-2"
   keypair             = "keypair1"
