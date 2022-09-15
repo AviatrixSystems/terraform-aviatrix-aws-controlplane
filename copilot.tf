@@ -9,7 +9,6 @@ resource "aws_launch_template" "avtx-copilot" {
       volume_size           = var.cop_root_volume_size
       volume_type           = var.cop_root_volume_type
       delete_on_termination = false
-      #      encrypted   = true
     }
   }
 
@@ -57,7 +56,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     version = "$Latest"
   }
 
-  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id,aws_subnet.subnet_ha[0].id])
+  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
   target_group_arns   = [aws_lb_target_group.avtx-copilot.arn]
 
   initial_lifecycle_hook {
@@ -75,7 +74,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     value               = "copilot"
     propagate_at_launch = true
   }
-  wait_for_capacity_timeout = "20m"
+  wait_for_capacity_timeout = "30m"
   timeouts {
     delete = "15m"
   }
@@ -144,7 +143,7 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   })
 }
 
-resource aws_eip copilot_eip {
+resource "aws_eip" "copilot_eip" {
   vpc  = true
   tags = local.common_tags
 }
