@@ -315,8 +315,8 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
 
     env_dict = {
         'ADMIN_EMAIL':os.environ.get('ADMIN_EMAIL',''),
-        'PRIMARY_ACC_NAME':os.environ.get('PRIMARY_ACC_NAME'),
-        'CTRL_INIT_VER':os.environ.get('CTRL_INIT_VER'),
+        'PRIMARY_ACC_NAME':os.environ.get('PRIMARY_ACC_NAME',''),
+        'CTRL_INIT_VER':os.environ.get('CTRL_INIT_VER',''),
         'EIP': eip,
         'COP_EIP': os.environ.get('COP_EIP'),
         'VPC_ID': vpc_id,
@@ -1209,6 +1209,11 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                     cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
                 except AvxError:  # It might not succeed since apache2 could restart
                     print("Cannot connect to the controller")
+                    duplicate, sg_modified = temp_add_security_group_access(client, controller_instanceobj,
+                                                                            api_private_access)
+                    print("default rule is %s present %s" %
+                          ("already" if duplicate else "not",
+                           "" if duplicate else ". Modified Security group %s" % sg_modified))
                     sleep = False
                     time.sleep(INITIAL_SETUP_DELAY)
                     total_time += INITIAL_SETUP_DELAY
@@ -1279,7 +1284,6 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                 # DB restore
                 if os.environ.get("CUSTOMER_ID"):  # Support for migration to BYOL
                     set_customer_id(cid, controller_api_ip)
-                print("Im here as well")
                 response_json = restore_backup(cid, controller_api_ip, s3_file, temp_acc_name)
                 print(response_json)
 
@@ -1338,7 +1342,7 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
         response = asg_client.complete_lifecycle_action(
                         AutoScalingGroupName=sns_msg_json['AutoScalingGroupName'],
                         LifecycleActionResult='CONTINUE',
-                        LifecycleActionToken=sns_msg_json['LifecycleActionToken'],
+                        InstanceId=sns_msg_json['EC2InstanceId'],
                         LifecycleHookName=sns_msg_json['LifecycleHookName'])
 
         print(f"Complete lifecycle action response {response}")
