@@ -812,7 +812,7 @@ def setup_ctrl_backup(controller_ip,cid,acc_name,now=None):
                  "account_name":acc_name,
                  "bucket_name":os.environ.get('S3_BUCKET_BACK'),
                  "multiple":"true",
-                 "region":"us-east-1",
+                 "region":os.environ.get('S3_BUCKET_REGION'),
                  "now":now
                  }
 
