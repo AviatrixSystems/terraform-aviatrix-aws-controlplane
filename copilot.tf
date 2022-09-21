@@ -93,7 +93,7 @@ resource "aws_lb_listener" "avtx-copilot" {
 }
 
 resource "aws_lb_target_group" "avtx-copilot" {
-  name     = "${local.name_prefix}-copilot"
+  name     = "${local.name_prefix}copilot"
   port     = 443
   protocol = "TCP"
   vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id

@@ -25,7 +25,7 @@ resource "aws_lb_listener" "avtx-ctrl" {
 }
 
 resource "aws_lb_target_group" "avtx-controller" {
-  name     = "${local.name_prefix}-controller"
+  name     = "${local.name_prefix}controller"
   port     = 443
   protocol = "TCP"
   vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
@@ -73,7 +73,7 @@ resource "aws_lb_listener" "dr_avtx-ctrl" {
 resource "aws_lb_target_group" "dr_avtx-controller" {
   count    = var.ha_distribution == "inter-region" ? 1 : 0
   provider = aws.region2
-  name     = "${local.name_prefix}-controller"
+  name     = "${local.name_prefix}controller"
   port     = 443
   protocol = "TCP"
   vpc_id   = var.use_existing_vpc ? var.dr_vpc : aws_vpc.dr_vpc[0].id
