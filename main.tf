@@ -278,7 +278,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   initial_lifecycle_hook {
     name                 = "init"
     default_result       = "CONTINUE"
-    heartbeat_timeout    = 600
+    heartbeat_timeout    = 900
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn
