@@ -13,7 +13,7 @@ module "region1" {
   create_iam_roles       = var.create_iam_roles
   ec2_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
   app_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
-  ha_distribution        = var.ha_distribution 
+  ha_distribution        = var.ha_distribution
   vpc_name               = var.vpc_name
   subnet_name            = var.subnet_name
   instance_type          = var.instance_type
@@ -81,9 +81,9 @@ module "region2" {
 # data "aws_caller_identity" "current" {}
 
 module "aviatrix-iam-roles" {
-  count         = var.create_iam_roles ? 1 : 0
+  count = var.create_iam_roles ? 1 : 0
   # source        = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles"
-  source = "./aviatrix-controller-iam-roles"
+  source        = "./aviatrix-controller-iam-roles"
   ec2_role_name = var.ec2_role_name
   app_role_name = var.app_role_name
 }
