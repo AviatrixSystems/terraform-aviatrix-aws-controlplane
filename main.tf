@@ -1,6 +1,7 @@
 module "region1" {
   source                 = "./region-build"
   region                 = var.region
+  dr_region              = var.dr_region
   vpc_cidr               = var.vpc_cidr
   admin_email            = var.admin_email
   asg_notif_email        = var.asg_notif_email
@@ -44,6 +45,7 @@ module "region2" {
   source                 = "./region-build"
   region                 = var.dr_region
   vpc_cidr               = var.dr_vpc_cidr
+  dr_region              = var.region
   admin_email            = var.admin_email
   asg_notif_email        = var.asg_notif_email
   incoming_ssl_cidr      = var.incoming_ssl_cidr
