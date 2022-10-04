@@ -81,7 +81,9 @@ def _lambda_handler(event, context):
         lambda_client = boto3.client('lambda')
 
     tmp_sg = os.environ.get('TMP_SG_GRP', '')
-    if tmp_sg and os.environ.get("STATE","") != 'INIT':
+    asg = json.loads(event["Records"][0]["Sns"]["Message"]).get("AutoScalingGroupName")
+    # This code only needs to run when the SNS event is from the Controller ASG
+    if tmp_sg and os.environ.get("STATE","") != 'INIT' and asg == os.environ.get('CTRL_ASG'):
         print("Lambda probably did not complete last time. Reverting sg %s" % tmp_sg)
         update_env_dict(lambda_client, context, {'TMP_SG_GRP': ''})
         restore_security_group_access(client, tmp_sg)
@@ -123,7 +125,7 @@ def _lambda_handler(event, context):
             if sns_msg_asg == os.environ.get('CTRL_ASG'):
                 handle_ctrl_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
             elif sns_msg_asg == os.environ.get('COP_ASG'):
-                handle_cop_ha_event (client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
+                handle_cop_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
                 
         if os.environ.get("INTER_REGION") == "True" and MetricName == "HealthyHostCount":
             if sns_msg_Ovalue == "OK" and sns_msg_Nvalue == "ALARM":
@@ -1356,7 +1358,7 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
         print('- Completed function -')
 
 
-def handle_cop_ha_event (client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
+def handle_cop_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
     try:
         instance_name = os.environ.get('AVIATRIX_COP_TAG')
         print(f"Copilot instance name: {instance_name}")
