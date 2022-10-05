@@ -224,10 +224,16 @@ def update_env_dict(lambda_client, context, replace_dict={}):
                                                 Environment={'Variables': env_dict})
     print("Updated environment dictionary")
     
-def update_dr_env_var(lambda_client, env_dict, context, replace_dict={}):
+def sync_env_var(lambda_client, env_dict, context, replace_dict={}):
     """ Update DR environment variables in lambda"""
     wait_function_update_successful(lambda_client, context.function_name)
+    #Removing empty key's from the env
+    empty_keys = [key for key,val in env_dict.items() if not val]
+    for key in empty_keys:
+        del env_dict[key]
+
     env_dict.update(replace_dict)
+
     print("Updating environment %s" % env_dict)
 
     lambda_client.update_function_configuration(FunctionName=context.function_name,
@@ -452,7 +458,7 @@ def is_backup_file_is_recent(backup_file):
         return False
 
 
-def retrieve_controller_version(version_file, ip_addr, cid):
+def retrieve_controller_version(version_file, ip_addr="", cid=""):
     """ Get the controller version from backup file"""
 
     print("Retrieving version from file " + str(version_file))
@@ -488,11 +494,8 @@ def retrieve_controller_version(version_file, ip_addr, cid):
     except (KeyboardInterrupt, IndexError, ValueError) as err:
         raise AvxError("Could not decode version") from err
     else:
-        print(f"Parsed version sucessfully {ctrl_version} and {ctrl_version_with_build}")
-        if is_upgrade_to_build_supported(ip_addr, cid):
-            return ctrl_version_with_build
-        else:
-            return ctrl_version
+        print(f"Parsed version sucessfully {ctrl_version_with_build}")
+        return ctrl_version_with_build
 
 def controller_version(ip_addr, cid):
     """ Check current build version"""
@@ -557,29 +560,6 @@ def upgrade_controller(ip_addr, cid, version=None):
         print(output)
         return output
 
-def is_upgrade_to_build_supported(ip_addr, cid):
-    """ Check if the version supports upgrade to build """
-
-    print("Checking if upgrade to build is suppported")
-    base_url = "https://" + ip_addr + "/v1/api"
-    post_data = {"CID": cid,
-                 "action": "get_feature_info"}
-    try:
-        response = requests.post(base_url, data=post_data, verify=False)
-        print(response.content)
-        response_json = json.loads(response.content)
-        if response_json.get("return") is True and \
-                response_json.get("results", {}) \
-                .get("allow_build_upgrade") is True:
-            print("Upgrade to build is supported")
-            return True
-    except requests.exceptions.ConnectionError as err:
-        print(str(err))
-    except (ValueError, TypeError):
-        print(f"json decode failed: {response.content}")
-    print("Upgrade to build is not supported")
-
-    return False
 
 def get_initial_setup_status(ip_addr, cid):
     """ Get status of the initial setup completion execution"""
@@ -989,9 +969,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
     creds = get_ssm_creds('us-east-1')
     try:
         if not dr_duplicate:
-            update_dr_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
+            sync_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
         else:
-            update_dr_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
+            sync_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
         #while total_time <= MAX_LOGIN_TIMEOUT:
         while time.time() - start_time < HANDLE_HA_TIMEOUT:
             try:
@@ -1047,7 +1027,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
         if not dr_duplicate:
             print(f"Reverting sg {dr_sg_modified}")
             restore_security_group_access(dr_client, dr_sg_modified)
-        update_dr_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
+        sync_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
         print('- Completed function -')
                 
 def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
@@ -1213,7 +1193,7 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                     print("Cannot connect to the controller")
                     duplicate, sg_modified = temp_add_security_group_access(client, controller_instanceobj,
                                                                             api_private_access)
-                    print("default rule is %s present %s" %
+                    print("Default rule is %s present %s" %
                           ("already" if duplicate else "not",
                            "" if duplicate else ". Modified Security group %s" % sg_modified))
                     sleep = False
@@ -1282,6 +1262,18 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                     created_temp_acc = True
                 elif "already exists" in response_json.get('reason', ''):
                     created_temp_acc = True
+                
+                # Verify controller version    
+                version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
+                s3_ctrl_version = retrieve_controller_version(version_file)
+                print(f"Controller version fetched from S3: {s3_ctrl_version}")
+                ctrl_ver = controller_version(controller_api_ip, cid)
+                if s3_ctrl_version != ctrl_ver:
+                    print(f"Controller version fetched from S3 doesnt match with controller version: {ctrl_ver}")
+                    print(f"Upgrading controller to {s3_ctrl_version}")
+                    upgrade_controller(controller_api_ip, cid, s3_ctrl_version)
+                    print("login to the controller again !!")
+                    cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
 
                 # DB restore
                 if os.environ.get("CUSTOMER_ID"):  # Support for migration to BYOL
@@ -1350,8 +1342,8 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
         print(f"Complete lifecycle action response {response}")
         if not duplicate:
             print(f"Reverting sg {sg_modified}")
-            if asg_orig == "EC2" and asg_dest == "AutoScalingGroup":
-                update_env_dict(lambda_client, context, {'TMP_SG_GRP': ''})
+            env = lambda_client.get_function_configuration(FunctionName=context.function_name)['Environment']['Variables']
+            sync_env_var(lambda_client, env, context, {'TMP_SG_GRP': ''})
             restore_security_group_access(client, sg_modified)
         else:
             update_env_dict(lambda_client, context)
