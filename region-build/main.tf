@@ -216,7 +216,8 @@ resource "aws_security_group_rule" "ingress_rule" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = var.ha_distribution == "inter-region" ? concat(var.incoming_ssl_cidr, data.aws_ip_ranges.health_check_ip_range[0].cidr_blocks, tolist([var.vpc_cidr])) : concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
+  # cidr_blocks       = var.ha_distribution == "inter-region" ? concat(var.incoming_ssl_cidr, data.aws_ip_ranges.health_check_ip_range[0].cidr_blocks, tolist([var.vpc_cidr])) : concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixSecurityGroup.id
   description       = "DO NOT DELETE"
 }
@@ -563,10 +564,10 @@ resource "aws_lambda_permission" "with_sns" {
 #   name  = var.zone_name
 # }
 
-data "aws_ip_ranges" "health_check_ip_range" {
-  count    = var.ha_distribution == "inter-region" ? 1 : 0
-  services = ["route53_healthchecks"]
-}
+# data "aws_ip_ranges" "health_check_ip_range" {
+#   count    = var.ha_distribution == "inter-region" ? 1 : 0
+#   services = ["route53_healthchecks"]
+# }
 
 # resource "aws_route53_record" "avx_primary" {
 #   count          = var.ha_distribution == "inter-region" ? 1 : 0

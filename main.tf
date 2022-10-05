@@ -616,34 +616,37 @@ resource "null_resource" "lambda" {
 # }
 
 
-# data "aws_route53_zone" "avx_zone" {
-#   count = var.ha_distribution == "inter-region" ? 1 : 0
-#   name  = var.zone_name
-# }
+data "aws_route53_zone" "avx_zone" {
+  count = var.ha_distribution == "inter-region" ? 1 : 0
+  name  = var.zone_name
+}
 
 # data "aws_ip_ranges" "health_check_ip_range" {
 #   count    = var.ha_distribution == "inter-region" ? 1 : 0
 #   services = ["route53_healthchecks"]
 # }
 
-# resource "aws_route53_record" "avx_primary" {
-#   count          = var.ha_distribution == "inter-region" ? 1 : 0
-#   zone_id        = data.aws_route53_zone.avx_zone[0].zone_id
-#   name           = var.record_name
-#   type           = "A"
-#   set_identifier = "${var.dr_region}-avx-controller"
+resource "aws_route53_record" "avx_primary" {
+  count          = var.ha_distribution == "inter-region" ? 1 : 0
+  zone_id        = data.aws_route53_zone.avx_zone[0].zone_id
+  name           = var.record_name
+  type           = "A"
+  # set_identifier = "${var.region}-avx-controller"
 
-#   alias {
-#     zone_id                = aws_lb.avtx-controller.zone_id
-#     name                   = aws_lb.avtx-controller.dns_name
-#     evaluate_target_health = true
-#   }
+  alias {
+    # zone_id                = aws_lb.avtx-controller.zone_id
+    # name                   = aws_lb.avtx-controller.dns_name
+    # evaluate_target_health = true
+    zone_id                = module.region1.lb.zone_id
+    name                   = module.region1.lb.dns_name
+    evaluate_target_health = false
+  }
 
-#   failover_routing_policy {
-#     type = "PRIMARY"
-#   }
-#   health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
-# }
+  # failover_routing_policy {
+  #   type = "PRIMARY"
+  # }
+  # health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
+}
 
 # resource "aws_route53_record" "avx_secondary" {
 #   count          = var.ha_distribution == "inter-region" ? 1 : 0
