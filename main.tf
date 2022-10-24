@@ -35,6 +35,8 @@ module "region1" {
   license_type           = var.license_type
   preemptive             = var.preemptive
   iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary = var.region
+  inter_region_standby = var.dr_region
 }
 
 module "region2" {
@@ -78,6 +80,8 @@ module "region2" {
   license_type           = var.license_type
   preemptive             = var.preemptive
   iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary = var.region
+  inter_region_standby = var.dr_region
 }
 
 # data "aws_caller_identity" "current" {}

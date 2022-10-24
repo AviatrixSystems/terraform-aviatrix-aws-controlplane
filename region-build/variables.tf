@@ -292,3 +292,15 @@ variable "iam_for_lambda_arn" {
   type        = string
   description = "The ARN of the IAM for Lambda"
 }
+
+variable "inter_region_primary" {
+  type        = string
+  description = "For the inter-region scenario, this is the primary region."
+  default     = ""
+}
+
+variable "inter_region_standby" {
+  type        = string
+  description = "For the inter-region scenario, this is the standby region."
+  default     = ""
+}

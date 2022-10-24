@@ -127,17 +127,21 @@ def _lambda_handler(event, context):
             elif sns_msg_asg == os.environ.get('COP_ASG'):
                 handle_cop_ha_event(client, lambda_client, event, context, sns_msg_inst, sns_msg_orig, sns_msg_dest)
                 
-        if os.environ.get("INTER_REGION") == "True" and MetricName == "HealthyHostCount":
-            if sns_msg_Ovalue == "OK" and sns_msg_Nvalue == "ALARM":
-                print("-## Route 53 Failover to DR Occured ##-")
-                pri_region = sns_region
-                dr_region = os.environ.get('DR_REGION')
-                handle_ctrl_inter_region_event(pri_region,dr_region,context)
-            if sns_msg_Ovalue == "ALARM" and sns_msg_Nvalue == "OK":
-                dr_region = sns_region
-                pri_region = os.environ.get('DR_REGION')
-                revert = True
-                handle_ctrl_inter_region_event(pri_region,dr_region,context, revert)
+        # if os.environ.get("INTER_REGION") == "True" and MetricName == "HealthyHostCount":
+        if os.environ.get("INTER_REGION") == "True":
+            pri_region = sns_region
+            dr_region = os.environ.get('DR_REGION')
+            handle_ctrl_inter_region_event(pri_region,dr_region,context)
+            # if sns_msg_Ovalue == "OK" and sns_msg_Nvalue == "ALARM":
+            #     print("-## Route 53 Failover to DR Occured ##-")
+            #     pri_region = sns_region
+            #     dr_region = os.environ.get('DR_REGION')
+            #     handle_ctrl_inter_region_event(pri_region,dr_region,context)
+            # if sns_msg_Ovalue == "ALARM" and sns_msg_Nvalue == "OK":
+            #     dr_region = sns_region
+            #     pri_region = os.environ.get('DR_REGION')
+            #     revert = True
+            #     handle_ctrl_inter_region_event(pri_region,dr_region,context, revert)
         elif sns_msg_event == "autoscaling:TEST_NOTIFICATION":
             print("Successfully received Test Event from ASG")
         elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
@@ -212,9 +216,13 @@ def update_env_dict(lambda_client, context, replace_dict={}):
     if os.environ.get("INTER_REGION") == "True":
         env_dict['DR_REGION'] = os.environ.get('DR_REGION')
         env_dict['PRIMARY_ACC_NAME'] = os.environ.get('PRIMARY_ACC_NAME')
-        env_dict['CTRL_INIT_VER'] = os.environ.get('CTRL_INIT_VER')
+        # env_dict['CTRL_INIT_VER'] = os.environ.get('CTRL_INIT_VER')
+        env_dict['CTRL_INIT_VER'] = os.environ.get('CTRL_INIT_VER', '')
         env_dict['ADMIN_EMAIL'] = os.environ.get('ADMIN_EMAIL')
         env_dict['PREEMPTIVE'] = os.environ.get('PREEMPTIVE','')
+        # Added by Ron
+        env_dict['ACTIVE_REGION'] = os.environ.get('ACTIVE_REGION')
+        env_dict['STANDBY_REGION'] = os.environ.get('STANDBY_REGION')
     wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
@@ -349,6 +357,9 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
     if os.environ.get("INTER_REGION") == "True":
         env_dict['DR_REGION'] = os.environ.get('DR_REGION')
         env_dict['PREEMPTIVE'] = os.environ.get('PREEMPTIVE','')
+        # Added by Ron
+        env_dict['ACTIVE_REGION'] = os.environ.get('ACTIVE_REGION')
+        env_dict['STANDBY_REGION'] = os.environ.get('STANDBY_REGION')
     print("Setting environment %s" % env_dict)
     wait_function_update_successful(lambda_client, context.function_name)
     lambda_client.update_function_configuration(FunctionName=context.function_name,
@@ -900,10 +911,7 @@ def set_admin_password(controller_ip,cid,old_admin_password):
 
     return output
 
-
 def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = False, preemptive = None):
-    start_time = time.time()
-    # 1. Fetching all env variables in between regions
     pri_client = boto3.client('ec2',pri_region)
     pri_lambda_client = boto3.client('lambda',pri_region)
     dr_client = boto3.client('ec2',dr_region)
@@ -912,123 +920,187 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
     pri_env = pri_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
     dr_env = dr_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
 
-    if revert == True:
-        if dr_env.get('STATE',"") == 'INIT':
-            raise AvxError(f"{dr_region} is not fully initialized")
-        elif pri_env.get('STATE',"") != 'ACTIVE':
-            print("- Route 53 False Positive Alarm or DR is not active -")
-            raise AvxError(f"{pri_region} is not Active")
+    print("Primary env: %s" % pri_env)
+    print("DR env %s" % dr_env)
+
+    # Check if this is the active region
+    if pri_env.get('ACTIVE_REGION') == pri_region:
+        print("This is the active region")
+        # a. Make sure Standby region env variable state in not INIT (Initialization mode).
+        if dr_env.get('STATE') != "INIT":
+            print("Standby is not in INIT STATE")
+            #   b. Make sure the Standby controller is on same version as backup or update it if needed.
+            #   c. Resore the backup on Standby region.
+            #   d. Migrate the controller.
+            #   e. Make the env variable active on standby region.
+            #   f. **Make the env variable standby on primary region.
+            #   g. Change the DNS record pointing to standby.
+
         else:
-            print("Initiating failback")
-    
-    # 2. Trying to find Instance in DR region
-    if dr_env['INST_ID']:
-        print(f"INST_ID: {dr_env['INST_ID']}")
-        dr_instanceobj = dr_client.describe_instances(
-                        Filters=[
-                            {'Name': 'instance-state-name', 'Values': ['running']},
-                            {'Name': 'instance-id', 'Values': [dr_env['INST_ID']]}]
-                            )['Reservations'][0]['Instances'][0]
-    elif dr_env['AVIATRIX_TAG']:
-        print(f"AVIATRIX_TAG : {dr_env['AVIATRIX_TAG']}")
-        dr_instanceobj = dr_client.describe_instances(
-                        Filters=[
-                            {'Name': 'instance-state-name', 'Values': ['running']},
-                            {'Name': 'tag:Name', 'Values': [dr_env['AVIATRIX_TAG']]}]
-                            )['Reservations'][0]['Instances'][0]
+            print("Standby is in INIT STATE")
+            # Figure out what to do?
+            # Just switch over
+            # Make sure we don't end up in an infinite loop.
+
+    # This is not the active region
     else:
-        raise AvxError(f"Cannot find Controller in {dr_region}")
+        print("This is not the active region")
+        #   a. Change the STATE to INIT
+        #   b. Initialize the controller with the version provided.
+        #   c. setup admin email.
+        #   d. change the admin credentials.
+        #   e. Delete the state or make it to none.
+
+    
+
+    # Check if the current region is Active or Standby
+
+# When a ASG event gets triggered:
+# 1. Check for env variable if its Inter-region enabled.
+# 2. Check if the current region is Active.
+#   a. Make sure Standby region env variable state in not INIT(Initialization mode).
+#   b. Make sure the Standby controller is on same version as backup or update it if needed.
+#   c. Resore the backup on Standby region.
+#   d. Migrate the controller.
+#   e. Make the env variable active on standby region.
+#   f. **Make the env variable standby on primary region.
+#   g. Change the DNS record pointing to standby.
+# 3. If the current region is Not active.
+#   a. Change the STATE to INIT
+#   b. Initialize the controller with the version provided.
+#   c. setup admin email.
+#   d. change the admin credentials.
+#   e. Delete the state or make it to none.
+
+
+# def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = False, preemptive = None):
+#     start_time = time.time()
+#     # 1. Fetching all env variables in between regions
+#     pri_client = boto3.client('ec2',pri_region)
+#     pri_lambda_client = boto3.client('lambda',pri_region)
+#     dr_client = boto3.client('ec2',dr_region)
+#     dr_lambda_client = boto3.client('lambda',dr_region)
+#     function_name = context.function_name
+#     pri_env = pri_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
+#     dr_env = dr_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
+
+#     if revert == True:
+#         if dr_env.get('STATE',"") == 'INIT':
+#             raise AvxError(f"{dr_region} is not fully initialized")
+#         elif pri_env.get('STATE',"") != 'ACTIVE':
+#             print("- Route 53 False Positive Alarm or DR is not active -")
+#             raise AvxError(f"{pri_region} is not Active")
+#         else:
+#             print("Initiating failback")
+    
+#     # 2. Trying to find Instance in DR region
+#     if dr_env['INST_ID']:
+#         print(f"INST_ID: {dr_env['INST_ID']}")
+#         dr_instanceobj = dr_client.describe_instances(
+#                         Filters=[
+#                             {'Name': 'instance-state-name', 'Values': ['running']},
+#                             {'Name': 'instance-id', 'Values': [dr_env['INST_ID']]}]
+#                             )['Reservations'][0]['Instances'][0]
+#     elif dr_env['AVIATRIX_TAG']:
+#         print(f"AVIATRIX_TAG : {dr_env['AVIATRIX_TAG']}")
+#         dr_instanceobj = dr_client.describe_instances(
+#                         Filters=[
+#                             {'Name': 'instance-state-name', 'Values': ['running']},
+#                             {'Name': 'tag:Name', 'Values': [dr_env['AVIATRIX_TAG']]}]
+#                             )['Reservations'][0]['Instances'][0]
+#     else:
+#         raise AvxError(f"Cannot find Controller in {dr_region}")
         
-    dr_private_ip = dr_instanceobj.get(
-                    'NetworkInterfaces')[0].get('PrivateIpAddress') 
-#    priv_ip = os.environ.get("PRIV_IP")
-    priv_ip = pri_env["PRIV_IP"]
-    print(f'Priv_ip : {priv_ip}')
-    print(f'dr_private_ip : {dr_private_ip}')
+#     dr_private_ip = dr_instanceobj.get(
+#                     'NetworkInterfaces')[0].get('PrivateIpAddress') 
+# #    priv_ip = os.environ.get("PRIV_IP")
+#     priv_ip = pri_env["PRIV_IP"]
+#     print(f'Priv_ip : {priv_ip}')
+#     print(f'dr_private_ip : {dr_private_ip}')
                     
-    # 3. Trying to find Instance in DR region
-    if is_region2_latest_backup_file(priv_ip, dr_private_ip):
-        s3_file = "CloudN_" + dr_private_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + dr_private_ip + "_save_cloudx_version.txt"
-    else:
-        s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
+#     # 3. Trying to find Instance in DR region
+#     if is_region2_latest_backup_file(priv_ip, dr_private_ip):
+#         s3_file = "CloudN_" + dr_private_ip + "_save_cloudx_config.enc"
+#         version_file = "CloudN_" + dr_private_ip + "_save_cloudx_version.txt"
+#     else:
+#         s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
+#         version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
                     
     
-    dr_api_ip = dr_instanceobj['PublicIpAddress']
-    print("DR API Access to Controller will use IP : " + str(dr_api_ip))
-    api_private_access = dr_env['API_PRIVATE_ACCESS']
+#     dr_api_ip = dr_instanceobj['PublicIpAddress']
+#     print("DR API Access to Controller will use IP : " + str(dr_api_ip))
+#     api_private_access = dr_env['API_PRIVATE_ACCESS']
     
-    # 4. Temp security group access
-    dr_duplicate, dr_sg_modified = temp_add_security_group_access(dr_client, dr_instanceobj,
-                                                            api_private_access)
-    print("0.0.0.0/0:443 rule is %s present %s" %
-          ("already" if dr_duplicate else "not",
-           "" if dr_duplicate else ". Modified Security group %s" % dr_sg_modified))
-    total_time = 0
-    creds = get_ssm_creds('us-east-1')
-    try:
-        if not dr_duplicate:
-            sync_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
-        else:
-            sync_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
-        #while total_time <= MAX_LOGIN_TIMEOUT:
-        while time.time() - start_time < HANDLE_HA_TIMEOUT:
-            try:
-                cid = login_to_controller(dr_api_ip, "admin", creds)
-                s3_ctrl_version = retrieve_controller_version(version_file, dr_api_ip, cid)
-            except Exception as err:
-                print(str(err))
-                print("Login failed, trying again in " + str(WAIT_DELAY))
-                total_time += WAIT_DELAY
-                time.sleep(WAIT_DELAY)
-            else:
-                break
+#     # 4. Temp security group access
+#     dr_duplicate, dr_sg_modified = temp_add_security_group_access(dr_client, dr_instanceobj,
+#                                                             api_private_access)
+#     print("0.0.0.0/0:443 rule is %s present %s" %
+#           ("already" if dr_duplicate else "not",
+#            "" if dr_duplicate else ". Modified Security group %s" % dr_sg_modified))
+#     total_time = 0
+#     creds = get_ssm_creds('us-east-1')
+#     try:
+#         if not dr_duplicate:
+#             sync_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
+#         else:
+#             sync_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
+#         #while total_time <= MAX_LOGIN_TIMEOUT:
+#         while time.time() - start_time < HANDLE_HA_TIMEOUT:
+#             try:
+#                 cid = login_to_controller(dr_api_ip, "admin", creds)
+#                 s3_ctrl_version = retrieve_controller_version(version_file, dr_api_ip, cid)
+#             except Exception as err:
+#                 print(str(err))
+#                 print("Login failed, trying again in " + str(WAIT_DELAY))
+#                 total_time += WAIT_DELAY
+#                 time.sleep(WAIT_DELAY)
+#             else:
+#                 break
             
-        # 5. Upgrade controller if needed
-        if s3_ctrl_version != controller_version(dr_api_ip, cid):
-            print(f"Upgrading controller to {s3_ctrl_version}")
-            upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
+#         # 5. Upgrade controller if needed
+#         if s3_ctrl_version != controller_version(dr_api_ip, cid):
+#             print(f"Upgrading controller to {s3_ctrl_version}")
+#             upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
         
-        cid = login_to_controller(dr_api_ip, "admin", creds)    
-        response_json = restore_backup(cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"])
-        print(response_json)
-        if response_json['return'] == True:
-            failover = "completed"
+#         cid = login_to_controller(dr_api_ip, "admin", creds)    
+#         response_json = restore_backup(cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"])
+#         print(response_json)
+#         if response_json['return'] == True:
+#             failover = "completed"
         
-        # 5. Migrate IP
-        print("START: Migrate IP")
-        migrate = migrate_ip(dr_api_ip, cid, pri_env['EIP'])
-        print("END: Migrate IP")
+#         # 5. Migrate IP
+#         print("START: Migrate IP")
+#         migrate = migrate_ip(dr_api_ip, cid, pri_env['EIP'])
+#         print("END: Migrate IP")
 
-        # 6. Detach target group from asg if preemptive is False
-        if migrate.get('return', False) is True and not revert:
-            if pri_env["PREEMPTIVE"] == "False":
-                print("START: Detaching target group from ASG")
-                detach_autoscaling_target_group(pri_region, pri_env)
-                print("END: Detaching target group from ASG")
+#         # 6. Detach target group from asg if preemptive is False
+#         if migrate.get('return', False) is True and not revert:
+#             if pri_env["PREEMPTIVE"] == "False":
+#                 print("START: Detaching target group from ASG")
+#                 detach_autoscaling_target_group(pri_region, pri_env)
+#                 print("END: Detaching target group from ASG")
         
-        # 7. Terminate instance if revert is True
-        if revert == True:
-            print(f"START: Stopping instance in {pri_region}")
-            pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
-            print(f"END: Stopping instance in {pri_region}")
+#         # 7. Terminate instance if revert is True
+#         if revert == True:
+#             print(f"START: Stopping instance in {pri_region}")
+#             pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
+#             print(f"END: Stopping instance in {pri_region}")
 
 
-    finally:
-        if s3_ctrl_version and s3_ctrl_version != dr_env['CTRL_INIT_VER']:
-            init_ver = s3_ctrl_version
-        else:
-            init_ver = dr_env['CTRL_INIT_VER']
-        if failover and failover == "completed":
-            state = 'ACTIVE'
-        else:
-            state = ""
-        if not dr_duplicate:
-            print(f"Reverting sg {dr_sg_modified}")
-            restore_security_group_access(dr_client, dr_sg_modified)
-        sync_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
-        print('- Completed function -')
+#     finally:
+#         if s3_ctrl_version and s3_ctrl_version != dr_env['CTRL_INIT_VER']:
+#             init_ver = s3_ctrl_version
+#         else:
+#             init_ver = dr_env['CTRL_INIT_VER']
+#         if failover and failover == "completed":
+#             state = 'ACTIVE'
+#         else:
+#             state = ""
+#         if not dr_duplicate:
+#             print(f"Reverting sg {dr_sg_modified}")
+#             restore_security_group_access(dr_client, dr_sg_modified)
+#         sync_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
+#         print('- Completed function -')
                 
 def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_orig, asg_dest):
     """ Restores the backup by doing the following

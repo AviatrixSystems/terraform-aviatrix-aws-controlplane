@@ -164,6 +164,8 @@ resource "aws_lambda_function" "lambda" {
       INTER_REGION       = "True"
       DR_REGION          = var.dr_region
       PREEMPTIVE         = var.preemptive ? "True" : "False"
+      ACTIVE_REGION      = var.inter_region_primary
+      STANDBY_REGION     = var.inter_region_standby
       }) : ({
       AVIATRIX_TAG     = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
@@ -212,10 +214,10 @@ resource "aws_security_group" "AviatrixSecurityGroup" {
 }
 
 resource "aws_security_group_rule" "ingress_rule" {
-  type              = "ingress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
+  type      = "ingress"
+  from_port = 443
+  to_port   = 443
+  protocol  = "tcp"
   # cidr_blocks       = var.ha_distribution == "inter-region" ? concat(var.incoming_ssl_cidr, data.aws_ip_ranges.health_check_ip_range[0].cidr_blocks, tolist([var.vpc_cidr])) : concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
   cidr_blocks       = concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixSecurityGroup.id
