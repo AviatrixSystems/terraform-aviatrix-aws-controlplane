@@ -913,14 +913,14 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
     pri_env = pri_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
     dr_env = dr_lambda_client.get_function_configuration(FunctionName=function_name)['Environment']['Variables']
 
-    if revert == True:
-        if dr_env.get('STATE',"") == 'INIT':
-            raise AvxError(f"{dr_region} is not fully initialized")
-        elif pri_env.get('STATE',"") != 'ACTIVE':
-            print("- Route 53 False Positive Alarm or DR is not active -")
-            raise AvxError(f"{pri_region} is not Active")
-        else:
-            print("Initiating failback")
+    # if revert == True:
+    #     if dr_env.get('STATE',"") == 'INIT':
+    #         raise AvxError(f"{dr_region} is not fully initialized")
+    #     elif pri_env.get('STATE',"") != 'ACTIVE':
+    #         print("- Route 53 False Positive Alarm or DR is not active -")
+    #         raise AvxError(f"{pri_region} is not Active")
+    #     else:
+    #         print("Initiating failback")
     
     # 2. Trying to find Instance in DR region
     if dr_env.get('INST_ID'):
@@ -942,7 +942,6 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
         
     dr_private_ip = dr_instanceobj.get(
                     'NetworkInterfaces')[0].get('PrivateIpAddress') 
-#    priv_ip = os.environ.get("PRIV_IP")
     priv_ip = pri_env.get("PRIV_IP")
     print(f'Priv_ip : {priv_ip}')
     print(f'dr_private_ip : {dr_private_ip}')
@@ -991,6 +990,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
             print(f"Upgrading controller to {s3_ctrl_version}")
             upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
         
+        # Restore controller
         cid = login_to_controller(dr_api_ip, "admin", creds)    
         response_json = restore_backup(cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"])
         print(response_json)
@@ -1002,6 +1002,19 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
         migrate = migrate_ip(dr_api_ip, cid, pri_env['EIP'])
         print("END: Migrate IP")
 
+        current_active_region = pri_env.get('ACTIVE_REGION')
+        current_standby_region = pri_env.get('STANDBY_REGION')
+
+        # Ron: Make the env variable active on the standby region
+        print("RON: New code to update dr env")
+        sync_env_var(dr_lambda_client, dr_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+
+        # Ron: Make the env variable 
+        print("RON: New code to update primary env")
+        sync_env_var(pri_lambda_client, pri_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+
+
+
         # 6. Detach target group from asg if preemptive is False
         if migrate.get('return', False) is True and not revert:
             if pri_env["PREEMPTIVE"] == "False":
@@ -1009,11 +1022,11 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
                 detach_autoscaling_target_group(pri_region, pri_env)
                 print("END: Detaching target group from ASG")
         
-        # 7. Terminate instance if revert is True
-        if revert == True:
-            print(f"START: Stopping instance in {pri_region}")
-            pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
-            print(f"END: Stopping instance in {pri_region}")
+        # # 7. Terminate instance if revert is True
+        # if revert == True:
+        #     print(f"START: Stopping instance in {pri_region}")
+        #     pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
+        #     print(f"END: Stopping instance in {pri_region}")
 
 
     finally:
@@ -1378,7 +1391,8 @@ def handle_ctrl_ha_event(client, lambda_client, event, context, asg_inst, asg_or
                     print(f"Unable to set create cloud account - {response_json.get('reason', '')}")
 
                 if response_json.get('return', False) is True:
-                    if os.environ.get("INTER_REGION") == "True":
+                    # if os.environ.get("INTER_REGION") == "True":
+                    if os.environ.get("INTER_REGION") == "True" and priv_ip is not None:
                         print("Updating lambda configuration")
                         set_environ(client, lambda_client, controller_instanceobj, context, eip)
                         break
