@@ -967,84 +967,87 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
            "" if dr_duplicate else ". Modified Security group %s" % dr_sg_modified))
     total_time = 0
     creds = get_ssm_creds('us-east-1')
-    try:
-        if not dr_duplicate:
-            sync_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
-        else:
-            sync_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
-        #while total_time <= MAX_LOGIN_TIMEOUT:
-        while time.time() - start_time < HANDLE_HA_TIMEOUT:
-            try:
-                cid = login_to_controller(dr_api_ip, "admin", creds)
-                s3_ctrl_version = retrieve_controller_version(version_file, dr_api_ip, cid)
-            except Exception as err:
-                print(str(err))
-                print("Login failed, trying again in " + str(WAIT_DELAY))
-                total_time += WAIT_DELAY
-                time.sleep(WAIT_DELAY)
+
+    # Check if this is the Active or Standby region
+    if pri_region == pri_env.get("ACTIVE_REGION"):
+        print("RON: This event happened in the active region:", pri_env.get("ACTIVE_REGION"))
+
+        try:
+            if not dr_duplicate:
+                sync_env_var(dr_lambda_client, dr_env, context, {'TMP_SG_GRP': dr_sg_modified, 'STATE': 'INIT'})
             else:
-                break
+                sync_env_var(dr_lambda_client, dr_env, context, {'STATE': 'INIT'})
+            #while total_time <= MAX_LOGIN_TIMEOUT:
+            while time.time() - start_time < HANDLE_HA_TIMEOUT:
+                try:
+                    cid = login_to_controller(dr_api_ip, "admin", creds)
+                    s3_ctrl_version = retrieve_controller_version(version_file, dr_api_ip, cid)
+                except Exception as err:
+                    print(str(err))
+                    print("Login failed, trying again in " + str(WAIT_DELAY))
+                    total_time += WAIT_DELAY
+                    time.sleep(WAIT_DELAY)
+                else:
+                    break
+
+            # 5. Upgrade controller if needed
+            if s3_ctrl_version != controller_version(dr_api_ip, cid):
+                print(f"Upgrading controller to {s3_ctrl_version}")
+                upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
             
-        # 5. Upgrade controller if needed
-        if s3_ctrl_version != controller_version(dr_api_ip, cid):
-            print(f"Upgrading controller to {s3_ctrl_version}")
-            upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
-        
-        # Restore controller
-        cid = login_to_controller(dr_api_ip, "admin", creds)    
-        response_json = restore_backup(cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"])
-        print(response_json)
-        if response_json['return'] == True:
-            failover = "completed"
-        
-        # 5. Migrate IP
-        print("START: Migrate IP")
-        migrate = migrate_ip(dr_api_ip, cid, pri_env['EIP'])
-        print("END: Migrate IP")
+            # Restore controller
+            cid = login_to_controller(dr_api_ip, "admin", creds)    
+            response_json = restore_backup(cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"])
+            print(response_json)
+            if response_json['return'] == True:
+                failover = "completed"
+            
+            # 5. Migrate IP
+            print("START: Migrate IP")
+            migrate = migrate_ip(dr_api_ip, cid, pri_env['EIP'])
+            print("END: Migrate IP")
 
-        current_active_region = pri_env.get('ACTIVE_REGION')
-        current_standby_region = pri_env.get('STANDBY_REGION')
+            current_active_region = pri_env.get('ACTIVE_REGION')
+            current_standby_region = pri_env.get('STANDBY_REGION')
 
-        # Ron: Make the env variable active on the standby region
-        print("RON: New code to update dr env")
-        sync_env_var(dr_lambda_client, dr_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+            print("Update ACTIVE_REGION & STANDBY_REGION in DR Lambda environment variables")
+            sync_env_var(dr_lambda_client, dr_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
 
-        # Ron: Make the env variable 
-        print("RON: New code to update primary env")
-        sync_env_var(pri_lambda_client, pri_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+            print("Update ACTIVE_REGION & STANDBY_REGION in primary Lambda environment variables")
+            sync_env_var(pri_lambda_client, pri_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+
+            # 6. Detach target group from asg if preemptive is False
+            if migrate.get('return', False) is True and not revert:
+                if pri_env["PREEMPTIVE"] == "False":
+                    print("START: Detaching target group from ASG")
+                    detach_autoscaling_target_group(pri_region, pri_env)
+                    print("END: Detaching target group from ASG")
+            
+            # # 7. Terminate instance if revert is True
+            # if revert == True:
+            #     print(f"START: Stopping instance in {pri_region}")
+            #     pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
+            #     print(f"END: Stopping instance in {pri_region}")
+
+        finally:
+            if s3_ctrl_version and s3_ctrl_version != dr_env.get('CTRL_INIT_VER'):
+                init_ver = s3_ctrl_version
+            else:
+                init_ver = dr_env.get('CTRL_INIT_VER')
+            if failover and failover == "completed":
+                state = 'ACTIVE'
+            else:
+                state = ""
+            if not dr_duplicate:
+                print(f"Reverting sg {dr_sg_modified}")
+                restore_security_group_access(dr_client, dr_sg_modified)
+            sync_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
+            print('- Completed function -')
+                    
+    elif pri_region == pri_env.get("STANDBY_REGION"):
+        print("RON: This event happened in the standby region:", pri_env.get("STANDBY_REGION"))
 
 
-
-        # 6. Detach target group from asg if preemptive is False
-        if migrate.get('return', False) is True and not revert:
-            if pri_env["PREEMPTIVE"] == "False":
-                print("START: Detaching target group from ASG")
-                detach_autoscaling_target_group(pri_region, pri_env)
-                print("END: Detaching target group from ASG")
-        
-        # # 7. Terminate instance if revert is True
-        # if revert == True:
-        #     print(f"START: Stopping instance in {pri_region}")
-        #     pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
-        #     print(f"END: Stopping instance in {pri_region}")
-
-
-    finally:
-        if s3_ctrl_version and s3_ctrl_version != dr_env.get('CTRL_INIT_VER'):
-            init_ver = s3_ctrl_version
-        else:
-            init_ver = dr_env.get('CTRL_INIT_VER')
-        if failover and failover == "completed":
-            state = 'ACTIVE'
-        else:
-            state = ""
-        if not dr_duplicate:
-            print(f"Reverting sg {dr_sg_modified}")
-            restore_security_group_access(dr_client, dr_sg_modified)
-        sync_env_var(dr_lambda_client, dr_env, context, {'CTRL_INIT_VER':init_ver,'TMP_SG_GRP': '','STATE': state })
-        print('- Completed function -')
-                
-    
 
 # When a ASG event gets triggered:
 # 1. Check for env variable if its Inter-region enabled.
