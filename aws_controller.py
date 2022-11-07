@@ -1016,6 +1016,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
             print("Update ACTIVE_REGION & STANDBY_REGION in primary Lambda environment variables")
             sync_env_var(pri_lambda_client, pri_env, context, {'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
 
+            # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
+            os.environ.update({'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
+
             # 6. Detach target group from asg if preemptive is False
             if migrate.get('return', False) is True and not revert:
                 if pri_env["PREEMPTIVE"] == "False":
