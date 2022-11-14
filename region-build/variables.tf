@@ -275,18 +275,17 @@ variable "preemptive" {
   default     = false
 }
 
-# variable "zone_name" {
-#   type        = string
-#   description = "The exisitng route 53 zone name"
-#   default     = true
-# }
+variable "zone_name" {
+  type        = string
+  description = "The exisitng route 53 zone name"
+  default     = true
+}
 
-# variable "record_name" {
-#   type        = string
-#   description = "The record name to be created under exisitng route 53 zone"
-#   default     = true
-# }
-
+variable "record_name" {
+  type        = string
+  description = "The record name to be created under exisitng route 53 zone"
+  default     = true
+}
 
 variable "iam_for_lambda_arn" {
   type        = string

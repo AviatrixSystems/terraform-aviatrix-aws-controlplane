@@ -35,8 +35,10 @@ module "region1" {
   license_type           = var.license_type
   preemptive             = var.preemptive
   iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
-  inter_region_primary = var.region
-  inter_region_standby = var.dr_region
+  inter_region_primary   = var.region
+  inter_region_standby   = var.dr_region
+  zone_name              = var.zone_name
+  record_name            = var.record_name
 }
 
 module "region2" {
@@ -80,8 +82,10 @@ module "region2" {
   license_type           = var.license_type
   preemptive             = var.preemptive
   iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
-  inter_region_primary = var.region
-  inter_region_standby = var.dr_region
+  inter_region_primary   = var.region
+  inter_region_standby   = var.dr_region
+  zone_name              = var.zone_name
+  record_name            = var.record_name
 }
 
 # data "aws_caller_identity" "current" {}
@@ -631,10 +635,10 @@ data "aws_route53_zone" "avx_zone" {
 # }
 
 resource "aws_route53_record" "avx_primary" {
-  count          = var.ha_distribution == "inter-region" ? 1 : 0
-  zone_id        = data.aws_route53_zone.avx_zone[0].zone_id
-  name           = var.record_name
-  type           = "A"
+  count   = var.ha_distribution == "inter-region" ? 1 : 0
+  zone_id = data.aws_route53_zone.avx_zone[0].zone_id
+  name    = var.record_name
+  type    = "A"
   # set_identifier = "${var.region}-avx-controller"
 
   alias {
