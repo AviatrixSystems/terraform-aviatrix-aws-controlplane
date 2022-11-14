@@ -214,6 +214,8 @@ def update_env_dict(lambda_client, context, replace_dict={}):
         # Added by Ron
         env_dict['ACTIVE_REGION'] = os.environ.get('ACTIVE_REGION')
         env_dict['STANDBY_REGION'] = os.environ.get('STANDBY_REGION')
+        env_dict['ZONE_NAME'] = os.environ.get('ZONE_NAME')
+        env_dict['RECORD_NAME'] = os.environ.get('RECORD_NAME')
     wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
@@ -351,6 +353,8 @@ def set_environ(client, lambda_client, controller_instanceobj, context,
         # Added by Ron
         env_dict['ACTIVE_REGION'] = os.environ.get('ACTIVE_REGION')
         env_dict['STANDBY_REGION'] = os.environ.get('STANDBY_REGION')
+        env_dict['ZONE_NAME'] = os.environ.get('ZONE_NAME')
+        env_dict['RECORD_NAME'] = os.environ.get('RECORD_NAME')
     print("Setting environment %s" % env_dict)
     wait_function_update_successful(lambda_client, context.function_name)
     lambda_client.update_function_configuration(FunctionName=context.function_name,
