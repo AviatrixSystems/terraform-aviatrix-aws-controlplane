@@ -146,13 +146,18 @@ resource "aws_iam_policy" "lambda-policy" {
         "autoscaling:DescribeLoadBalancerTargetGroups",
         "autoscaling:DetachLoadBalancerTargetGroups",
         "autoscaling:CompleteLifecycleAction",
+        "autoscaling:DescribeAutoScalingGroups",
         "cloudwatch:DescribeAlarmHistory",
         "ssm:SendCommand",
         "ssm:ListCommandInvocations",
         "iam:PassRole",
         "s3:GetBucketLocation",
         "s3:ListBucket",
-        "s3:GetObject"
+        "s3:GetObject",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListHostedZonesByName",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups"
       ],
       "Resource": "*"
     },
