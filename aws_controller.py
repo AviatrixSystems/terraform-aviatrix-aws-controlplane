@@ -906,6 +906,68 @@ def set_admin_password(controller_ip,cid,old_admin_password):
 
     return output
 
+
+# Given an ASG name, returns the DNS Name of the LB
+def get_lb_dns_name(asg_name, region):
+    as_client = boto3.client("autoscaling", region_name=region)
+    elb_client = boto3.client("elbv2", region_name=region)
+
+    response = as_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])
+    target_group_arns = response["AutoScalingGroups"][0]["TargetGroupARNs"]
+    response = elb_client.describe_target_groups(TargetGroupArns=target_group_arns)
+    lb_arns = response["TargetGroups"][0]["LoadBalancerArns"]
+    response = elb_client.describe_load_balancers(LoadBalancerArns=lb_arns)
+    lb_dns_name = response["LoadBalancers"][0]["DNSName"]
+    return lb_dns_name
+
+
+# Given an ASG name, returns the hosted zone ID of the LB
+def get_lb_hosted_zone_id(asg_name, region):
+    as_client = boto3.client("autoscaling", region_name=region)
+    elb_client = boto3.client("elbv2", region_name=region)
+
+    response = as_client.describe_auto_scaling_groups(AutoScalingGroupNames=[asg_name])
+    target_group_arns = response["AutoScalingGroups"][0]["TargetGroupARNs"]
+    response = elb_client.describe_target_groups(TargetGroupArns=target_group_arns)
+    lb_arns = response["TargetGroups"][0]["LoadBalancerArns"]
+    response = elb_client.describe_load_balancers(LoadBalancerArns=lb_arns)
+    lb_hosted_zone_id = response["LoadBalancers"][0]["CanonicalHostedZoneId"]
+    return lb_hosted_zone_id
+
+
+def update_record(zone_name, record_name, asg_name, region):
+    route53_client = boto3.client("route53")
+
+    # Get the hosted zone ID
+    response = route53_client.list_hosted_zones_by_name(DNSName=zone_name)
+    hosted_zone_id = response["HostedZones"][0]["Id"]
+
+    # Get LB hosted zone id and dns name
+    lb_hosted_zone_id = get_lb_hosted_zone_id(asg_name, region)
+    lb_dns_name = get_lb_dns_name(asg_name, region)
+
+    # Update Route 53
+    response = route53_client.change_resource_record_sets(
+        HostedZoneId=hosted_zone_id,
+        ChangeBatch={
+            "Changes": [
+                {
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                        "Name": record_name,
+                        "Type": "A",
+                        "AliasTarget": {
+                            "HostedZoneId": lb_hosted_zone_id,
+                            "DNSName": lb_dns_name,
+                            "EvaluateTargetHealth": False,
+                        },
+                    },
+                }
+            ]
+        },
+    )
+
+
 def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = False, preemptive = None):
     start_time = time.time()
     # 1. Fetching all env variables in between regions
@@ -974,7 +1036,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
 
     # Check if this is the Active or Standby region
     if pri_region == pri_env.get("ACTIVE_REGION"):
-        print("RON: This event happened in the active region:", pri_env.get("ACTIVE_REGION"))
+        print("This event happened in the active region:", pri_env.get("ACTIVE_REGION"))
 
         try:
             if not dr_duplicate:
@@ -1023,6 +1085,10 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
             # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
             os.environ.update({'ACTIVE_REGION': current_standby_region, 'STANDBY_REGION': current_active_region})
 
+            # Update Route 53
+            update_record(pri_env.get('ZONE_NAME'), pri_env.get('RECORD_NAME'), pri_env.get('CTRL_ASG'), dr_region)
+            print("Updating %s to point to the LB in %s" % (pri_env.get('RECORD_NAME'), dr_region))
+
             # 6. Detach target group from asg if preemptive is False
             if migrate.get('return', False) is True and not revert:
                 if pri_env["PREEMPTIVE"] == "False":
@@ -1052,7 +1118,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region, context, revert = Fals
             print('- Completed function -')
                     
     elif pri_region == pri_env.get("STANDBY_REGION"):
-        print("RON: This event happened in the standby region:", pri_env.get("STANDBY_REGION"))
+        print("This event happened in the standby region:", pri_env.get("STANDBY_REGION"))
 
 
 
