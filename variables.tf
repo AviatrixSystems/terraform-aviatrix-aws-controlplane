@@ -260,7 +260,7 @@ variable "dr_subnet_names" {
 
 variable "dr_vpc_cidr" {
   type    = string
-  default = "10.0.0.0/24"
+  default = "10.0.1.0/24"
 }
 
 variable "dr_keypair" {
