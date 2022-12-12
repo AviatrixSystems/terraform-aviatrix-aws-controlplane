@@ -39,6 +39,7 @@ module "region1" {
   inter_region_standby   = var.dr_region
   zone_name              = var.zone_name
   record_name            = var.record_name
+  inter_region_backup_enabled = var.inter_region_backup_enabled
 }
 
 module "region2" {
@@ -86,12 +87,13 @@ module "region2" {
   inter_region_standby   = var.dr_region
   zone_name              = var.zone_name
   record_name            = var.record_name
+  inter_region_backup_enabled = var.inter_region_backup_enabled
 }
 
 # data "aws_caller_identity" "current" {}
 
 module "aviatrix-iam-roles" {
-  count = var.create_iam_roles ? 1 : 0
+  count         = var.create_iam_roles ? 1 : 0
   source        = "./aviatrix-controller-iam-roles"
   ec2_role_name = var.ec2_role_name
   app_role_name = var.app_role_name

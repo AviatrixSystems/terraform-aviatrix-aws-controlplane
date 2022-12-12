@@ -256,6 +256,9 @@ def update_env_dict(lambda_client, context, replace_dict={}):
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
         env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
         env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
+        env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
+            "INTER_REGION_BACKUP_ENABLED"
+        )
     wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
@@ -407,6 +410,9 @@ def set_environ(client, lambda_client, controller_instanceobj, context, eip=None
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
         env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
         env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
+        env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
+            "INTER_REGION_BACKUP_ENABLED"
+        )
     print("Setting environment %s" % env_dict)
     wait_function_update_successful(lambda_client, context.function_name)
     lambda_client.update_function_configuration(
@@ -1588,13 +1594,39 @@ def handle_ctrl_ha_event(
                     )
 
                 if response_json.get("return", False) is True:
-                    # if os.environ.get("INTER_REGION") == "True":
-                    if os.environ.get("INTER_REGION") == "True" and priv_ip is not None:
-                        print("Updating lambda configuration")
-                        set_environ(
-                            client, lambda_client, controller_instanceobj, context, eip
-                        )
-                        break
+                    if os.environ.get("INTER_REGION") == "True":
+                        region = event["Records"][0]["Sns"]["TopicArn"].split(":")[3]
+                        # In the inter-region case, enable controller backups on
+                        # the primary controller if INTER_REGION_BACKUP_ENABLED is true
+                        if (
+                            os.environ.get("INTER_REGION_BACKUP_ENABLED") == "True"
+                            and os.environ.get("ACTIVE_REGION") == region
+                            and priv_ip is None
+                        ):
+                            response_json = setup_ctrl_backup(
+                                controller_api_ip,
+                                cid,
+                                os.environ.get("PRIMARY_ACC_NAME"),
+                            )
+                            print("Updating lambda configuration")
+                            set_environ(
+                                client,
+                                lambda_client,
+                                controller_instanceobj,
+                                context,
+                                eip,
+                            )
+                            break
+                        else:
+                            print("Updating lambda configuration")
+                            set_environ(
+                                client,
+                                lambda_client,
+                                controller_instanceobj,
+                                context,
+                                eip,
+                            )
+                            break
                     else:
                         response_json = setup_ctrl_backup(
                             controller_api_ip, cid, os.environ.get("PRIMARY_ACC_NAME")
@@ -1610,7 +1642,7 @@ def handle_ctrl_ha_event(
                     )
                     break
 
-                # print(response_json)
+            # print(response_json)
 
             print(f"initial_setup_complete = {initial_setup_complete}")
             print(f"priv_ip= {priv_ip}")

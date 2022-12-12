@@ -285,3 +285,9 @@ variable "record_name" {
   description = "The record name to be created under exisitng route 53 zone"
   default     = true
 }
+
+variable "inter_region_backup_enabled" {
+  type        = bool
+  description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
+  default     = false
+}

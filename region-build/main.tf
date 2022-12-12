@@ -56,6 +56,7 @@ resource "aws_lambda_function" "lambda" {
       STANDBY_REGION     = var.inter_region_standby
       ZONE_NAME          = var.zone_name
       RECORD_NAME        = var.record_name
+      INTER_REGION_BACKUP_ENABLED = var.inter_region_backup_enabled ? "True" : "False"
       }) : ({
       AVIATRIX_TAG     = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
       AVIATRIX_COP_TAG = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,

@@ -275,3 +275,9 @@ variable "inter_region_standby" {
   description = "For the inter-region scenario, this is the standby region."
   default     = ""
 }
+
+variable "inter_region_backup_enabled" {
+  type        = bool
+  description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
+  default     = false
+}
