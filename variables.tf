@@ -260,7 +260,7 @@ variable "dr_subnet_names" {
 
 variable "dr_vpc_cidr" {
   type    = string
-  default = "10.0.0.0/24"
+  default = "10.0.1.0/24"
 }
 
 variable "dr_keypair" {
@@ -284,4 +284,10 @@ variable "record_name" {
   type        = string
   description = "The record name to be created under exisitng route 53 zone"
   default     = true
+}
+
+variable "inter_region_backup_enabled" {
+  type        = bool
+  description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
+  default     = false
 }
