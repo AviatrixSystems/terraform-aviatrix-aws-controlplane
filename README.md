@@ -33,8 +33,7 @@ The module will create the following:
 
 ```
 module "aws_controller_ha" {
-  source              = "github.com/aviatrix-automation/AWS_Controller?ref=inter-region"
-  # source              = "github.com/rlee-aviatrix/AWS_Controller?ref=inter-region"
+  source              = "github.com/aviatrix-automation/AWS_Controller"
   region              = "us-east-1"
   dr_region           = "us-east-2"
   keypair             = "keypair1"
@@ -50,49 +49,50 @@ module "aws_controller_ha" {
 
 ### Variables
 
-| Key                    | Default Value                              | Description                                                                                                                                   |
-| ---------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| access_account_name    |                                            | A friendly name mapping to your AWS account ID                                                                                                |
-| admin_email            |                                            | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.    |
-| asg_notif_email        |                                            | The email address for Controller failover notifications                                                                                       |
-| app_role_name          | aviatrix-role-app                          | The name of the Aviatrix App role                                                                                                             |
-| controller_version     | ""                                         | The initial version of the Aviatrix Controller at launch                                                                                      |
-| cop_allowed_cidrs      | TCP 443, UDP 5000, UDP 31283 for 0.0.0.0/0 | CoPilot allowed CIDRs                                                                                                                         |
-| cop_instance_type      | t3.2xlarge                                 | CoPilot instance size                                                                                                                         |
-| cop_type               | Copilot                                    | Type of billing, can be 'Copilot' or 'CopilotARM'                                                                                             |
-| cop_root_volume_size   | 2000                                       | Root volume disk size for CoPilot                                                                                                             |
-| cop_root_volume_type   | gp3                                        | Root volume type for CoPilot                                                                                                                  |
-| copilot_name           |                                            | Name of CoPilot                                                                                                                               |
-| create_iam_roles       | true                                       | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
-| dr_keypair             |                                            | Key pair which should be used by DR Controller                                                                                                |
-| dr_region              | ""                                         | Region to deploy the DR Controller                                                                                                            |
-| dr_subnet_names        |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
-| dr_vpc                 | ""                                         | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true).                                                                 |
-| dr_vpc_cidr            | 10.0.0.0/24                                | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
-| dr_vpc_name            | ""                                         | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
-| ec2_role_name          | aviatrix-role-ec2                          | The name of the Aviatrix EC2 role                                                                                                             |
-| ha_distribution        | single-az                                  | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                              |
-| incoming_ssl_cidr      |                                            | Incoming CIDR for security group used by Controller                                                                                           |
-| instance_type          | t3.xlarge                                  | Controller instance size                                                                                                                      |
-| keypair                |                                            | Key pair which should be used by Controller.                                                                                                  |
-| license_type           | BYOL                                       | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'.                                                                                |
-| name_prefix            | avx                                        | Additional name prefix for resources created by this module                                                                                   |
-| preemptive             | false                                      | Whether to switch back to the primary Controller when it comes back online.                                                                   |
-| record_name            | true                                       | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.     |
-| region                 |                                            | Region to deploy the Controller and CoPilot                                                                                                   |
-| root_volume_size       | 64                                         | Root volume disk size for Controller                                                                                                          |
-| root_volume_type       | gp3                                        | Root volume type for Controller                                                                                                               |
-| s3_backup_bucket       |                                            | S3 bucket for Controller DB backup                                                                                                            |
-| s3_backup_region       |                                            | Region S3 backup bucket is in                                                                                                                 |
-| subnet_name            | Aviatrix-Public-Subnet                     | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                 |
-| subnet_names           |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
-| tags                   |                                            | Map of common tags which should be used for module resources.                                                                                 |
-| termination_protection | true                                       | Whether to enable termination protection on the Controller, CoPilot and load balancers.                                                       |
-| use_existing_vpc       | false                                      | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                |
-| vpc                    | ""                                         | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                      |
-| vpc_cidr               | 10.0.0.0/24                                | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
-| vpc_name               | Aviatrix-VPC                               | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
-| zone_name              | true                                       | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                            |
+| Key                         | Default Value                              | Description                                                                                                                                   |
+| --------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| access_account_name         |                                            | A friendly name mapping to your AWS account ID                                                                                                |
+| admin_email                 |                                            | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.    |
+| asg_notif_email             |                                            | The email address for Controller failover notifications                                                                                       |
+| app_role_name               | aviatrix-role-app                          | The name of the Aviatrix App role                                                                                                             |
+| controller_version          | ""                                         | The initial version of the Aviatrix Controller at launch                                                                                      |
+| cop_allowed_cidrs           | TCP 443, UDP 5000, UDP 31283 for 0.0.0.0/0 | CoPilot allowed CIDRs                                                                                                                         |
+| cop_instance_type           | t3.2xlarge                                 | CoPilot instance size                                                                                                                         |
+| cop_type                    | Copilot                                    | Type of billing, can be 'Copilot' or 'CopilotARM'                                                                                             |
+| cop_root_volume_size        | 2000                                       | Root volume disk size for CoPilot                                                                                                             |
+| cop_root_volume_type        | gp3                                        | Root volume type for CoPilot                                                                                                                  |
+| copilot_name                |                                            | Name of CoPilot                                                                                                                               |
+| create_iam_roles            | true                                       | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
+| dr_keypair                  |                                            | Key pair which should be used by DR Controller                                                                                                |
+| dr_region                   | ""                                         | Region to deploy the DR Controller                                                                                                            |
+| dr_subnet_names             |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
+| dr_vpc                      | ""                                         | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true).                                                                 |
+| dr_vpc_cidr                 | 10.0.0.0/24                                | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
+| dr_vpc_name                 | ""                                         | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
+| ec2_role_name               | aviatrix-role-ec2                          | The name of the Aviatrix EC2 role                                                                                                             |
+| ha_distribution             | single-az                                  | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                              |
+| incoming_ssl_cidr           |                                            | Incoming CIDR for security group used by Controller                                                                                           |
+| instance_type               | t3.xlarge                                  | Controller instance size                                                                                                                      |
+| inter_region_backup_enabled | false                                      | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                  |
+| keypair                     |                                            | Key pair which should be used by Controller                                                                                                   |
+| license_type                | BYOL                                       | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                 |
+| name_prefix                 | avx                                        | Additional name prefix for resources created by this module                                                                                   |
+| preemptive                  | false                                      | Whether to switch back to the primary Controller when it comes back online.                                                                   |
+| record_name                 | true                                       | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.     |
+| region                      |                                            | Region to deploy the Controller and CoPilot                                                                                                   |
+| root_volume_size            | 64                                         | Root volume disk size for Controller                                                                                                          |
+| root_volume_type            | gp3                                        | Root volume type for Controller                                                                                                               |
+| s3_backup_bucket            |                                            | S3 bucket for Controller DB backup                                                                                                            |
+| s3_backup_region            |                                            | Region S3 backup bucket is in                                                                                                                 |
+| subnet_name                 | Aviatrix-Public-Subnet                     | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                 |
+| subnet_names                |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
+| tags                        |                                            | Map of common tags which should be used for module resources                                                                                  |
+| termination_protection      | true                                       | Whether to enable termination protection on the Controller, CoPilot and load balancers                                                        |
+| use_existing_vpc            | false                                      | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                |
+| vpc                         | ""                                         | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                      |
+| vpc_cidr                    | 10.0.0.0/24                                | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
+| vpc_name                    | Aviatrix-VPC                               | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                            |
+| zone_name                   | true                                       | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                            |
 
 ### Additional Information
 
