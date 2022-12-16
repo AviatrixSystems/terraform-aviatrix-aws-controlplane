@@ -1,14 +1,105 @@
-provider "aws" {
-  region = "us-east-1"
+module "region1" {
+  source                 = "./region-build"
+  region                 = var.region
+  dr_region              = var.dr_region
+  vpc_cidr               = var.vpc_cidr
+  admin_email            = var.admin_email
+  asg_notif_email        = var.asg_notif_email
+  incoming_ssl_cidr      = var.incoming_ssl_cidr
+  keypair                = var.keypair
+  access_account_name    = var.access_account_name
+  s3_backup_bucket       = var.s3_backup_bucket
+  s3_backup_region       = var.s3_backup_region
+  termination_protection = var.termination_protection
+  create_iam_roles       = var.create_iam_roles
+  ec2_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
+  app_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
+  ha_distribution        = var.ha_distribution
+  vpc_name               = var.vpc_name
+  subnet_name            = var.subnet_name
+  instance_type          = var.instance_type
+  cop_instance_type      = var.cop_instance_type
+  root_volume_type       = var.root_volume_type
+  root_volume_size       = var.root_volume_size
+  copilot_name           = var.copilot_name
+  cop_type               = var.cop_type
+  cop_root_volume_size   = var.cop_root_volume_size
+  cop_root_volume_type   = var.cop_root_volume_type
+  cop_allowed_cidrs      = var.cop_allowed_cidrs
+  tags                   = var.tags
+  controller_version     = var.controller_version
+  use_existing_vpc       = var.use_existing_vpc
+  vpc                    = var.vpc
+  subnet_names           = var.subnet_names
+  name_prefix            = var.name_prefix
+  license_type           = var.license_type
+  preemptive             = var.preemptive
+  iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary   = var.region
+  inter_region_standby   = var.dr_region
+  zone_name              = var.zone_name
+  record_name            = var.record_name
+  inter_region_backup_enabled = var.inter_region_backup_enabled
 }
 
-data "aws_caller_identity" "current" {}
+module "region2" {
+  providers = {
+    aws = aws.region2
+  }
+  count                  = var.ha_distribution == "inter-region" ? 1 : 0
+  source                 = "./region-build"
+  region                 = var.dr_region
+  vpc_cidr               = var.dr_vpc_cidr
+  dr_region              = var.region
+  admin_email            = var.admin_email
+  asg_notif_email        = var.asg_notif_email
+  incoming_ssl_cidr      = var.incoming_ssl_cidr
+  keypair                = var.dr_keypair
+  access_account_name    = var.access_account_name
+  s3_backup_bucket       = var.s3_backup_bucket
+  s3_backup_region       = var.s3_backup_region
+  termination_protection = var.termination_protection
+  create_iam_roles       = var.create_iam_roles
+  ec2_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
+  app_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
+  ha_distribution        = var.ha_distribution
+  vpc_name               = var.dr_vpc_name
+  subnet_name            = var.subnet_name
+  instance_type          = var.instance_type
+  cop_instance_type      = var.cop_instance_type
+  root_volume_type       = var.root_volume_type
+  root_volume_size       = var.root_volume_size
+  copilot_name           = var.copilot_name
+  cop_type               = var.cop_type
+  cop_root_volume_size   = var.cop_root_volume_size
+  cop_root_volume_type   = var.cop_root_volume_type
+  cop_allowed_cidrs      = var.cop_allowed_cidrs
+  tags                   = var.tags
+  controller_version     = var.controller_version
+  use_existing_vpc       = var.use_existing_vpc
+  vpc                    = var.dr_vpc
+  subnet_names           = var.dr_subnet_names
+  name_prefix            = var.name_prefix
+  license_type           = var.license_type
+  preemptive             = var.preemptive
+  iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary   = var.region
+  inter_region_standby   = var.dr_region
+  zone_name              = var.zone_name
+  record_name            = var.record_name
+  inter_region_backup_enabled = var.inter_region_backup_enabled
+}
+
+# data "aws_caller_identity" "current" {}
 
 module "aviatrix-iam-roles" {
-  source = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles?ref=terraform_0.13"
+  count         = var.create_iam_roles ? 1 : 0
+  source        = "./aviatrix-controller-iam-roles"
+  ec2_role_name = var.ec2_role_name
+  app_role_name = var.app_role_name
 }
 
-resource aws_iam_role iam_for_lambda {
+resource "aws_iam_role" "iam_for_lambda" {
   name = "iam_for_avtx_ctrl_lambda"
 
   assume_role_policy = <<EOF
@@ -28,7 +119,7 @@ resource aws_iam_role iam_for_lambda {
 EOF
 }
 
-resource aws_iam_policy lambda-policy {
+resource "aws_iam_policy" "lambda-policy" {
   name        = "aviatrix-ctrl-lambda-policy"
   path        = "/"
   description = "Policy for creating aviatrix-controller"
@@ -50,14 +141,24 @@ resource aws_iam_policy lambda-policy {
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:RevokeSecurityGroupIngress",
         "ec2:DescribeSecurityGroups",
+        "ec2:StopInstances",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "autoscaling:DescribeLoadBalancerTargetGroups",
+        "autoscaling:DetachLoadBalancerTargetGroups",
         "autoscaling:CompleteLifecycleAction",
+        "autoscaling:DescribeAutoScalingGroups",
+        "cloudwatch:DescribeAlarmHistory",
         "ssm:SendCommand",
         "ssm:ListCommandInvocations",
         "iam:PassRole",
         "s3:GetBucketLocation",
         "s3:ListBucket",
-        "s3:GetObject"
+        "s3:GetObject",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListHostedZonesByName",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups"
       ],
       "Resource": "*"
     },
@@ -84,193 +185,53 @@ resource aws_iam_policy lambda-policy {
 EOF
 }
 
-resource aws_iam_role_policy_attachment attach-policy {
+resource "aws_iam_role_policy_attachment" "attach-policy" {
   role       = aws_iam_role.iam_for_lambda.name
   policy_arn = aws_iam_policy.lambda-policy.arn
 }
 
-resource aws_lambda_function lambda {
-  s3_bucket     = "aviatrix-lambda-${data.aws_region.current.name}"
-  s3_key        = "aws_controller.zip"
-  function_name = "AVX_Platform_HA"
-  role          = aws_iam_role.iam_for_lambda.arn
-  handler       = "aws_controller.lambda_handler"
-  runtime       = "python3.9"
-  description   = "AVIATRIX PLATFORM HIGH AVAILABILITY"
-  timeout       = 900
-
-  environment {
-    variables = {
-      AVIATRIX_TAG       = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
-      AVIATRIX_COP_TAG   = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
-      AWS_ROLE_APP_NAME  = module.aviatrix-iam-roles.aviatrix-role-app-name,
-      AWS_ROLE_EC2_NAME  = module.aviatrix-iam-roles.aviatrix-role-ec2-name,
-      CTRL_INIT_VER      = var.controller_version,
-      VPC_ID             = var.vpc,
-      EIP                = aws_eip.controller_eip.public_ip,
-      COP_EIP            = aws_eip.copilot_eip.public_ip,
-      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
-      CTRL_ASG           = "avtx_controller",
-      COP_ASG            = "avtx_copilot",
-      TMP_SG_GRP         = "",
-      S3_BUCKET_BACK     = var.s3_backup_bucket,
-      S3_BUCKET_REGION   = var.s3_backup_region,
-      API_PRIVATE_ACCESS = "False",
-      ADMIN_EMAIL        = var.admin_email,
-      PRIMARY_ACC_NAME   = var.access_account_name
-    }
+resource "null_resource" "lambda" {
+  provisioner "local-exec" {
+    command = <<EOT
+    rm aws_controller.zip
+    mkdir lambda
+    pip3 install --target ./lambda requests boto3
+    cd lambda
+    zip -r ../aws_controller.zip .
+    cd ..
+    zip -gj aws_controller.zip ${path.module}/aws_controller.py
+    rm -rf lambda
+    EOT
   }
 
-  lifecycle {
-    ignore_changes = [
-      environment,
-    ]
+  triggers = {
+    source_file = filebase64sha256("${path.module}/aws_controller.py")
   }
 }
 
-resource aws_eip controller_eip {
-  vpc  = true
-  tags = merge(local.common_tags,map("Name","Avx-Controller"))
+data "aws_route53_zone" "avx_zone" {
+  count = var.ha_distribution == "inter-region" ? 1 : 0
+  name  = var.zone_name
 }
 
-resource aws_security_group AviatrixSecurityGroup {
-  name        = "${local.name_prefix}AviatrixSecurityGroup"
-  description = "Aviatrix - Controller Security Group"
-  vpc_id      = var.vpc
+resource "aws_route53_record" "avx_primary" {
+  count   = var.ha_distribution == "inter-region" ? 1 : 0
+  zone_id = data.aws_route53_zone.avx_zone[0].zone_id
+  name    = var.record_name
+  type    = "A"
+  # set_identifier = "${var.region}-avx-controller"
 
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}AviatrixSecurityGroup"
-  })
-}
-
-resource aws_security_group_rule ingress_rule {
-  type              = "ingress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  cidr_blocks       = var.incoming_ssl_cidr
-  security_group_id = aws_security_group.AviatrixSecurityGroup.id
-}
-
-resource aws_security_group_rule egress_rule {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.AviatrixSecurityGroup.id
-}
-
-resource "aws_launch_template" "avtx-controller" {
-  name        = "avtx-controller"
-  description = "Launch template for Aviatrix Controller"
-
-  block_device_mappings {
-    device_name = "/dev/sda1"
-
-    ebs {
-      volume_size = var.root_volume_size
-      volume_type = var.root_volume_type
-      # encrypted   = true
-    }
+  alias {
+    # zone_id                = aws_lb.avtx-controller.zone_id
+    # name                   = aws_lb.avtx-controller.dns_name
+    # evaluate_target_health = true
+    zone_id                = module.region1.lb.zone_id
+    name                   = module.region1.lb.dns_name
+    evaluate_target_health = false
   }
 
-  disable_api_termination = var.termination_protection
-
-  ebs_optimized = true
-
-  iam_instance_profile {
-    name = module.aviatrix-iam-roles.aviatrix-role-ec2-name
-  }
-
-  image_id                             = local.ami_id
-  instance_initiated_shutdown_behavior = "terminate"
-  instance_type                        = var.instance_type
-  key_name                             = var.keypair
-
-  network_interfaces {
-    device_index                = 0
-    associate_public_ip_address = true
-    security_groups             = [aws_security_group.AviatrixSecurityGroup.id]
-  }
-
-  tag_specifications {
-    resource_type = "instance"
-
-    tags = {Name = "AviatrixController"}
-  }
-
-  tag_specifications {
-    resource_type = "volume"
-
-    tags = { Name = "AvxController" }
-  }
-}
-
-resource "aws_autoscaling_group" "avtx_ctrl" {
-  name                      = "avtx_controller"
-  max_size                  = 1
-  min_size                  = 0
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-  desired_capacity          = 1
-  force_delete              = true
-
-  launch_template {
-    id      = aws_launch_template.avtx-controller.id
-    version = "$Latest"
-  }
-
-  vpc_zone_identifier = var.subnet_names
-  target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
-
-  warm_pool {
-    pool_state                  = var.ha_distribution == "inter-az" ? "Running" : null
-    min_size                    = var.ha_distribution == "inter-az" ? 1 : null
-    max_group_prepared_capacity = var.ha_distribution == "inter-az" ? 1 : null
-  }
-
-  initial_lifecycle_hook {
-    name                 = "init"
-    default_result       = "CONTINUE"
-    heartbeat_timeout    = 1200
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
-
-    notification_target_arn = aws_sns_topic.controller_updates.arn
-    role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
-  }
-
-  tag {
-    key                 = "Aviatrix"
-    value               = "Controller"
-    propagate_at_launch = true
-  }
-  wait_for_capacity_timeout = "20m"
-  timeouts {
-    delete = "15m"
-  }
-}
-
-resource "aws_sns_topic" "controller_updates" {
-  name = "controller-ha-updates"
-}
-
-resource "aws_sns_topic_subscription" "asg_updates_for_lambda" {
-  topic_arn = aws_sns_topic.controller_updates.arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.lambda.arn
-}
-
-resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
-  topic_arn = aws_sns_topic.controller_updates.arn
-  protocol  = "email"
-  endpoint  = var.asg_notif_email
-}
-
-resource "aws_lambda_permission" "with_sns" {
-  statement_id  = "AllowExecutionFromSNS"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.controller_updates.arn
+  # failover_routing_policy {
+  #   type = "PRIMARY"
+  # }
+  # health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
 }

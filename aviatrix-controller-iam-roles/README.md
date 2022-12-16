@@ -20,27 +20,41 @@ Please refer to the documentation below for more detail:
 To create roles necessary for Aviatrix access on your AWS account:
 ```
 module "iam_roles" {
-  source = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles?ref=terraform_0.12"
+  source = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles?ref=master"
 }
 
 # cross account 
 module "iam_roles" {
-  source                         = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles?ref=terraform_0.12"
+  source                         = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles?ref=master"
   external-controller-account-id = "<<< insert AWS account ID of the controller here >>>"
 }
 ```
 
 ### Variables
-  
+
+- **secondary-account-ids**
+
+  A list of secondary AWS account IDs. ONLY use this parameter if this Terraform module is applied on the AWS account of your controller. Example: ["11111111", "22222222"]
+
 - **external-controller-account-id** <Optional>
 
   The AWS account ID where the Aviatrix Controller was/will be launched. This is only required if you are creating roles
   for the secondary account different from the account where controller was/will be launched. DO NOT use this parameter
   if this Terraform module is applied on the AWS account of your controller.
 
+> **NOTE:** If customized **ec2_role_name** and **app_role_name** are used, **name_prefix** will be ignored.
+
 - **name_prefix**
 
-  A prefix to be added to the Aviatrix controller instance name. Default value is "".
+  A prefix to be added to the default role names. Default value is "".
+
+- **ec2_role_name**
+
+  EC2 role name. Default value is "aviatrix-role-ec2".
+
+- **app_role_name**
+
+  APP role name. Default value is "aviatrix-role-app".
 
 - **tags** 
 

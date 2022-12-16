@@ -9,17 +9,12 @@ resource "aws_launch_template" "avtx-copilot" {
       volume_size           = var.cop_root_volume_size
       volume_type           = var.cop_root_volume_type
       delete_on_termination = false
-      #      encrypted   = true
     }
   }
 
   disable_api_termination = var.termination_protection
 
   ebs_optimized = true
-
-  #  iam_instance_profile {
-  #    name = module.aviatrix-iam-roles.aviatrix-role-ec2-name
-  #  }
 
   image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
@@ -61,7 +56,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     version = "$Latest"
   }
 
-  vpc_zone_identifier = var.subnet_names
+  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
   target_group_arns   = [aws_lb_target_group.avtx-copilot.arn]
 
   initial_lifecycle_hook {
@@ -79,7 +74,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     value               = "copilot"
     propagate_at_launch = true
   }
-  wait_for_capacity_timeout = "20m"
+  wait_for_capacity_timeout = "30m"
   timeouts {
     delete = "15m"
   }
@@ -98,10 +93,10 @@ resource "aws_lb_listener" "avtx-copilot" {
 }
 
 resource "aws_lb_target_group" "avtx-copilot" {
-  name     = "${local.name_prefix}-copilot"
+  name     = "${local.name_prefix}copilot"
   port     = 443
   protocol = "TCP"
-  vpc_id   = var.vpc
+  vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   depends_on = [aws_lb.avtx-controller]
 
@@ -113,8 +108,7 @@ resource "aws_lb_target_group" "avtx-copilot" {
 resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   name        = "${local.name_prefix}AviatrixCopilotSecurityGroup"
   description = "Aviatrix - Copilot Security Group"
-  #  vpc_id      = var.use_existing_vpc == false ? aws_vpc.copilot_vpc[0].id : var.vpc_id
-  vpc_id = var.vpc
+  vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   dynamic "ingress" {
     for_each = var.cop_allowed_cidrs
@@ -149,7 +143,7 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   })
 }
 
-resource aws_eip copilot_eip {
+resource "aws_eip" "copilot_eip" {
   vpc  = true
   tags = local.common_tags
 }

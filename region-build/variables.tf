@@ -129,6 +129,7 @@ variable "cop_allowed_cidrs" {
     }
   }
 }
+
 variable "s3_backup_bucket" {
   type        = string
   description = "S3 bucket for Controller DB backup"
@@ -211,8 +212,7 @@ locals {
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
-  dr_ami_id         = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
-
+ 
   common_tags = merge(
     var.tags, {
       module    = "aviatrix-controller-build"
@@ -241,33 +241,6 @@ variable "dr_region" {
   default     = ""
 }
 
-variable "dr_vpc_name" {
-  type    = string
-  default = "Aviatrix-DR-VPC"
-}
-
-
-variable "dr_vpc" {
-  type        = string
-  description = "VPC in which you want launch Aviatrix controller"
-  default     = ""
-}
-
-variable "dr_subnet_names" {
-  type    = list(string)
-  default = []
-}
-
-variable "dr_vpc_cidr" {
-  type    = string
-  default = "10.0.1.0/24"
-}
-
-variable "dr_keypair" {
-  type        = string
-  description = "Key pair which should be used by Aviatrix controller"
-}
-
 variable "preemptive" {
   type        = bool
   description = "If it is true and when primary region controller is back online, the network automatically switches back to using that primary controller."
@@ -284,6 +257,23 @@ variable "record_name" {
   type        = string
   description = "The record name to be created under exisitng route 53 zone"
   default     = true
+}
+
+variable "iam_for_lambda_arn" {
+  type        = string
+  description = "The ARN of the IAM for Lambda"
+}
+
+variable "inter_region_primary" {
+  type        = string
+  description = "For the inter-region scenario, this is the primary region."
+  default     = ""
+}
+
+variable "inter_region_standby" {
+  type        = string
+  description = "For the inter-region scenario, this is the standby region."
+  default     = ""
 }
 
 variable "inter_region_backup_enabled" {
