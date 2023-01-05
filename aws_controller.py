@@ -1902,3 +1902,6 @@ def detach_autoscaling_target_group(region, env):
             raise AvxError(
                 f"Not able to detach target group from asg in region {region}: {err}"
             )
+
+if __name__ == "__main__":
+    lambda_handler(None, None)
