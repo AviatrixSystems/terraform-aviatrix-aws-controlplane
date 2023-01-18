@@ -40,6 +40,8 @@ module "region1" {
   zone_name              = var.zone_name
   record_name            = var.record_name
   inter_region_backup_enabled = var.inter_region_backup_enabled
+  ecr_image              = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecs_cluster_arn        = module.ecs_cluster.cluster_arn
 }
 
 module "region2" {
@@ -88,6 +90,8 @@ module "region2" {
   zone_name              = var.zone_name
   record_name            = var.record_name
   inter_region_backup_enabled = var.inter_region_backup_enabled
+  ecr_image              = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecs_cluster_arn        = module.ecs_cluster.cluster_arn
 }
 
 # data "aws_caller_identity" "current" {}
@@ -109,7 +113,7 @@ resource "aws_iam_role" "iam_for_lambda" {
     {
       "Action": "sts:AssumeRole",
       "Principal": {
-        "Service": "lambda.amazonaws.com"
+        "Service": "ecs-tasks.amazonaws.com"
       },
       "Effect": "Allow",
       "Sid": ""
@@ -142,8 +146,6 @@ resource "aws_iam_policy" "lambda-policy" {
         "ec2:RevokeSecurityGroupIngress",
         "ec2:DescribeSecurityGroups",
         "ec2:StopInstances",
-        "lambda:UpdateFunctionConfiguration",
-        "lambda:GetFunctionConfiguration",
         "autoscaling:DescribeLoadBalancerTargetGroups",
         "autoscaling:DetachLoadBalancerTargetGroups",
         "autoscaling:CompleteLifecycleAction",
@@ -179,6 +181,20 @@ resource "aws_iam_policy" "lambda-policy" {
       ],
       "Effect": "Allow",
       "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
     }
   ]
 }
@@ -190,24 +206,100 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
   policy_arn = aws_iam_policy.lambda-policy.arn
 }
 
-resource "null_resource" "lambda" {
-  provisioner "local-exec" {
-    command = <<EOT
-    rm aws_controller.zip
-    mkdir lambda
-    pip3 install --target ./lambda requests boto3
-    cd lambda
-    zip -r ../aws_controller.zip .
-    cd ..
-    zip -gj aws_controller.zip ${path.module}/aws_controller.py
-    rm -rf lambda
-    EOT
+
+##################################
+# Create ECS Resources
+##################################
+
+locals {
+  image_name = "avx_platform_ha"
+  image_path  = "${path.module}/docker"
+  image_tag = "latest"
+}
+
+resource "aws_ecr_repository" "repo" {
+  name = "avx_platform_ha"
+
+  tags = local.common_tags
+}
+
+resource "docker_image" "ecr_image" {
+  name = local.image_name
+
+  build {
+    context = local.image_path
+    dockerfile = "Dockerfile.aws"
+    tag  = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
+  }
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/aws_controller.py")
+  }
+  depends_on = [
+     aws_ecr_repository.repo
+  ]
+}
+
+resource "null_resource" "push_ecr_image" {
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/aws_controller.py")
   }
 
-  triggers = {
-    source_file = filebase64sha256("${path.module}/aws_controller.py")
+  provisioner "local-exec" {
+    command = <<-EOF
+    aws ecr get-login-password \
+      --region ${var.region} \
+      | docker login \
+      --username AWS \
+      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com
+    docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
+    EOF
   }
 }
+
+module "ecs_cluster" {
+  source  = "terraform-aws-modules/ecs/aws"
+  version = "4.1.2"
+
+  cluster_name = "avx_platform_ha"
+
+  cluster_configuration = {
+    execute_command_configuration = {
+      logging = "OVERRIDE"
+      log_configuration = {
+        # You can set a simple string and ECS will create the CloudWatch log group for you
+        # or you can create the resource yourself as shown here to better manage retetion, tagging, etc.
+        # Embedding it into the module is not trivial and therefore it is externalized
+        cloud_watch_log_group_name = aws_cloudwatch_log_group.log_group.name
+      }
+    }
+  }
+
+  # Capacity provider
+  fargate_capacity_providers = {
+    FARGATE = {
+      default_capacity_provider_strategy = {
+        weight = 50
+        base   = 20
+      }
+    }
+    FARGATE_SPOT = {
+      default_capacity_provider_strategy = {
+        weight = 50
+      }
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "log_group" {
+  name              = "/aws/ecs/avx_platform_ha"
+  retention_in_days = 7
+
+  tags = local.common_tags
+}
+
+data "aws_caller_identity" "current" {}
 
 data "aws_route53_zone" "avx_zone" {
   count = var.ha_distribution == "inter-region" ? 1 : 0

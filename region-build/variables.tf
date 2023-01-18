@@ -212,7 +212,7 @@ locals {
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
- 
+
   common_tags = merge(
     var.tags, {
       module    = "aviatrix-controller-build"
@@ -280,4 +280,21 @@ variable "inter_region_backup_enabled" {
   type        = bool
   description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
   default     = false
+}
+
+variable "ecr_image" {
+  type        = string
+  description = "The AMI ID of the Aviatrix Controller"
+  default     = ""
+}
+
+variable "ecs_service_name" {
+  type        = string
+  description = "The ECS service name"
+  default     = "avx_controller_ha"
+}
+
+variable "ecs_cluster_arn" {
+  type        = string
+  description = "The ECS cluster ARN"
 }
