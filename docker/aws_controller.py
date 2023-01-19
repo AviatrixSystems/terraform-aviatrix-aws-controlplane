@@ -34,7 +34,7 @@ MAXIMUM_BACKUP_AGE = 24 * 3600 * 3  # 3 days
 AWS_US_EAST_REGION = "us-east-1"
 VERSION_PREFIX = "UserConnect-"
 
-QUEUE_TIMEOUT = 900
+QUEUE_TIMEOUT = 120
 TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
 mask = lambda input: input[0:5] + "*" * 15 if isinstance(input, str) else ""
@@ -57,6 +57,7 @@ def main():
 
 def ecs_handler():
     queue_region = os.environ.get("SQS_QUEUE_REGION")
+    print("Queue region: %s" % queue_region)
 
     # Setup boto3 clients
     ec2_client = boto3.client("ec2")
@@ -65,7 +66,9 @@ def ecs_handler():
     ecs_client = boto3.client("ecs")
 
     queue_name = os.environ.get("SQS_QUEUE_NAME")
+    print(f"SQS Queue Name: {queue_name}")
     queue_url = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
+    print(f"SQS Queue URL: {queue_url}")
     queue = sqs_resource.Queue(queue_url)
 
     # Poll messages in the SQS queue.
