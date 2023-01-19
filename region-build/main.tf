@@ -4,15 +4,227 @@ resource "time_sleep" "wait_for_zip" {
   create_duration = "60s"
 }
 
-resource "aws_lambda_function" "lambda" {
-  filename      = "${path.cwd}/aws_controller.zip"
-  function_name = "AVX_Platform_HA"
-  # role          = aws_iam_role.iam_for_lambda.arn
-  role        = var.iam_for_lambda_arn
-  handler     = "aws_controller.lambda_handler"
-  runtime     = "python3.9"
-  description = "AVIATRIX PLATFORM HIGH AVAILABILITY"
-  timeout     = 900
+
+resource "aws_ecs_task_definition" "task_def" {
+  family                   = "AVX_PLATFORM_HA"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = var.iam_for_lambda_arn
+  container_definitions = jsonencode([
+    {
+      name   = var.ecs_service_name
+      image  = var.ecr_image
+      cpu    = 256
+      memory = 512
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/aws/ecs/avx_platform_ha"
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "fargate"
+        }
+      }
+      environment = var.ha_distribution == "inter-region" ? [
+        {
+          name  = "AVIATRIX_TAG",
+          value = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name
+        },
+        {
+          name  = "AVIATRIX_COP_TAG",
+          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+        },
+        # Logic moved to calling the module
+        # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
+        # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
+        {
+          name  = "AWS_ROLE_APP_NAME",
+          value = var.app_role_name
+        },
+        {
+          name  = "AWS_ROLE_EC2_NAME",
+          value = var.ec2_role_name
+        },
+        {
+          name  = "CTRL_INIT_VER",
+          value = var.controller_version
+        },
+        {
+          name  = "VPC_ID",
+          value = var.vpc
+        },
+        {
+          name  = "EIP",
+          value = aws_eip.controller_eip.public_ip
+        },
+        {
+          name  = "COP_EIP",
+          value = aws_eip.copilot_eip.public_ip
+        },
+        {
+          name  = "CTRL_ASG",
+          # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
+          value = "avtx_controller"
+        },
+        {
+          name  = "COP_ASG",
+          value = "avtx_copilot"
+        },
+        {
+          name  = "TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "S3_BUCKET_BACK",
+          value = var.s3_backup_bucket
+        },
+        {
+          name  = "S3_BUCKET_REGION",
+          value = var.s3_backup_region
+        },
+        {
+          name  = "API_PRIVATE_ACCESS",
+          value = "False"
+        },
+        {
+          name  = "ADMIN_EMAIL",
+          value = var.admin_email
+        },
+        {
+          name  = "PRIMARY_ACC_NAME",
+          value = var.access_account_name
+        },
+        {
+          name  = "INTER_REGION",
+          value = var.ha_distribution == "inter-region" ? "True" : "False"
+        },
+        {
+          name  = "DR_REGION",
+          value = var.dr_region
+        },
+        {
+          name  = "PREEMPTIVE",
+          value = var.preemptive ? "True" : "False"
+        },
+        {
+          name  = "ACTIVE_REGION",
+          value = var.inter_region_primary
+        },
+        {
+          name  = "STANDBY_REGION",
+          value = var.inter_region_standby
+        },
+        {
+          name  = "ZONE_NAME",
+          value = var.zone_name
+        },
+        {
+          name  = "RECORD_NAME",
+          value = var.record_name
+        },
+        {
+          name  = "INTER_REGION_BACKUP_ENABLED",
+          value = var.inter_region_backup_enabled ? "True" : "False"
+        },
+        {
+          name = "SQS_QUEUE_NAME",
+          value = aws_sqs_queue.controller_updates_queue.name
+        },
+        {
+          name = "SQS_QUEUE_REGION",
+          value = var.region
+        }
+
+      ] : [
+        {
+          name = "AVIATRIX_TAG",
+          value = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name
+        },
+        {
+          name = "AVIATRIX_COP_TAG",
+          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+        },
+        # Logic moved to calling the module
+        # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
+        # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
+        {
+          name = "AWS_ROLE_APP_NAME",
+          value = var.app_role_name
+        },
+        {
+          name = "AWS_ROLE_EC2_NAME",
+          value = var.ec2_role_name
+        },
+        {
+          name = "CTRL_INIT_VER",
+          value = var.controller_version
+        },
+        {
+          name = "VPC_ID",
+          value = var.vpc
+        },
+        {
+          name = "EIP",
+          value = aws_eip.controller_eip.public_ip
+        },
+        {
+          name = "COP_EIP",
+          value = aws_eip.copilot_eip.public_ip
+        },
+        {
+          name = "CTRL_ASG",
+          # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
+          value = "avtx_controller"
+        },
+        {
+          name = "COP_ASG",
+          value = "avtx_copilot"
+        },
+        {
+          name = "TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name = "S3_BUCKET_BACK",
+          value = var.s3_backup_bucket
+        },
+        {
+          name = "S3_BUCKET_REGION",
+          value = var.s3_backup_region
+        },
+        {
+          name = "API_PRIVATE_ACCESS",
+          value = "False"
+        },
+        {
+          name = "ADMIN_EMAIL",
+          value = var.admin_email
+        },
+        {
+          name = "PRIMARY_ACC_NAME",
+          value = var.access_account_name
+        },
+        {
+          name = "INTER_REGION",
+          value = var.ha_distribution == "inter-region" ? "True" : "False"
+        },
+        {
+          name = "SQS_QUEUE_NAME",
+          value = aws_sqs_queue.controller_updates_queue.name
+        },
+        {
+          name = "SQS_QUEUE_REGION",
+          value = var.region
+        }
+      ]
+    }
+  ])
+
+
+
+  tags = local.common_tags
 
   # Can't use depends_on and configure providers at the same time:
   #
@@ -21,73 +233,45 @@ resource "aws_lambda_function" "lambda" {
   #
   # Using a time_sleep that's longer than the time needed to generate the zip file for now
   # This can be removed when we reference the zip file on S3.
-  depends_on = [
-    time_sleep.wait_for_zip
-  ]
+  # depends_on = [
+  #   time_sleep.wait_for_zip
+  # ]
   # depends_on moved to calling the module
   # depends_on    = [null_resource.lambda]
 
-  environment {
-    variables = var.ha_distribution == "inter-region" ? ({
-      AVIATRIX_TAG     = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
-      AVIATRIX_COP_TAG = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
-      # Logic moved to calling the module
-      # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
-      # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
-      AWS_ROLE_APP_NAME = var.app_role_name,
-      AWS_ROLE_EC2_NAME = var.ec2_role_name,
-      CTRL_INIT_VER     = var.controller_version,
-      VPC_ID            = var.vpc,
-      EIP               = aws_eip.controller_eip.public_ip,
-      COP_EIP           = aws_eip.copilot_eip.public_ip,
-      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
-      CTRL_ASG           = "avtx_controller",
-      COP_ASG            = "avtx_copilot",
-      TMP_SG_GRP         = "",
-      S3_BUCKET_BACK     = var.s3_backup_bucket,
-      S3_BUCKET_REGION   = var.s3_backup_region,
-      API_PRIVATE_ACCESS = "False",
-      ADMIN_EMAIL        = var.admin_email,
-      PRIMARY_ACC_NAME   = var.access_account_name
-      INTER_REGION       = "True"
-      DR_REGION          = var.dr_region
-      PREEMPTIVE         = var.preemptive ? "True" : "False"
-      ACTIVE_REGION      = var.inter_region_primary
-      STANDBY_REGION     = var.inter_region_standby
-      ZONE_NAME          = var.zone_name
-      RECORD_NAME        = var.record_name
-      INTER_REGION_BACKUP_ENABLED = var.inter_region_backup_enabled ? "True" : "False"
-      }) : ({
-      AVIATRIX_TAG     = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name,
-      AVIATRIX_COP_TAG = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name,
-      # Logic moved to calling the module
-      # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
-      # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
-      AWS_ROLE_APP_NAME = var.app_role_name,
-      AWS_ROLE_EC2_NAME = var.ec2_role_name,
-      CTRL_INIT_VER     = var.controller_version,
-      VPC_ID            = var.vpc,
-      EIP               = aws_eip.controller_eip.public_ip,
-      COP_EIP           = aws_eip.copilot_eip.public_ip,
-      # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
-      CTRL_ASG           = "avtx_controller",
-      COP_ASG            = "avtx_copilot",
-      TMP_SG_GRP         = "",
-      S3_BUCKET_BACK     = var.s3_backup_bucket,
-      S3_BUCKET_REGION   = var.s3_backup_region,
-      API_PRIVATE_ACCESS = "False",
-      ADMIN_EMAIL        = var.admin_email,
-      PRIMARY_ACC_NAME   = var.access_account_name
-      INTER_REGION       = "False"
-    })
-  }
-
   lifecycle {
     ignore_changes = [
-      environment,
+      container_definitions
     ]
   }
 }
+
+
+
+
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name               = "ecsTaskExecutionRole"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume_role.json
+}
+
+data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
+  statement {
+    actions = [
+      "sts:AssumeRole"
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
 
 resource "aws_eip" "controller_eip" {
   vpc  = true
@@ -214,14 +398,18 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   }
 }
 
+resource "aws_sqs_queue" "controller_updates_queue" {
+  name = "controller-ha-updates-queue"
+}
+
 resource "aws_sns_topic" "controller_updates" {
   name = "controller-ha-updates"
 }
 
-resource "aws_sns_topic_subscription" "asg_updates_for_lambda" {
+resource "aws_sns_topic_subscription" "asg_updates_for_sqs" {
   topic_arn = aws_sns_topic.controller_updates.arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.lambda.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.controller_updates_queue.arn
 }
 
 resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
@@ -230,10 +418,172 @@ resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
   endpoint  = var.asg_notif_email
 }
 
-resource "aws_lambda_permission" "with_sns" {
-  statement_id  = "AllowExecutionFromSNS"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.controller_updates.arn
+resource "aws_sqs_queue_policy" "test" {
+  queue_url = aws_sqs_queue.controller_updates_queue.id
+
+  policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Id": "sqspolicy",
+  "Statement": [
+    {
+      "Sid": "SendMessage",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "sqs:SendMessage",
+      "Resource": "${aws_sqs_queue.controller_updates_queue.arn}",
+      "Condition": {
+        "ArnEquals": {
+          "aws:SourceArn": "${aws_sns_topic.controller_updates.arn}"
+        }
+      }
+    },
+    {
+      "Sid": "ReceiveMessage",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+      },
+      "Action": "sqs:ReceiveMessage",
+      "Resource": "${aws_sqs_queue.controller_updates_queue.arn}"
+    }
+  ]
 }
+POLICY
+}
+
+module "aviatrix_eventbridge" {
+  source = "terraform-aws-modules/eventbridge/aws"
+
+  create_bus = false
+  #bus_name = "aviatrix-event-bus"
+  create_role = true
+  role_name   = "aviatrix-event-role"
+  attach_ecs_policy = true
+  ecs_target_arns = [
+    aws_ecs_task_definition.task_def.arn
+  ]
+
+  rules = {
+    ha_controller_event = {
+      name        = "ha-controller-event"
+      description = "Captures HA Controller events"
+      event_pattern = jsonencode({
+        source = [
+          "aws.autoscaling"
+        ],
+        detail-type = [
+          "EC2 Instance Launch Successful",
+          "EC2 Instance Terminate Successful",
+          "EC2 Instance Launch Unsuccessful",
+          "EC2 Instance Terminate Unsuccessful",
+          "EC2 Instance-launch Lifecycle Action",
+          "EC2 Instance-terminate Lifecycle Action"
+        ],
+        detail = {
+          AutoScalingGroupName = [
+            "avtx_controller"
+          ]
+          LifecycleTransition = [
+            "autoscaling:EC2_INSTANCE_LAUNCHING"
+          ]
+        }
+      })
+    }
+  }
+
+  targets = {
+    ha_controller_event = [
+      {
+        name = "ecs_task_target"
+        arn = var.ecs_cluster_arn
+        attach_role_arn = true
+
+        ecs_target = {
+          task_count          = 1
+          task_definition_arn = aws_ecs_task_definition.task_def.arn
+          launch_type         = "FARGATE"
+          network_configuration = {
+            subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
+            security_groups   = [aws_security_group.AviatrixSecurityGroup.id]
+            assign_public_ip = true
+          }
+        }
+      }
+    ]
+  }
+
+  archives = {
+    ha_controller_event = [
+      {
+        name        = "ha-controller-event-archive"
+        description = "Captures HA Controller events"
+        event_pattern = jsonencode({
+          source = [
+            "aws.autoscaling"
+          ],
+          detail-type = [
+            "EC2 Instance Launch Successful",
+            "EC2 Instance Terminate Successful",
+            "EC2 Instance Launch Unsuccessful",
+            "EC2 Instance Terminate Unsuccessful",
+            "EC2 Instance-launch Lifecycle Action",
+            "EC2 Instance-terminate Lifecycle Action"
+          ],
+          detail = {
+            AutoScalingGroupName = [
+              "avtx_controller"
+            ]
+            LifecycleTransition = [
+              "autoscaling:EC2_INSTANCE_LAUNCHING"
+            ]
+          }
+        })
+      }
+    ]
+  }
+}
+
+#resource "aws_iam_role" "ha_controller_events" {
+#  name = "ha_controller_events_role"
+#  assume_role_policy = jsonencode({
+#    Version = "2012-10-17"
+#    Statement = [
+#      {
+#        Action = "sts:AssumeRole"
+#        Effect = "Allow"
+#        Principal = {
+#          Service = "events.amazonaws.com"
+#        }
+#      }
+#    ]
+#  })
+#}
+#
+## This authorizes cloudwatch to run an ECS task with any given role.
+## The task needs the role to access the controller & whatever else it
+## might be doing. Constraining which roles can be passed would be a
+## good idea.
+#resource "aws_iam_role_policy" "ha_controller_events" {
+#  name = "avtx-ha-controller-events-run-task-with-any-role"
+#  role = "${aws_iam_role.ha_controller_events.id}"
+#  policy = jsonencode({
+#    Version = "2012-10-17"
+#    Statement = [
+#      {
+#        Action = [
+#          "iam:PassRole"
+#        ]
+#        Effect = "Allow"
+#        Resource = "*"
+#      },
+#      {
+#        Action = [
+#          "ecs:RunTask"
+#        ]
+#        Effect = "Allow"
+#        Resource = "${replace(aws_ecs_task_definition.task_def.arn, "/:\\d+$/", ":*")}"
+#      }
+#    ]
+#  })
+#}
