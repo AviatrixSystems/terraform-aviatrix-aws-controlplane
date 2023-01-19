@@ -34,7 +34,7 @@ MAXIMUM_BACKUP_AGE = 24 * 3600 * 3  # 3 days
 AWS_US_EAST_REGION = "us-east-1"
 VERSION_PREFIX = "UserConnect-"
 
-QUEUE_TIMEOUT = 900
+QUEUE_TIMEOUT = 120
 TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
 mask = lambda input: input[0:5] + "*" * 15 if isinstance(input, str) else ""
