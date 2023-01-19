@@ -11,4 +11,4 @@ COPY aws_controller.py /usr/src/app/
 
 ENTRYPOINT ["python3"]
 
-CMD ["-m", "aws_controller.py"]
+CMD ["-m", "aws_controller"]

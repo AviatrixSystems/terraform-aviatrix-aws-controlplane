@@ -1,9 +1,10 @@
 """ Aviatrix Controller Deployment with HA Lambda script """
-
 import time
+import copy
 import os
 import uuid
 import json
+import pprint
 import threading
 import urllib.request
 import urllib.error
@@ -33,6 +34,9 @@ MAXIMUM_BACKUP_AGE = 24 * 3600 * 3  # 3 days
 AWS_US_EAST_REGION = "us-east-1"
 VERSION_PREFIX = "UserConnect-"
 
+QUEUE_TIMEOUT = 900
+TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
+
 mask = lambda input: input[0:5] + "*" * 15 if isinstance(input, str) else ""
 
 
@@ -40,55 +44,54 @@ class AvxError(Exception):
     """Error class for Aviatrix exceptions"""
 
 
-def lambda_handler(event, context):
-    """Entry point of the lambda script"""
+def main():
+    """Entry point for the docker container."""
     try:
-        _lambda_handler(event, context)
+        ecs_handler()
     except AvxError as err:
         print("Operation failed due to: " + str(err))
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
-        print("Lambda function failed due to " + str(err))
+        print("ECS Task failed due to " + str(err))
 
 
-def _lambda_handler(event, context):
-    """Entry point of the lambda script without exception handling
-    This lambda function will serve spinning up Controller
-    during first launch and after a failover event.
-    sns_event - Request from sns to attach elastic ip to new instance
-     created after Controller failover."""
+def ecs_handler():
+    queue_region = os.environ.get("SQS_QUEUE_REGION")
 
-    sns_event = False
-    print("- Loading function -")
-    print(f"Event: {event}")
+    # Setup boto3 clients
+    ec2_client = boto3.client("ec2")
+    sqs_client = boto3.client("sqs", region_name=queue_region)
+    sqs_resource = boto3.resource("sqs", region_name=queue_region)
+    ecs_client = boto3.client("ecs")
+
+    queue_name = os.environ.get("SQS_QUEUE_NAME")
+    queue_url = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
+    queue = sqs_resource.Queue(queue_url)
+
+    # Poll messages in the SQS queue.
+    queue_messages = queue.receive_messages(
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=QUEUE_TIMEOUT,
+        VisibilityTimeout=QUEUE_TIMEOUT,
+    )
+    if not queue_messages:
+        print("No message in the queue. Exiting.")
+        return
+
+    print("Received message from SQS queue")
+    print(queue_message[0].body)
+    event = json.loads(queue_message[0].body)
+
     try:
-        sns_event = event["Records"][0]["EventSource"] == "aws:sns"
-        sns_region = event["Records"][0]["Sns"]["TopicArn"].split(":")[3]
-        print(f"SNS Event in region {sns_region}")
+        region = event["TopicArn"].split(":")[3]
+        print(f"Event in region {region}")
     except (AttributeError, IndexError, KeyError, TypeError) as e:
+        pprint(message)
         print(e)
         return
 
-    if os.environ.get("TESTPY") == "True":
-        print("Testing")
-        client = boto3.client(
-            "ec2",
-            region_name=os.environ["AWS_TEST_REGION"],
-            aws_access_key_id=os.environ["AWS_ACCESS_KEY_BACK"],
-            aws_secret_access_key=os.environ["AWS_SECRET_KEY_BACK"],
-        )
-        lambda_client = boto3.client(
-            "lambda",
-            region_name=os.environ["AWS_TEST_REGION"],
-            aws_access_key_id=os.environ["AWS_ACCESS_KEY_BACK"],
-            aws_secret_access_key=os.environ["AWS_SECRET_KEY_BACK"],
-        )
-    else:
-        client = boto3.client("ec2")
-        lambda_client = boto3.client("lambda")
-
     tmp_sg = os.environ.get("TMP_SG_GRP", "")
-    asg = json.loads(event["Records"][0]["Sns"]["Message"]).get("AutoScalingGroupName")
+    asg = event.get("AutoScalingGroupName")
     # This code only needs to run when the SNS event is from the Controller ASG
     if (
         tmp_sg
@@ -96,82 +99,79 @@ def _lambda_handler(event, context):
         and asg == os.environ.get("CTRL_ASG")
     ):
         print("Lambda probably did not complete last time. Reverting sg %s" % tmp_sg)
-        update_env_dict(lambda_client, context, {"TMP_SG_GRP": ""})
-        restore_security_group_access(client, tmp_sg)
+        update_env_dict(ecs_client, context, {"TMP_SG_GRP": ""})
+        restore_security_group_access(ec2_client, tmp_sg)
 
-    if sns_event:
-        try:
-            sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
-            sns_alarm_name = sns_msg_json.get("AlarmName", "")
-            sns_msg_asg = sns_msg_json.get("AutoScalingGroupName", "")
-            sns_msg_lifecycle = sns_msg_json.get("LifecycleTransition", "")
-            sns_msg_desc = sns_msg_json.get("Description", "")
-            # https://docs.aws.amazon.com/autoscaling/ec2/userguide/warm-pools-eventbridge-events.html
-            sns_msg_orig = sns_msg_json.get("Origin", "")
-            sns_msg_dest = sns_msg_json.get("Destination", "")
-            sns_msg_inst = sns_msg_json.get("EC2InstanceId", "")
-            sns_msg_event = sns_msg_json.get("Event", "")
-            sns_msg_trigger = sns_msg_json.get("Trigger", "")
-            sns_msg_Nvalue = sns_msg_json.get("NewStateValue", "")
-            sns_msg_Ovalue = sns_msg_json.get("OldStateValue", "")
-            if sns_msg_trigger:
-                MetricName = sns_msg_trigger["MetricName"]
-            else:
-                MetricName = ""
-        except (KeyError, IndexError, ValueError) as err:
-            raise AvxError("Could not parse SNS message %s" % str(err)) from err
+    try:
+        sns_msg_json = json.loads(event["Message"])
+        sns_alarm_name = sns_msg_json.get("AlarmName", "")
+        sns_msg_asg = sns_msg_json.get("AutoScalingGroupName", "")
+        sns_msg_lifecycle = sns_msg_json.get("LifecycleTransition", "")
+        sns_msg_desc = sns_msg_json.get("Description", "")
+        # https://docs.aws.amazon.com/autoscaling/ec2/userguide/warm-pools-eventbridge-events.html
+        sns_msg_orig = sns_msg_json.get("Origin", "")
+        sns_msg_dest = sns_msg_json.get("Destination", "")
+        sns_msg_inst = sns_msg_json.get("EC2InstanceId", "")
+        sns_msg_event = sns_msg_json.get("Event", "")
+        sns_msg_trigger = sns_msg_json.get("Trigger", "")
+        sns_msg_Nvalue = sns_msg_json.get("NewStateValue", "")
+        sns_msg_Ovalue = sns_msg_json.get("OldStateValue", "")
+        if sns_msg_trigger:
+            MetricName = sns_msg_trigger["MetricName"]
+        else:
+            MetricName = ""
+    except (KeyError, IndexError, ValueError) as err:
+        raise AvxError("Could not parse SNS message %s" % str(err)) from err
 
-        print(f"SNS Event {sns_msg_lifecycle} Description {sns_msg_desc}")
+    print(f"SNS Event {sns_msg_lifecycle} Description {sns_msg_desc}")
 
-        # Moved INTER_REGION code up otherwise PRIV_IP will already be set.
-        if sns_msg_event == "autoscaling:TEST_NOTIFICATION":
-            print("Successfully received Test Event from ASG")
-        # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
-        elif (
-            os.environ.get("INTER_REGION") == "True"
-            and sns_msg_asg == os.environ.get("CTRL_ASG")
-            and os.environ.get("PRIV_IP")
-        ):
-            pri_region = sns_region
-            dr_region = os.environ.get("DR_REGION")
-            handle_ctrl_inter_region_event(pri_region, dr_region, context)
-        elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
-            print("Instance launch error, refer to logs for failure reason ")
+    # Moved INTER_REGION code up otherwise PRIV_IP will already be set.
+    if sns_msg_event == "autoscaling:TEST_NOTIFICATION":
+        print("Successfully received Test Event from ASG")
+    # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
+    elif (
+        os.environ.get("INTER_REGION") == "True"
+        and sns_msg_asg == os.environ.get("CTRL_ASG")
+        and os.environ.get("PRIV_IP")
+    ):
+        pri_region = sns_region
+        dr_region = os.environ.get("DR_REGION")
+        handle_ctrl_inter_region_event(pri_region, dr_region, context)
+    elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
+        print("Instance launch error, refer to logs for failure reason ")
 
-        if sns_msg_lifecycle == "autoscaling:EC2_INSTANCE_LAUNCHING":
-            if sns_msg_orig == "EC2" and sns_msg_dest == "AutoScalingGroup":
-                print("New instance launched into AutoscalingGroup")
-            elif sns_msg_orig == "EC2" and sns_msg_dest == "WarmPool":
-                print("New instance launched into WarmPool")
-            elif sns_msg_orig == "WarmPool" and sns_msg_dest == "AutoScalingGroup":
-                print("Failover event..Instance moving from WarmPool into AutoScaling")
-            else:
-                print(
-                    f"Unknown instance launch origin {sns_msg_orig} and/or dest {sns_msg_dest}"
-                )
+    if sns_msg_lifecycle == "autoscaling:EC2_INSTANCE_LAUNCHING":
+        if sns_msg_orig == "EC2" and sns_msg_dest == "AutoScalingGroup":
+            print("New instance launched into AutoscalingGroup")
+        elif sns_msg_orig == "EC2" and sns_msg_dest == "WarmPool":
+            print("New instance launched into WarmPool")
+        elif sns_msg_orig == "WarmPool" and sns_msg_dest == "AutoScalingGroup":
+            print("Failover event..Instance moving from WarmPool into AutoScaling")
+        else:
+            print(
+                f"Unknown instance launch origin {sns_msg_orig} and/or dest {sns_msg_dest}"
+            )
 
-            if sns_msg_asg == os.environ.get("CTRL_ASG"):
-                handle_ctrl_ha_event(
-                    client,
-                    lambda_client,
-                    event,
-                    context,
-                    sns_msg_inst,
-                    sns_msg_orig,
-                    sns_msg_dest,
-                )
-            elif sns_msg_asg == os.environ.get("COP_ASG"):
-                handle_cop_ha_event(
-                    client,
-                    lambda_client,
-                    event,
-                    context,
-                    sns_msg_inst,
-                    sns_msg_orig,
-                    sns_msg_dest,
-                )
-    else:
-        print("Unexpected source. Not from SNS")
+        if sns_msg_asg == os.environ.get("CTRL_ASG"):
+            handle_ctrl_ha_event(
+                client,
+                ecs_client,
+                event,
+                context,
+                sns_msg_inst,
+                sns_msg_orig,
+                sns_msg_dest,
+            )
+        elif sns_msg_asg == os.environ.get("COP_ASG"):
+            handle_cop_ha_event(
+                client,
+                ecs_client,
+                event,
+                context,
+                sns_msg_inst,
+                sns_msg_orig,
+                sns_msg_dest,
+            )
 
 
 def create_new_sg(client):
@@ -220,7 +220,7 @@ def create_new_sg(client):
     return sg_id
 
 
-def update_env_dict(lambda_client, context, replace_dict={}):
+def update_env_dict(ecs_client, context, replace_dict={}):
     """Update particular variables in the Environment variables in lambda"""
 
     env_dict = {
@@ -259,20 +259,33 @@ def update_env_dict(lambda_client, context, replace_dict={}):
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
-    wait_function_update_successful(lambda_client, context.function_name)
+    #wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
-
-    lambda_client.update_function_configuration(
-        FunctionName=context.function_name, Environment={"Variables": env_dict}
+    current_task_def = ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY,
     )
+
+    new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
+
+    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    for arg in remove_args:
+        new_task_def.pop(arg)
+
+    env_def = new_task_def["containerDefinitions"][0]["environment"]
+    for envvar in env_def:
+        if envvar["name"] in env_dict:
+            envvar["value"] = env_dict[envvar["name"]]
+    print("Updating task definition")
+    ecs_client.update_function_configuration(**new_task_def)
+
     print("Updated environment dictionary")
 
 
-def sync_env_var(lambda_client, env_dict, context, replace_dict={}):
+def sync_env_var(ecs_client, env_dict, context, replace_dict={}):
     """Update DR environment variables in lambda"""
-    wait_function_update_successful(lambda_client, context.function_name)
+    #wait_function_update_successful(lambda_client, context.function_name)
     # Removing empty key's from the env
     empty_keys = [key for key, val in env_dict.items() if not val]
     for key in empty_keys:
@@ -281,10 +294,21 @@ def sync_env_var(lambda_client, env_dict, context, replace_dict={}):
     env_dict.update(replace_dict)
 
     print("Updating environment %s" % env_dict)
-
-    lambda_client.update_function_configuration(
-        FunctionName=context.function_name, Environment={"Variables": env_dict}
+    current_task_def = ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY,
     )
+    new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
+
+    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    for arg in remove_args:
+        new_task_def.pop(arg)
+
+    env_def = new_task_def["containerDefinitions"][0]["environment"]
+    for envvar in env_def:
+        if envvar["name"] in env_dict:
+            envvar["value"] = env_dict[envvar["name"]]
+    print("Updating task definition")
+    ecs_client.update_function_configuration(**new_task_def)
     print("Updated environment dictionary")
 
 
@@ -334,7 +358,7 @@ def login_to_controller(ip_addr, username, pwd):
     return cid
 
 
-def set_environ(client, lambda_client, controller_instanceobj, context, eip=None):
+def set_environ(client, ecs_client, controller_instanceobj, context, eip=None):
     """Sets Environment variables"""
 
     if eip is None:
@@ -400,6 +424,7 @@ def set_environ(client, lambda_client, controller_instanceobj, context, eip=None
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
+
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
@@ -414,10 +439,22 @@ def set_environ(client, lambda_client, controller_instanceobj, context, eip=None
             "INTER_REGION_BACKUP_ENABLED"
         )
     print("Setting environment %s" % env_dict)
-    wait_function_update_successful(lambda_client, context.function_name)
-    lambda_client.update_function_configuration(
-        FunctionName=context.function_name, Environment={"Variables": env_dict}
+    current_task_def = ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY,
     )
+
+    new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
+
+    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    for arg in remove_args:
+        new_task_def.pop(arg)
+
+    env_def = new_task_def["containerDefinitions"][0]["environment"]
+    for envvar in env_def:
+        if envvar["name"] in env_dict:
+            envvar["value"] = env_dict[envvar["name"]]
+    print("Updating task definition")
+    ecs_client.update_function_configuration(**new_task_def)
     os.environ.update(env_dict)
 
 
@@ -757,7 +794,7 @@ def restore_security_group_access(client, sg_id):
 
 
 def handle_login_failure(
-    priv_ip, client, lambda_client, controller_instanceobj, context, eip, cid
+    priv_ip, client, ecs_client, controller_instanceobj, context, eip, cid
 ):
     """Handle login failure through private IP"""
 
@@ -780,7 +817,7 @@ def handle_login_failure(
             "Successfully retrieved version. Previous restore operation had succeeded. "
             "Previous lambda may have exceeded 5 min. Updating lambda config"
         )
-        set_environ(client, lambda_client, controller_instanceobj, context, eip)
+        set_environ(client, ecs_client, controller_instanceobj, context, eip)
 
 
 def get_role(role, default):
@@ -1327,7 +1364,7 @@ def handle_ctrl_inter_region_event(
 
 
 def handle_ctrl_ha_event(
-    client, lambda_client, event, context, asg_inst, asg_orig, asg_dest
+    client, ecs_client, event, context, asg_inst, asg_orig, asg_dest
 ):
     """Restores the backup by doing the following
     1. Login to new controller
@@ -1442,10 +1479,10 @@ def handle_ctrl_ha_event(
         if not duplicate:
             if os.environ.get("INTER_REGION") == "True":
                 update_env_dict(
-                    lambda_client, context, {"TMP_SG_GRP": sg_modified, "STATE": "INIT"}
+                    ecs_client, context, {"TMP_SG_GRP": sg_modified, "STATE": "INIT"}
                 )
             else:
-                update_env_dict(lambda_client, context, {"TMP_SG_GRP": sg_modified})
+                update_env_dict(ecs_client, context, {"TMP_SG_GRP": sg_modified})
 
         total_time = 0
         # while total_time <= MAX_LOGIN_TIMEOUT:
@@ -1468,7 +1505,7 @@ def handle_ctrl_ha_event(
             handle_login_failure(
                 controller_api_ip,
                 client,
-                lambda_client,
+                ecs_client,
                 controller_instanceobj,
                 context,
                 eip,
@@ -1611,7 +1648,7 @@ def handle_ctrl_ha_event(
                             print("Updating lambda configuration")
                             set_environ(
                                 client,
-                                lambda_client,
+                                ecs_client,
                                 controller_instanceobj,
                                 context,
                                 eip,
@@ -1621,7 +1658,7 @@ def handle_ctrl_ha_event(
                             print("Updating lambda configuration")
                             set_environ(
                                 client,
-                                lambda_client,
+                                ecs_client,
                                 controller_instanceobj,
                                 context,
                                 eip,
@@ -1633,7 +1670,7 @@ def handle_ctrl_ha_event(
                         )
                         print("Updating lambda configuration")
                         set_environ(
-                            client, lambda_client, controller_instanceobj, context, eip
+                            client, ecs_client, controller_instanceobj, context, eip
                         )
                         break
                 else:
@@ -1705,7 +1742,7 @@ def handle_ctrl_ha_event(
 
                     print("Updating lambda configuration")
                     set_environ(
-                        client, lambda_client, controller_instanceobj, context, eip
+                        client, ecs_client, controller_instanceobj, context, eip
                     )
                     return
 
@@ -1770,18 +1807,22 @@ def handle_ctrl_ha_event(
         print(f"Complete lifecycle action response {response}")
         if not duplicate:
             print(f"Reverting sg {sg_modified}")
-            env = lambda_client.get_function_configuration(
-                FunctionName=context.function_name
-            )["Environment"]["Variables"]
-            sync_env_var(lambda_client, env, context, {"TMP_SG_GRP": ""})
+            task_def = ecs_client.describe_task_definition(
+                taskDefinition=TASK_DEF_FAMILY,
+            )
+            env_vars = copy.deepcopy(
+                task_def["containerDefinitions"][0]["environment"]
+            )
+            env = {env_var["name"]: env_var["value"] for env_var in env_vars}
+            sync_env_var(ecs_client, env, context, {"TMP_SG_GRP": ""})
             restore_security_group_access(client, sg_modified)
         else:
-            update_env_dict(lambda_client, context)
+            update_env_dict(ecs_client, context)
         print("- Completed function -")
 
 
 def handle_cop_ha_event(
-    client, lambda_client, event, context, asg_inst, asg_orig, asg_dest
+    client, event, context, asg_inst, asg_orig, asg_dest
 ):
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
@@ -1904,4 +1945,4 @@ def detach_autoscaling_target_group(region, env):
             )
 
 if __name__ == "__main__":
-    lambda_handler(None, None)
+    main()
