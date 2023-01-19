@@ -191,6 +191,10 @@ resource "aws_iam_policy" "lambda-policy" {
         "ecr:BatchGetImage",
         "sqs:SendMessage",
         "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
