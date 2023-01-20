@@ -74,7 +74,7 @@ def ecs_handler():
     # Poll messages in the SQS queue.
     queue_messages = queue.receive_messages(
         MaxNumberOfMessages=1,
-        WaitTimeSeconds=QUEUE_TIMEOUT,
+        WaitTimeSeconds=20,
         VisibilityTimeout=QUEUE_TIMEOUT,
     )
     if not queue_messages:
