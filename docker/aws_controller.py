@@ -74,7 +74,7 @@ def ecs_handler():
     # Poll messages in the SQS queue.
     queue_messages = queue.receive_messages(
         MaxNumberOfMessages=1,
-        WaitTimeSeconds=QUEUE_TIMEOUT,
+        WaitTimeSeconds=20,
         VisibilityTimeout=QUEUE_TIMEOUT,
     )
     if not queue_messages:
@@ -82,14 +82,14 @@ def ecs_handler():
         return
 
     print("Received message from SQS queue")
-    print(queue_message[0].body)
-    event = json.loads(queue_message[0].body)
+    print(queue_messages[0].body)
+    event = json.loads(queue_messages[0].body)
 
     try:
         region = event["TopicArn"].split(":")[3]
         print(f"Event in region {region}")
     except (AttributeError, IndexError, KeyError, TypeError) as e:
-        pprint(message)
+        pprint(queue_messages[0].body)
         print(e)
         return
 
