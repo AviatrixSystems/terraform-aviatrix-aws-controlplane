@@ -12,6 +12,17 @@ resource "aws_launch_template" "avtx-copilot" {
     }
   }
 
+  block_device_mappings {
+    device_name = "/dev/sda2"
+
+    ebs {
+      volume_size           = var.cop_default_data_volume_size
+      volume_type           = var.cop_default_data_volume_type
+      delete_on_termination = true
+    }
+  }
+
+
   disable_api_termination = var.termination_protection
 
   ebs_optimized = true
