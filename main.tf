@@ -222,9 +222,9 @@ locals {
 }
 
 resource "aws_ecr_repository" "repo" {
-  name = "avx_platform_ha"
-
-  tags = local.common_tags
+  name         = "avx_platform_ha"
+  force_delete = true
+  tags         = local.common_tags
 }
 
 resource "docker_image" "ecr_image" {
