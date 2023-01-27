@@ -64,7 +64,7 @@ resource "aws_ecs_task_definition" "task_def" {
           value = aws_eip.copilot_eip.public_ip
         },
         {
-          name  = "CTRL_ASG",
+          name = "CTRL_ASG",
           # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
           value = "avtx_controller"
         },
@@ -129,48 +129,48 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.inter_region_backup_enabled ? "True" : "False"
         },
         {
-          name = "SQS_QUEUE_NAME",
+          name  = "SQS_QUEUE_NAME",
           value = aws_sqs_queue.controller_updates_queue.name
         },
         {
-          name = "SQS_QUEUE_REGION",
+          name  = "SQS_QUEUE_REGION",
           value = var.region
         }
 
-      ] : [
+        ] : [
         {
-          name = "AVIATRIX_TAG",
+          name  = "AVIATRIX_TAG",
           value = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name
         },
         {
-          name = "AVIATRIX_COP_TAG",
+          name  = "AVIATRIX_COP_TAG",
           value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
         },
         # Logic moved to calling the module
         # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
         # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
         {
-          name = "AWS_ROLE_APP_NAME",
+          name  = "AWS_ROLE_APP_NAME",
           value = var.app_role_name
         },
         {
-          name = "AWS_ROLE_EC2_NAME",
+          name  = "AWS_ROLE_EC2_NAME",
           value = var.ec2_role_name
         },
         {
-          name = "CTRL_INIT_VER",
+          name  = "CTRL_INIT_VER",
           value = var.controller_version
         },
         {
-          name = "VPC_ID",
+          name  = "VPC_ID",
           value = var.vpc
         },
         {
-          name = "EIP",
+          name  = "EIP",
           value = aws_eip.controller_eip.public_ip
         },
         {
-          name = "COP_EIP",
+          name  = "COP_EIP",
           value = aws_eip.copilot_eip.public_ip
         },
         {
@@ -179,43 +179,43 @@ resource "aws_ecs_task_definition" "task_def" {
           value = "avtx_controller"
         },
         {
-          name = "COP_ASG",
+          name  = "COP_ASG",
           value = "avtx_copilot"
         },
         {
-          name = "TMP_SG_GRP",
+          name  = "TMP_SG_GRP",
           value = ""
         },
         {
-          name = "S3_BUCKET_BACK",
+          name  = "S3_BUCKET_BACK",
           value = var.s3_backup_bucket
         },
         {
-          name = "S3_BUCKET_REGION",
+          name  = "S3_BUCKET_REGION",
           value = var.s3_backup_region
         },
         {
-          name = "API_PRIVATE_ACCESS",
+          name  = "API_PRIVATE_ACCESS",
           value = "False"
         },
         {
-          name = "ADMIN_EMAIL",
+          name  = "ADMIN_EMAIL",
           value = var.admin_email
         },
         {
-          name = "PRIMARY_ACC_NAME",
+          name  = "PRIMARY_ACC_NAME",
           value = var.access_account_name
         },
         {
-          name = "INTER_REGION",
+          name  = "INTER_REGION",
           value = var.ha_distribution == "inter-region" ? "True" : "False"
         },
         {
-          name = "SQS_QUEUE_NAME",
+          name  = "SQS_QUEUE_NAME",
           value = aws_sqs_queue.controller_updates_queue.name
         },
         {
-          name = "SQS_QUEUE_REGION",
+          name  = "SQS_QUEUE_REGION",
           value = var.region
         }
       ]
@@ -457,8 +457,8 @@ module "aviatrix_eventbridge" {
 
   create_bus = false
   #bus_name = "aviatrix-event-bus"
-  create_role = true
-  role_name   = "aviatrix-event-role"
+  create_role       = true
+  role_name         = "aviatrix-event-role"
   attach_ecs_policy = true
   ecs_target_arns = [
     aws_ecs_task_definition.task_def.arn
@@ -495,8 +495,8 @@ module "aviatrix_eventbridge" {
   targets = {
     ha_controller_event = [
       {
-        name = "ecs_task_target"
-        arn = var.ecs_cluster_arn
+        name            = "ecs_task_target"
+        arn             = var.ecs_cluster_arn
         attach_role_arn = true
 
         ecs_target = {
@@ -505,7 +505,7 @@ module "aviatrix_eventbridge" {
           launch_type         = "FARGATE"
           network_configuration = {
             subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
-            security_groups   = [aws_security_group.AviatrixSecurityGroup.id]
+            security_groups  = [aws_security_group.AviatrixSecurityGroup.id]
             assign_public_ip = true
           }
         }
