@@ -157,7 +157,7 @@ def ecs_handler():
 
         if sns_msg_asg == os.environ.get("CTRL_ASG"):
             handle_ctrl_ha_event(
-                client,
+                ec2_client,
                 ecs_client,
                 event,
                 context,
@@ -167,7 +167,7 @@ def ecs_handler():
             )
         elif sns_msg_asg == os.environ.get("COP_ASG"):
             handle_cop_ha_event(
-                client,
+                ec2_client,
                 ecs_client,
                 event,
                 context,
@@ -262,7 +262,7 @@ def update_env_dict(ecs_client, context, replace_dict={}):
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
-    #wait_function_update_successful(lambda_client, context.function_name)
+    # wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
@@ -272,7 +272,15 @@ def update_env_dict(ecs_client, context, replace_dict={}):
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
-    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    remove_args = [
+        "compatibilities",
+        "registeredAt",
+        "registeredBy",
+        "status",
+        "revision",
+        "taskDefinitionArn",
+        "requiresAttributes",
+    ]
     for arg in remove_args:
         new_task_def.pop(arg)
 
@@ -288,7 +296,7 @@ def update_env_dict(ecs_client, context, replace_dict={}):
 
 def sync_env_var(ecs_client, env_dict, context, replace_dict={}):
     """Update DR environment variables in lambda"""
-    #wait_function_update_successful(lambda_client, context.function_name)
+    # wait_function_update_successful(lambda_client, context.function_name)
     # Removing empty key's from the env
     empty_keys = [key for key, val in env_dict.items() if not val]
     for key in empty_keys:
@@ -302,7 +310,15 @@ def sync_env_var(ecs_client, env_dict, context, replace_dict={}):
     )
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
-    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    remove_args = [
+        "compatibilities",
+        "registeredAt",
+        "registeredBy",
+        "status",
+        "revision",
+        "taskDefinitionArn",
+        "requiresAttributes",
+    ]
     for arg in remove_args:
         new_task_def.pop(arg)
 
@@ -427,7 +443,6 @@ def set_environ(client, ecs_client, controller_instanceobj, context, eip=None):
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
-
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
@@ -448,7 +463,15 @@ def set_environ(client, ecs_client, controller_instanceobj, context, eip=None):
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
-    remove_args=['compatibilities', 'registeredAt', 'registeredBy', 'status', 'revision', 'taskDefinitionArn', 'requiresAttributes' ]
+    remove_args = [
+        "compatibilities",
+        "registeredAt",
+        "registeredBy",
+        "status",
+        "revision",
+        "taskDefinitionArn",
+        "requiresAttributes",
+    ]
     for arg in remove_args:
         new_task_def.pop(arg)
 
@@ -1813,9 +1836,7 @@ def handle_ctrl_ha_event(
             task_def = ecs_client.describe_task_definition(
                 taskDefinition=TASK_DEF_FAMILY,
             )
-            env_vars = copy.deepcopy(
-                task_def["containerDefinitions"][0]["environment"]
-            )
+            env_vars = copy.deepcopy(task_def["containerDefinitions"][0]["environment"])
             env = {env_var["name"]: env_var["value"] for env_var in env_vars}
             sync_env_var(ecs_client, env, context, {"TMP_SG_GRP": ""})
             restore_security_group_access(client, sg_modified)
@@ -1824,9 +1845,7 @@ def handle_ctrl_ha_event(
         print("- Completed function -")
 
 
-def handle_cop_ha_event(
-    client, event, context, asg_inst, asg_orig, asg_dest
-):
+def handle_cop_ha_event(client, event, context, asg_inst, asg_orig, asg_dest):
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
         print(f"Copilot instance name: {instance_name}")
@@ -1946,6 +1965,7 @@ def detach_autoscaling_target_group(region, env):
             raise AvxError(
                 f"Not able to detach target group from asg in region {region}: {err}"
             )
+
 
 if __name__ == "__main__":
     main()
