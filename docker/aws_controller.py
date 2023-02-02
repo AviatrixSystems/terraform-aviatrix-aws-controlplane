@@ -157,7 +157,7 @@ def ecs_handler():
 
         if sns_msg_asg == os.environ.get("CTRL_ASG"):
             handle_ctrl_ha_event(
-                client,
+                ec2_client,
                 ecs_client,
                 event,
                 context,
@@ -167,7 +167,7 @@ def ecs_handler():
             )
         elif sns_msg_asg == os.environ.get("COP_ASG"):
             handle_cop_ha_event(
-                client,
+                ec2_client,
                 ecs_client,
                 event,
                 context,
