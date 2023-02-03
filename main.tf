@@ -1,97 +1,97 @@
 module "region1" {
-  source                 = "./region-build"
-  region                 = var.region
-  dr_region              = var.dr_region
-  vpc_cidr               = var.vpc_cidr
-  admin_email            = var.admin_email
-  asg_notif_email        = var.asg_notif_email
-  incoming_ssl_cidr      = var.incoming_ssl_cidr
-  keypair                = var.keypair
-  access_account_name    = var.access_account_name
-  s3_backup_bucket       = var.s3_backup_bucket
-  s3_backup_region       = var.s3_backup_region
-  termination_protection = var.termination_protection
-  create_iam_roles       = var.create_iam_roles
-  ec2_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
-  app_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
-  ha_distribution        = var.ha_distribution
-  vpc_name               = var.vpc_name
-  subnet_name            = var.subnet_name
-  instance_type          = var.instance_type
-  cop_instance_type      = var.cop_instance_type
-  root_volume_type       = var.root_volume_type
-  root_volume_size       = var.root_volume_size
-  copilot_name           = var.copilot_name
-  cop_type               = var.cop_type
-  cop_root_volume_size   = var.cop_root_volume_size
-  cop_root_volume_type   = var.cop_root_volume_type
-  cop_allowed_cidrs      = var.cop_allowed_cidrs
-  tags                   = var.tags
-  controller_version     = var.controller_version
-  use_existing_vpc       = var.use_existing_vpc
-  vpc                    = var.vpc
-  subnet_names           = var.subnet_names
-  name_prefix            = var.name_prefix
-  license_type           = var.license_type
-  preemptive             = var.preemptive
-  iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
-  inter_region_primary   = var.region
-  inter_region_standby   = var.dr_region
-  zone_name              = var.zone_name
-  record_name            = var.record_name
+  source                      = "./region-build"
+  region                      = var.region
+  dr_region                   = var.dr_region
+  vpc_cidr                    = var.vpc_cidr
+  admin_email                 = var.admin_email
+  asg_notif_email             = var.asg_notif_email
+  incoming_ssl_cidr           = var.incoming_ssl_cidr
+  keypair                     = var.keypair
+  access_account_name         = var.access_account_name
+  s3_backup_bucket            = var.s3_backup_bucket
+  s3_backup_region            = var.s3_backup_region
+  termination_protection      = var.termination_protection
+  create_iam_roles            = var.create_iam_roles
+  ec2_role_name               = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
+  app_role_name               = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
+  ha_distribution             = var.ha_distribution
+  vpc_name                    = var.vpc_name
+  subnet_name                 = var.subnet_name
+  instance_type               = var.instance_type
+  cop_instance_type           = var.cop_instance_type
+  root_volume_type            = var.root_volume_type
+  root_volume_size            = var.root_volume_size
+  copilot_name                = var.copilot_name
+  cop_type                    = var.cop_type
+  cop_root_volume_size        = var.cop_root_volume_size
+  cop_root_volume_type        = var.cop_root_volume_type
+  cop_allowed_cidrs           = var.cop_allowed_cidrs
+  tags                        = var.tags
+  controller_version          = var.controller_version
+  use_existing_vpc            = var.use_existing_vpc
+  vpc                         = var.vpc
+  subnet_names                = var.subnet_names
+  name_prefix                 = var.name_prefix
+  license_type                = var.license_type
+  preemptive                  = var.preemptive
+  iam_for_lambda_arn          = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary        = var.region
+  inter_region_standby        = var.dr_region
+  zone_name                   = var.zone_name
+  record_name                 = var.record_name
   inter_region_backup_enabled = var.inter_region_backup_enabled
-  ecr_image              = "${aws_ecr_repository.repo.repository_url}:latest"
-  ecs_cluster_arn        = module.ecs_cluster.cluster_arn
+  ecr_image                   = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecs_cluster_arn             = module.ecs_cluster.cluster_arn
 }
 
 module "region2" {
   providers = {
     aws = aws.region2
   }
-  count                  = var.ha_distribution == "inter-region" ? 1 : 0
-  source                 = "./region-build"
-  region                 = var.dr_region
-  vpc_cidr               = var.dr_vpc_cidr
-  dr_region              = var.region
-  admin_email            = var.admin_email
-  asg_notif_email        = var.asg_notif_email
-  incoming_ssl_cidr      = var.incoming_ssl_cidr
-  keypair                = var.dr_keypair
-  access_account_name    = var.access_account_name
-  s3_backup_bucket       = var.s3_backup_bucket
-  s3_backup_region       = var.s3_backup_region
-  termination_protection = var.termination_protection
-  create_iam_roles       = var.create_iam_roles
-  ec2_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
-  app_role_name          = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
-  ha_distribution        = var.ha_distribution
-  vpc_name               = var.dr_vpc_name
-  subnet_name            = var.subnet_name
-  instance_type          = var.instance_type
-  cop_instance_type      = var.cop_instance_type
-  root_volume_type       = var.root_volume_type
-  root_volume_size       = var.root_volume_size
-  copilot_name           = var.copilot_name
-  cop_type               = var.cop_type
-  cop_root_volume_size   = var.cop_root_volume_size
-  cop_root_volume_type   = var.cop_root_volume_type
-  cop_allowed_cidrs      = var.cop_allowed_cidrs
-  tags                   = var.tags
-  controller_version     = var.controller_version
-  use_existing_vpc       = var.use_existing_vpc
-  vpc                    = var.dr_vpc
-  subnet_names           = var.dr_subnet_names
-  name_prefix            = var.name_prefix
-  license_type           = var.license_type
-  preemptive             = var.preemptive
-  iam_for_lambda_arn     = aws_iam_role.iam_for_lambda.arn
-  inter_region_primary   = var.region
-  inter_region_standby   = var.dr_region
-  zone_name              = var.zone_name
-  record_name            = var.record_name
+  count                       = var.ha_distribution == "inter-region" ? 1 : 0
+  source                      = "./region-build"
+  region                      = var.dr_region
+  vpc_cidr                    = var.dr_vpc_cidr
+  dr_region                   = var.region
+  admin_email                 = var.admin_email
+  asg_notif_email             = var.asg_notif_email
+  incoming_ssl_cidr           = var.incoming_ssl_cidr
+  keypair                     = var.dr_keypair
+  access_account_name         = var.access_account_name
+  s3_backup_bucket            = var.s3_backup_bucket
+  s3_backup_region            = var.s3_backup_region
+  termination_protection      = var.termination_protection
+  create_iam_roles            = var.create_iam_roles
+  ec2_role_name               = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
+  app_role_name               = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name
+  ha_distribution             = var.ha_distribution
+  vpc_name                    = var.dr_vpc_name
+  subnet_name                 = var.subnet_name
+  instance_type               = var.instance_type
+  cop_instance_type           = var.cop_instance_type
+  root_volume_type            = var.root_volume_type
+  root_volume_size            = var.root_volume_size
+  copilot_name                = var.copilot_name
+  cop_type                    = var.cop_type
+  cop_root_volume_size        = var.cop_root_volume_size
+  cop_root_volume_type        = var.cop_root_volume_type
+  cop_allowed_cidrs           = var.cop_allowed_cidrs
+  tags                        = var.tags
+  controller_version          = var.controller_version
+  use_existing_vpc            = var.use_existing_vpc
+  vpc                         = var.dr_vpc
+  subnet_names                = var.dr_subnet_names
+  name_prefix                 = var.name_prefix
+  license_type                = var.license_type
+  preemptive                  = var.preemptive
+  iam_for_lambda_arn          = aws_iam_role.iam_for_lambda.arn
+  inter_region_primary        = var.region
+  inter_region_standby        = var.dr_region
+  zone_name                   = var.zone_name
+  record_name                 = var.record_name
   inter_region_backup_enabled = var.inter_region_backup_enabled
-  ecr_image              = "${aws_ecr_repository.repo.repository_url}:latest"
-  ecs_cluster_arn        = module.ecs_cluster.cluster_arn
+  ecr_image                   = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecs_cluster_arn             = module.ecs_cluster.cluster_arn
 }
 
 # data "aws_caller_identity" "current" {}
@@ -217,35 +217,35 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
 
 locals {
   image_name = "avx_platform_ha"
-  image_path  = "${path.module}/docker"
-  image_tag = "latest"
+  image_path = "${path.module}/docker"
+  image_tag  = "latest"
 }
 
 resource "aws_ecr_repository" "repo" {
-  name = "avx_platform_ha"
-
-  tags = local.common_tags
+  name         = "avx_platform_ha"
+  force_delete = true
+  tags         = local.common_tags
 }
 
 resource "docker_image" "ecr_image" {
   name = local.image_name
 
   build {
-    context = local.image_path
+    context    = local.image_path
     dockerfile = "Dockerfile.aws"
-    tag  = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
+    tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
   }
   triggers = {
-    source_file = filebase64sha256("${local.image_path}/aws_controller.py")
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
   }
   depends_on = [
-     aws_ecr_repository.repo
+    aws_ecr_repository.repo
   ]
 }
 
 resource "null_resource" "push_ecr_image" {
   triggers = {
-    source_file = filebase64sha256("${local.image_path}/aws_controller.py")
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
   }
 
   provisioner "local-exec" {
