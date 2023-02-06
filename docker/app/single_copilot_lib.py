@@ -344,11 +344,6 @@ class CoPilotAPI:
             headers["Content-Type"] = "application/json"
             if not endpoint == "login":
                 headers["CID"] = self._cid
-            print(f"s1: http_method: {http_method}")
-            print(f"s2: url: {url}")
-            print(f"s3: params: {params}")
-            print(f"s3: headers: {headers}")
-            print(f"s3: data: {data}")
             if http_method == "GET":
                 r = requests.get(
                     url=url, params=params, headers=headers, verify=False, timeout=15,

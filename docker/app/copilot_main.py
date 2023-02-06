@@ -37,7 +37,7 @@ def handle_coplot_ha(event):
     # Security group adjustment
     # allow 443 from the copilot to the controller
     single_cplt.authorize_security_group_ingress(ec2_client,
-                                                 event['security_group_id'],
+                                                 event['controller_info']['sg_id'],
                                                  443, 443, 'tcp',
                                                  [f"{event['copilot_info']['public_ip']}/32"])
     api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
@@ -174,5 +174,4 @@ if __name__ == "__main__":
   }
   print(f"Running CoPilot HA from main(), with event: {copilot_event}")
   handle_coplot_ha(copilot_event)
-  
-  
+
