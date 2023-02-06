@@ -1,6 +1,7 @@
 import boto3
 import time
 import single_copilot_lib as single_cplt
+import cluster_copilot_lib as cluster_cplt
 
 def controller_copilot_setup(api, copilot_info):  
   # enable copilot association
@@ -63,6 +64,36 @@ def handle_coplot_ha(event):
     else:
       # clustered copilot init
       print("Clustered CoPilot Initialization begin ...")
+      event = {
+        "ec2_client": ec2_client,
+        "controller_public_ip": event['controller_info']['public_ip'],
+        "controller_private_ip": event['controller_info']['private_ip'],
+        "controller_region": event['region'],
+        "controller_username": event['controller_info']['username'],
+        "controller_password": event['controller_info']['password'],
+        "main_copilot_public_ip": event['copilot_info']['public_ip'],
+        "main_copilot_private_ip": event['copilot_info']['private_ip'],
+        "main_copilot_region": event['region'],
+        "main_copilot_username": event['copilot_info']['username'],
+        "main_copilot_password": event['copilot_info']['password'],
+        "node_copilot_public_ips": event['copilot_data_node_public_ips'],
+        "node_copilot_private_ips": event['copilot_data_node_private_ips'],
+        "node_copilot_regions": event['copilot_data_node_regions'],
+        "node_copilot_usernames": event['copilot_data_node_usernames'],
+        "node_copilot_passwords": event['copilot_data_node_passwords'],
+        "node_copilot_data_volumes": event['copilot_data_node_volumes'],
+        "node_copilot_names": event['copilot_data_node_names'],
+        "private_mode": False,
+        "controller_sg_name": event['controller_info']['sg_name'],
+        "main_copilot_sg_name": event['copilot_info']['sg_name'],
+        "node_copilot_sg_names": event['copilot_data_node_sg_names']
+      }
+      cluster_cplt.function_handler(event)
+      api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
+      api.login(username=event['controller_info']['username'],
+                password=event['controller_info']['password'])
+      copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
+                                           cid=api._cid)
   else:
     # copilot HA use case
     if event['copilot_type'] == "singleNode":
