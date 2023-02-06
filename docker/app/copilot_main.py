@@ -1,15 +1,36 @@
 import boto3
 import time
+import single_copilot_lib as single_cplt
 
 def handle_coplot_ha(event):
   
   # Preliminary actions - wait for CoPilot instances to be ready
   print(f"Starting CoPilot HA with copilot_init = '{event['copilot_init']}' and copilot_type = '{event['copilot_type']}'")
   print(f"Waiting for CoPilot API to be ready")
-  # ec2_client = boto3.client("ec2", region_name=event['region'])
-  # waiter = ec2_client.get_waiter("instance_status_ok")
-  # waiter.wait(InstanceIds=event['instance_ids'])
-  # time.sleep(600)
+  ec2_client = boto3.client("ec2", region_name=event['region'])
+  waiter = ec2_client.get_waiter("instance_status_ok")
+  waiter.wait(InstanceIds=event['instance_ids'])
+  time.sleep(600)
+
+  # login in to the controller and copilot
+  if event['copilot_type'] == "singleNode":
+    # Security group adjustment
+    # allow 443 from the copilot to the controller
+    single_cplt.authorize_security_group_ingress(ec2_client,
+                                                 event['security_group_id'],
+                                                 443, 443, 'tcp',
+                                                 [f"{event['copilot_info']['public_ip']}/32"])
+    api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
+    api.login(username=event['controller_info']['username'],
+              password=event['controller_info']['password'])
+    copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
+                                         cid=api._cid)
+    # set the new copilot to use the controller to verify logins
+    print("Set controller IP on CoPilot")
+    resp = copilot_api.set_controller_ip(event['controller_info']['public_ip'],
+                                         event['copilot_info']['username'],
+                                         event['copilot_info']['password'])
+    print(f"set_controller_ip: {resp}")
 
   if event['copilot_init']:
     # copilot init use case - not HA
