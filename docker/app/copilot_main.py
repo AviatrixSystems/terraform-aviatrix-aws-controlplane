@@ -68,8 +68,17 @@ def handle_coplot_ha(event):
     if event['copilot_type'] == "singleNode":
       # singleNode copilot HA
       # 1. get saved config from controller
-      # 2. restore saved config on new copilot
       print(f"SingleNode CoPilot HA begin ...")
+      print(f"Getting saved CoPilot config from the controller")
+      config = api.get_copilot_config()
+      print(f"get_copilot_config: {config}")
+      # 2. restore saved config on new copilot
+      print(f"Restoring config on CoPilot")
+      response = copilot_api.restore_copilot(config)
+      print(f"restore_config: {response}")
+      print(f"Getting restore_config status")
+      copilot_api.wait_copilot_restore_complete(event['copilot_type'])
+      print("CoPilot restore end")
     else:
       # clustered copilot HA - either main node or data node
       if event['cluster_ha_main_node']:
