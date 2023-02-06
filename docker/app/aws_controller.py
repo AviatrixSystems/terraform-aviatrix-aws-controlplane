@@ -1867,7 +1867,6 @@ def handle_cop_ha_event(client, event, context, asg_inst, asg_orig, asg_dest):
         ):
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
                 raise AvxError("Could not assign EIP to Copilot")
-            
         copilot_event = {
             "region": "",
             "copilot_init": True,
@@ -1908,7 +1907,8 @@ def handle_cop_ha_event(client, event, context, asg_inst, asg_orig, asg_dest):
                 "sg_name": ""  # (main) copilot security group name
             }
         }
-        cp_lib.handle_coplot_ha(event=copilot_event)
+        if False:
+            cp_lib.handle_coplot_ha(event=copilot_event)
         
     except Exception as err:
         print(f"Can't find Copilot with name {instance_name}. {str(err)}")
