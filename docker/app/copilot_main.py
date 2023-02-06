@@ -2,6 +2,25 @@ import boto3
 import time
 import single_copilot_lib as single_cplt
 
+def controller_copilot_setup(api, copilot_info):  
+  # enable copilot association
+  print("Associate Aviatrix CoPilot with Aviatrix Controller")
+  api.enable_copilot_association(copilot_info["private_ip"], copilot_info["public_ip"])
+  response = api.get_copilot_association_status()
+  print(f"get_copilot_association_status: {response}")
+  # enable netflow
+  print("Enable Netflow Agent configuration on Aviatrix Controller")
+  api.enable_netflow_agent(copilot_info["public_ip"])
+  # api.enable_netflow_agent(copilot_info["private_ip"])
+  response = api.get_netflow_agent()
+  print(f"get_netflow_agent: {response}")
+  # enable syslog
+  print("Enable Remote Syslog configuration on Aviatrix Controller")
+  # api.enable_syslog_configuration(copilot_info["private_ip"])
+  api.enable_syslog_configuration(copilot_info["public_ip"])
+  response = api.get_remote_syslog_logging_status()
+  print(f"get_remote_syslog_logging_status: {response}")
+
 def handle_coplot_ha(event):
   
   # Preliminary actions - wait for CoPilot instances to be ready
@@ -37,6 +56,10 @@ def handle_coplot_ha(event):
     if event['copilot_type'] == "singleNode":
       # singleNode copilot init
       print("SingleNode CoPilot Initialization begin ...")
+      response = copilot_api.init_copilot_single_node(event['copilot_info']['username'],
+                                                      event['copilot_info']['password'])
+      print(f"singlenode_copilot_init: {response}")
+      copilot_api.wait_copilot_init_complete(event['copilot_type'])
     else:
       # clustered copilot init
       print("Clustered CoPilot Initialization begin ...")
@@ -58,7 +81,15 @@ def handle_coplot_ha(event):
   
   # Post init or HA actions
   # 1. enable copilot config backup on new copilot instances
-  # 2. update controller-copilot associations
+  print("Enabling CoPilot config backup to the controller")
+  response = copilot_api.enable_copilot_backup()
+  print(f"enable_copilot_backup: {response}")
+  response = copilot_api.get_copilot_backup_status()
+  print(f"get_copilot_backup: {response}")
+  # 2. update the controller syslog server, netflow server, and copilot association
+  print("Updating controller Syslog server, Netflow server, and CoPilot association")
+  controller_copilot_setup(api, event['copilot_info'])  
+
   
 if __name__ == "__main__":
   copilot_event = {
