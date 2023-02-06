@@ -17,6 +17,7 @@ from urllib3.exceptions import InsecureRequestWarning
 import requests
 import boto3
 import botocore
+import copilot_main as cp_lib
 
 # import version
 
@@ -1866,6 +1867,49 @@ def handle_cop_ha_event(client, event, context, asg_inst, asg_orig, asg_dest):
         ):
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
                 raise AvxError("Could not assign EIP to Copilot")
+            
+        copilot_event = {
+            "region": "",
+            "copilot_init": True,
+            "copilot_type": "", # values should be "singleNode" or "clustered"
+            "instance_ids": ["",
+                             ""], # list of instances that should be "instance_status_ok"
+            "cluster_ha_main_node": True, # if clustered copilot HA case, set to True if HA for main node
+            "copilot_data_node_public_ips": ["",
+                                             ""], # cluster data nodes public IPs
+            "copilot_data_node_private_ips": ["",
+                                             ""], # cluster data nodes private IPs
+            "copilot_data_node_regions": ["",
+                                             ""], # cluster data nodes regions (should be the same)
+            "copilot_data_node_names": ["",
+                                             ""], # names to be displayed in copilot cluster info
+            "copilot_data_node_usernames": ["",
+                                             ""],
+            "copilot_data_node_passwords": ["",
+                                             ""],
+            "copilot_data_node_volumes": ["",
+                                          ""], # linux volume names (eg "/dev/sdf") - can be the same
+            "copilot_data_node_sg_names": ["",
+                                           ""], # cluster data nodes security group names
+            "controller_info": {
+                "public_ip": "",
+                "private_ip": "",
+                "username":  "",
+                "password": "",
+                "sg_id": "", # controller security group ID
+                "sg_name": ""  # controller security group name
+            },
+            "copilot_info": {
+                "public_ip": "",
+                "private_ip": "",
+                "username":  "",
+                "password": "",
+                "sg_id": "", # (main) copilot security group ID
+                "sg_name": ""  # (main) copilot security group name
+            }
+        }
+        cp_lib.handle_coplot_ha(event=copilot_event)
+        
     except Exception as err:
         print(f"Can't find Copilot with name {instance_name}. {str(err)}")
     finally:
