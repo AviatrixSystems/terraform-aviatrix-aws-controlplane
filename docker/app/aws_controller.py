@@ -1832,7 +1832,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
         print("- Completed function -")
 
 
-def handle_cop_ha_event(client, event, asg_inst, asg_orig, asg_dest):
+def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
         print(f"Copilot instance name: {instance_name}")
