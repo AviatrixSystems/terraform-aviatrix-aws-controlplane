@@ -295,9 +295,12 @@ class ControllerAPI:
     def pull_copilot_config_from_api(self) -> Dict[str, Any]:
         return self.v2("POST", "get_copilot_data")
     
-    def get_copilot_config(self) -> Dict[str, Any]:
+    def get_copilot_config(self, copilot_type) -> Dict[str, Any]:
         api_response = self.pull_copilot_config_from_api()
-        return api_response['results']
+        if copilot_type == "singleNode":
+            return api_response['results']
+        else:
+            return {'mainCopilot': api_response['results']['mainCopilot']}
 
 
 class CoPilotAPI:
