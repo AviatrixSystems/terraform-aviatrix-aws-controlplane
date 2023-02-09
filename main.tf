@@ -185,6 +185,7 @@ resource "aws_iam_policy" "lambda-policy" {
     {
       "Effect": "Allow",
       "Action": [
+        "ecs:DescribeTaskDefinition",
         "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
