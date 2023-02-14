@@ -103,7 +103,7 @@ def ecs_handler():
         and asg == os.environ.get("CTRL_ASG")
     ):
         print("Lambda probably did not complete last time. Reverting sg %s" % tmp_sg)
-        update_env_dict(ecs_client, context, {"TMP_SG_GRP": ""})
+        update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
         restore_security_group_access(ec2_client, tmp_sg)
 
     try:
@@ -140,7 +140,7 @@ def ecs_handler():
     ):
         pri_region = sns_region
         dr_region = os.environ.get("DR_REGION")
-        handle_ctrl_inter_region_event(pri_region, dr_region, context)
+        handle_ctrl_inter_region_event(pri_region, dr_region)
     elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
@@ -161,7 +161,6 @@ def ecs_handler():
                 ec2_client,
                 ecs_client,
                 event,
-                context,
                 sns_msg_inst,
                 sns_msg_orig,
                 sns_msg_dest,
@@ -171,7 +170,6 @@ def ecs_handler():
                 ec2_client,
                 ecs_client,
                 event,
-                context,
                 sns_msg_inst,
                 sns_msg_orig,
                 sns_msg_dest,
@@ -224,7 +222,7 @@ def create_new_sg(client):
     return sg_id
 
 
-def update_env_dict(ecs_client, context, replace_dict={}):
+def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in lambda"""
 
     env_dict = {
@@ -295,7 +293,7 @@ def update_env_dict(ecs_client, context, replace_dict={}):
     print("Updated environment dictionary")
 
 
-def sync_env_var(ecs_client, env_dict, context, replace_dict={}):
+def sync_env_var(ecs_client, env_dict, replace_dict={}):
     """Update DR environment variables in lambda"""
     # wait_function_update_successful(lambda_client, context.function_name)
     # Removing empty key's from the env
@@ -378,7 +376,7 @@ def login_to_controller(ip_addr, username, pwd):
     return cid
 
 
-def set_environ(client, ecs_client, controller_instanceobj, context, eip=None):
+def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     """Sets Environment variables"""
 
     if eip is None:
@@ -820,9 +818,7 @@ def restore_security_group_access(client, sg_id):
             print(str(err))
 
 
-def handle_login_failure(
-    priv_ip, client, ecs_client, controller_instanceobj, context, eip, cid
-):
+def handle_login_failure(priv_ip, client, ecs_client, controller_instanceobj, eip, cid):
     """Handle login failure through private IP"""
 
     print("Checking for backup file")
@@ -844,7 +840,7 @@ def handle_login_failure(
             "Successfully retrieved version. Previous restore operation had succeeded. "
             "Previous lambda may have exceeded 5 min. Updating lambda config"
         )
-        set_environ(client, ecs_client, controller_instanceobj, context, eip)
+        set_environ(client, ecs_client, controller_instanceobj, eip)
 
 
 def get_role(role, default):
@@ -1390,9 +1386,7 @@ def handle_ctrl_inter_region_event(
         )
 
 
-def handle_ctrl_ha_event(
-    client, ecs_client, event, context, asg_inst, asg_orig, asg_dest
-):
+def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     """Restores the backup by doing the following
     1. Login to new controller
     2. There are 3 cases depending on asg_orig and asg_dest. Note that
@@ -1506,10 +1500,10 @@ def handle_ctrl_ha_event(
         if not duplicate:
             if os.environ.get("INTER_REGION") == "True":
                 update_env_dict(
-                    ecs_client, context, {"TMP_SG_GRP": sg_modified, "STATE": "INIT"}
+                    ecs_client, {"TMP_SG_GRP": sg_modified, "STATE": "INIT"}
                 )
             else:
-                update_env_dict(ecs_client, context, {"TMP_SG_GRP": sg_modified})
+                update_env_dict(ecs_client, {"TMP_SG_GRP": sg_modified})
 
         total_time = 0
         # while total_time <= MAX_LOGIN_TIMEOUT:
@@ -1534,7 +1528,6 @@ def handle_ctrl_ha_event(
                 client,
                 ecs_client,
                 controller_instanceobj,
-                context,
                 eip,
                 cid,
             )
@@ -1677,7 +1670,6 @@ def handle_ctrl_ha_event(
                                 client,
                                 ecs_client,
                                 controller_instanceobj,
-                                context,
                                 eip,
                             )
                             break
@@ -1687,7 +1679,6 @@ def handle_ctrl_ha_event(
                                 client,
                                 ecs_client,
                                 controller_instanceobj,
-                                context,
                                 eip,
                             )
                             break
@@ -1696,9 +1687,7 @@ def handle_ctrl_ha_event(
                             controller_api_ip, cid, os.environ.get("PRIMARY_ACC_NAME")
                         )
                         print("Updating lambda configuration")
-                        set_environ(
-                            client, ecs_client, controller_instanceobj, context, eip
-                        )
+                        set_environ(client, ecs_client, controller_instanceobj, eip)
                         break
                 else:
                     print(
@@ -1768,9 +1757,7 @@ def handle_ctrl_ha_event(
                     setup_ctrl_backup(controller_api_ip, cid, temp_acc_name, "true")
 
                     print("Updating lambda configuration")
-                    set_environ(
-                        client, ecs_client, controller_instanceobj, context, eip
-                    )
+                    set_environ(client, ecs_client, controller_instanceobj, eip)
                     return
 
                 # Parsing response from restore_backup()
@@ -1839,14 +1826,14 @@ def handle_ctrl_ha_event(
             )
             env_vars = copy.deepcopy(task_def["containerDefinitions"][0]["environment"])
             env = {env_var["name"]: env_var["value"] for env_var in env_vars}
-            sync_env_var(ecs_client, env, context, {"TMP_SG_GRP": ""})
+            sync_env_var(ecs_client, env, {"TMP_SG_GRP": ""})
             restore_security_group_access(client, sg_modified)
         else:
-            update_env_dict(ecs_client, context)
+            update_env_dict(ecs_client)
         print("- Completed function -")
 
 
-def handle_cop_ha_event(client, event, context, asg_inst, asg_orig, asg_dest):
+def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
         print(f"Copilot instance name: {instance_name}")

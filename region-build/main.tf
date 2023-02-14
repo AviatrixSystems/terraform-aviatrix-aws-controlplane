@@ -500,7 +500,7 @@ module "aviatrix_eventbridge" {
         attach_role_arn = true
 
         ecs_target = {
-          task_count          = 10
+          task_count          = 5
           task_definition_arn = aws_ecs_task_definition.task_def.arn
           launch_type         = "FARGATE"
           network_configuration = {
