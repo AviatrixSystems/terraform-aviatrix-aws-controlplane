@@ -32,25 +32,37 @@ def handle_coplot_ha(event):
   waiter.wait(InstanceIds=event['instance_ids'])
   time.sleep(600)
 
-  # login in to the controller and copilot
+  # Security group adjustment
   if event['copilot_type'] == "singleNode":
-    # Security group adjustment
-    # allow 443 from the copilot to the controller
     single_cplt.authorize_security_group_ingress(ec2_client,
                                                  event['controller_info']['sg_id'],
                                                  443, 443, 'tcp',
                                                  [f"{event['copilot_info']['public_ip']}/32"])
-    api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-    api.login(username=event['controller_info']['username'],
-              password=event['controller_info']['password'])
-    copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
-                                         cid=api._cid)
-    # set the new copilot to use the controller to verify logins
-    print("Set controller IP on CoPilot")
-    resp = copilot_api.set_controller_ip(event['controller_info']['public_ip'],
-                                         event['copilot_info']['username'],
-                                         event['copilot_info']['password'])
-    print(f"set_controller_ip: {resp}")
+  elif event['copilot_type'] == "clustered":
+    cluster_cplt.manage_sg_rules(ec2_client,
+                                 controller_sg_name=event['controller_info']['sg_name'],
+                                 main_copilot_sg_name=event['copilot_info']['sg_name'],
+                                 node_copilot_sg_names=event['copilot_data_node_sg_names'],
+                                 controller_private_ip=event['controller_info']['private_ip'],
+                                 main_copilot_public_ip=event['copilot_info']['public_ip'],
+                                 node_copilot_public_ips=event['copilot_data_node_public_ips'],
+                                 main_copilot_private_ip=event['copilot_info']['private_ip'],
+                                 node_copilot_private_ips=event['copilot_data_node_private_ips'],
+                                 restore=False,
+                                 private_mode=False,
+                                 add=True)
+  # login in to the controller and copilot
+  api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
+  api.login(username=event['controller_info']['username'],
+            password=event['controller_info']['password'])
+  copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
+                                        cid=api._cid)
+  # set the new copilot to use the controller to verify logins
+  print("Set controller IP on CoPilot")
+  resp = copilot_api.set_controller_ip(event['controller_info']['public_ip'],
+                                        event['copilot_info']['username'],
+                                        event['copilot_info']['password'])
+  print(f"set_controller_ip: {resp}")
 
   if event['copilot_init']:
     # copilot init use case - not HA
@@ -64,7 +76,7 @@ def handle_coplot_ha(event):
     else:
       # clustered copilot init
       print("Clustered CoPilot Initialization begin ...")
-      event = {
+      cluster_event = {
         "ec2_client": ec2_client,
         "controller_public_ip": event['controller_info']['public_ip'],
         "controller_private_ip": event['controller_info']['private_ip'],
@@ -88,20 +100,15 @@ def handle_coplot_ha(event):
         "main_copilot_sg_name": event['copilot_info']['sg_name'],
         "node_copilot_sg_names": event['copilot_data_node_sg_names']
       }
-      cluster_cplt.function_handler(event)
-      api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-      api.login(username=event['controller_info']['username'],
-                password=event['controller_info']['password'])
-      copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
-                                           cid=api._cid)
+      cluster_cplt.function_handler(cluster_event)
   else:
     # copilot HA use case
-    if event['copilot_type'] == "singleNode":
+    if event['copilot_type'] == "singleNode" or event['cluster_ha_main_node']:
       # singleNode copilot HA
       # 1. get saved config from controller
-      print(f"SingleNode CoPilot HA begin ...")
+      print(f"SingleNode CoPilot HA OR Cluster main node HA begin ...")
       print(f"Getting saved CoPilot config from the controller")
-      config = api.get_copilot_config()
+      config = api.get_copilot_config(event['copilot_type'])
       print(f"get_copilot_config: {config}")
       # 2. restore saved config on new copilot
       print(f"Restoring config on CoPilot")
@@ -130,7 +137,7 @@ def handle_coplot_ha(event):
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   controller_copilot_setup(api, event['copilot_info'])  
 
-  
+
 if __name__ == "__main__":
   copilot_event = {
     "region": "",
