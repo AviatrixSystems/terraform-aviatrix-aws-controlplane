@@ -30,3 +30,8 @@ override.tf.json
 
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
+
+# ignore python cache files
+__pycache__/
+# ignore tmp directories
+docker/tmp

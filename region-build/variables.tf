@@ -91,7 +91,7 @@ variable "cop_type" {
 variable "cop_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
-  default     = 2000
+  default     = 25
 }
 
 variable "cop_root_volume_type" {
@@ -99,6 +99,18 @@ variable "cop_root_volume_type" {
   description = "Root volume type for Copilot"
   default     = "gp3"
 }
+
+variable "cop_default_data_volume_size" {
+  type        = number
+  description = "Default data disk volume size for Copilot"
+  default     = 8
+}
+
+variable "cop_default_data_volume_type" {
+  type        = string
+  description = "Default data disk volume type for Copilot"
+  default     = "gp3"
+} 
 
 variable "incoming_ssl_cidr" {
   type        = list(string)
