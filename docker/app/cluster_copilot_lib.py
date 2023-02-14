@@ -12,11 +12,12 @@ class AviatrixException(Exception):
         super(AviatrixException, self).__init__(message)
 
 
-def add_ingress_rules(
+def manage_ingress_rules(
         ec2_client,
         private_ip,
         rules,
-        sg_name
+        sg_name,
+        add = True
 ):
     filters = [{
         'Name': 'private-ip-address',
@@ -36,12 +37,27 @@ def add_ingress_rules(
         )
 
     try:
-        response = ec2_client.authorize_security_group_ingress(
-            GroupId=security_group_id,
-            IpPermissions=rules)
-    except ClientError:
-        print(f'Could not create ingress security group rule.')
-        raise
+        if add:
+            print(f"Adding the following rules on the following IP: {private_ip}")
+            for rule in rules:
+                print(rule)
+            response = ec2_client.authorize_security_group_ingress(
+                GroupId=security_group_id,
+                IpPermissions=rules)
+        else:
+            print(f"Removing the following rules on the following IP: {private_ip}")
+            for rule in rules:
+                print(rule)
+            response = ec2_client.revoke_security_group_ingress(
+                GroupId=security_group_id,
+                IpPermissions=rules)
+    except ClientError as error:
+        print(f'Could not change ingress security group rule with add = "{add}".')
+        if error.response["Error"]["Code"] == "InvalidPermission.Duplicate":
+            print("One or more of the rules to be added already exists. Please check the IPs and try again")
+            print(error.response["Error"]["Message"])
+        else:
+            raise
     else:
         return response
 
@@ -228,6 +244,7 @@ def copilot_login_driver(controller_ip, login_info):
         response = login_copilot(controller_ip, copilot_ip, username, password)
         print(f"Login to copilot {copilot_ip} response status: {response.status_code}")
 
+
 def init_copilot_cluster(
         controller_username,
         controller_password,
@@ -308,6 +325,250 @@ def get_copilot_init_status(
 
     return response
 
+def manage_sg_rules(ec2_client,
+                 controller_sg_name,
+                 main_copilot_sg_name,
+                 node_copilot_sg_names,
+                 controller_private_ip,
+                 main_copilot_public_ip,
+                 node_copilot_public_ips,
+                 main_copilot_private_ip,
+                 node_copilot_private_ips,
+                 restore=False,
+                 private_mode=False,
+                 add=True):
+    # 1. update controller rules
+    controller_rules = []
+    if private_mode:
+        # 1.a. if using private, add the private IPs of all copilots
+        # to the controller SG for TCP port 443
+        controller_rules.append(
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 443,
+                "ToPort": 443,
+                "IpRanges": [{
+                    "CidrIp": main_copilot_private_ip + "/32",
+                    "Description": "Main CoPilot private IP"
+                }]
+            }
+        )
+        # if it's a new deployment (not a restore), add the IPs for the data nodes as well
+        if not restore:
+            for ip in node_copilot_private_ips:
+                controller_rules.append(
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "IpRanges": [{
+                            "CidrIp": ip + "/32",
+                            "Description": "Node CoPilot private IP"
+                        }]
+                    }
+                )
+    else:
+        # 1.b. if not using private, add the public IPs of all copilots
+        # to the controller SG for TCP port 443
+        controller_rules.append(
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 443,
+                "ToPort": 443,
+                "IpRanges": [{
+                    "CidrIp": main_copilot_public_ip + "/32",
+                    "Description": "Main CoPilot public IP"
+                }]
+            }
+        )
+        # if it's a new deployment (not a restore), add the IPs for the data nodes as well
+        if not restore:
+            for ip in node_copilot_public_ips:
+                controller_rules.append(
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "IpRanges": [{
+                            "CidrIp": ip + "/32",
+                            "Description": "Node CoPilot public IP"
+                        }]
+                    }
+                )
+    # add the rules to the controller SG
+    manage_ingress_rules(
+        ec2_client=ec2_client,
+        private_ip=controller_private_ip,
+        rules=controller_rules,
+        sg_name=controller_sg_name,
+        add=add
+    )
+    # 2. update copilot rules
+    main_copilot_rules = []
+    node_copilot_rules = []
+    # 2.a. create rules allowing all copilot private IPs access to
+    # TCP ports 443, 9200, and 9300
+    main_copilot_rules.extend(
+        [
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 443,
+                "ToPort": 443,
+                "IpRanges": [{
+                    "CidrIp": main_copilot_private_ip + "/32",
+                    "Description": "Main CoPilot private IP"
+                }]
+            },
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 9200,
+                "ToPort": 9200,
+                "IpRanges": [{
+                    "CidrIp": main_copilot_private_ip + "/32",
+                    "Description": "Main CoPilot private IP"
+                }]
+            },
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 9300,
+                "ToPort": 9300,
+                "IpRanges": [{
+                    "CidrIp": main_copilot_private_ip + "/32",
+                    "Description": "Main CoPilot private IP"
+                }]
+            }
+        ]
+    )
+    for ip in node_copilot_private_ips:
+        node_copilot_rules.extend(
+            [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 443,
+                    "ToPort": 443,
+                    "IpRanges": [{
+                        "CidrIp": ip + "/32",
+                        "Description": "Node CoPilot private IP"
+                    }]
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 9200,
+                    "ToPort": 9200,
+                    "IpRanges": [{
+                        "CidrIp": ip + "/32",
+                        "Description": "Node CoPilot private IP"
+                    }]
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 9300,
+                    "ToPort": 9300,
+                    "IpRanges": [{
+                        "CidrIp": ip + "/32",
+                        "Description": "Node CoPilot private IP"
+                    }]
+                }
+            ]
+        )
+    if not private_mode:
+        # 2.b. if private mode is not being used, also create rules allowing
+        # all copilot public IPs access to TCP ports 443, 9200, and 9300
+        main_copilot_rules.extend(
+            [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 443,
+                    "ToPort": 443,
+                    "IpRanges": [{
+                        "CidrIp": main_copilot_public_ip + "/32",
+                        "Description": "Main CoPilot public IP"
+                    }]
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 9200,
+                    "ToPort": 9200,
+                    "IpRanges": [{
+                        "CidrIp": main_copilot_public_ip + "/32",
+                        "Description": "Main CoPilot public IP"
+                    }]
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 9300,
+                    "ToPort": 9300,
+                    "IpRanges": [{
+                        "CidrIp": main_copilot_public_ip + "/32",
+                        "Description": "Main CoPilot public IP"
+                    }]
+                }
+            ]
+        )
+        for ip in node_copilot_public_ips:
+            node_copilot_rules.extend(
+                [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "IpRanges": [{
+                            "CidrIp": ip + "/32",
+                            "Description": "Node CoPilot public IP"
+                        }]
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9200,
+                        "ToPort": 9200,
+                        "IpRanges": [{
+                            "CidrIp": ip + "/32",
+                            "Description": "Node CoPilot public IP"
+                        }]
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9300,
+                        "ToPort": 9300,
+                        "IpRanges": [{
+                            "CidrIp": ip + "/32",
+                            "Description": "Node CoPilot public IP"
+                        }]
+                    }
+                ]
+            )
+
+    # add the rules to the SGs for all copilot nodes (main node and data nodes)
+    # for all cases (whether we're restoring or not)
+    # 1. add IPs of all the existing node copilots for TCP ports 443, 9200, and 9300 to  new copilot
+    manage_ingress_rules(
+        ec2_client=ec2_client,
+        private_ip=main_copilot_private_ip,
+        rules=node_copilot_rules,
+        sg_name=main_copilot_sg_name,
+        add=add
+    )
+    # 2. add IPs of the new copilot for TCP ports 443, 9200, and 9300 to all existing node copilots
+    for i in range(len(node_copilot_private_ips)):
+        manage_ingress_rules(
+            ec2_client=ec2_client,
+            private_ip=node_copilot_private_ips[i],
+            rules=main_copilot_rules,
+            sg_name=node_copilot_sg_names[i],
+            add=add
+        )
+    # if it's a new deployment (not a restore), we also want to add the rules for the data nodes to
+    # every other copilot data node
+    if not restore:
+        for i in range(len(node_copilot_private_ips)):
+            manage_ingress_rules(
+                ec2_client=ec2_client,
+                private_ip=node_copilot_private_ips[i],
+                rules=node_copilot_rules,
+                sg_name=node_copilot_sg_names[i],
+                add=add
+            )
+
 
 def function_handler(event):
     # aws_access_key = event["aws_access_key"]
@@ -371,160 +632,7 @@ def function_handler(event):
     # Step 2: Modify the security groups for controller and copilot instances #
     ###########################################################################
     print(f"STEP 2 START: Modify the security groups for controller and copilot instances.")
-
-    # modify controller security rule
-    controller_rules = []
-
-    if private_mode:
-        for ip in all_copilot_private_ips:
-            controller_rules.append(
-                {
-                    "IpProtocol": "tcp",
-                    "FromPort": 443,
-                    "ToPort": 443,
-                    "IpRanges": [{
-                        "CidrIp": ip + "/32"
-                    }]
-                }
-            )
-
-        add_ingress_rules(
-            ec2_client=ec2_client,
-            private_ip=controller_private_ip,
-            rules=controller_rules,
-            sg_name=controller_sg_name
-        )
-    else:
-        for ip in all_copilot_public_ips:
-            controller_rules.append(
-                {
-                    "IpProtocol": "tcp",
-                    "FromPort": 443,
-                    "ToPort": 443,
-                    "IpRanges": [{
-                        "CidrIp": ip + "/32"
-                    }]
-                }
-            )
-
-        add_ingress_rules(
-            ec2_client=ec2_client,
-            private_ip=controller_private_ip,
-            rules=controller_rules,
-            sg_name=controller_sg_name
-        )
-    # print(fcontroller_rules)
-
-    # modify copilot security rule
-    copilot_rules = []
-
-    if private_mode:
-        for ip in all_copilot_private_ips:
-            copilot_rules.extend(
-                [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 443,
-                        "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9200,
-                        "ToPort": 9200,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9300,
-                        "ToPort": 9300,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    }
-                ]
-            )
-        for i in range(len(all_copilot_private_ips)):
-            add_ingress_rules(
-                ec2_client=ec2_client,
-                private_ip=all_copilot_private_ips[i],
-                rules=copilot_rules,
-                sg_name=all_copilot_sg_names[i]
-            )
-    else:
-        for ip in all_copilot_public_ips:
-            copilot_rules.extend(
-                [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 443,
-                        "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9200,
-                        "ToPort": 9200,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9300,
-                        "ToPort": 9300,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    }
-                ]
-            )
-
-        for ip in all_copilot_private_ips:
-            copilot_rules.extend(
-                [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 443,
-                        "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9200,
-                        "ToPort": 9200,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": 9300,
-                        "ToPort": 9300,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32"
-                        }]
-                    }
-                ]
-            )
-        for i in range(len(all_copilot_public_ips)):
-            add_ingress_rules(
-                ec2_client=ec2_client,
-                private_ip=all_copilot_private_ips[i],
-                rules=copilot_rules,
-                sg_name=all_copilot_sg_names[i]
-            )
-
-    # print(fcopilot_rules)
-
+    print(f"STEP 2 - already completed")
     print(f"STEP 2 ENDED: Modified the security groups for controller and copilot instances.")
 
     ###################################
