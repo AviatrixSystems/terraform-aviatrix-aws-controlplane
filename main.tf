@@ -234,6 +234,7 @@ resource "docker_image" "ecr_image" {
   build {
     context    = local.image_path
     dockerfile = "Dockerfile.aws"
+    no_cache   = true
     tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
   }
   triggers = {
@@ -259,6 +260,9 @@ resource "null_resource" "push_ecr_image" {
     docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
     EOF
   }
+  depends_on = [
+    docker_image.ecr_image
+  ]
 }
 
 module "ecs_cluster" {
