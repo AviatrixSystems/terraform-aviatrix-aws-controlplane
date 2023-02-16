@@ -38,16 +38,10 @@ def manage_ingress_rules(
 
     try:
         if add:
-            print(f"Adding the following rules on the following IP: {private_ip}")
-            for rule in rules:
-                print(rule)
             response = ec2_client.authorize_security_group_ingress(
                 GroupId=security_group_id,
                 IpPermissions=rules)
         else:
-            print(f"Removing the following rules on the following IP: {private_ip}")
-            for rule in rules:
-                print(rule)
             response = ec2_client.revoke_security_group_ingress(
                 GroupId=security_group_id,
                 IpPermissions=rules)
@@ -334,7 +328,7 @@ def manage_sg_rules(ec2_client,
                  node_copilot_public_ips,
                  main_copilot_private_ip,
                  node_copilot_private_ips,
-                 restore=False,
+                 cluster_init=True,
                  private_mode=False,
                  add=True):
     # 1. update controller rules
@@ -354,7 +348,7 @@ def manage_sg_rules(ec2_client,
             }
         )
         # if it's a new deployment (not a restore), add the IPs for the data nodes as well
-        if not restore:
+        if cluster_init:
             for ip in node_copilot_private_ips:
                 controller_rules.append(
                     {
@@ -382,7 +376,7 @@ def manage_sg_rules(ec2_client,
             }
         )
         # if it's a new deployment (not a restore), add the IPs for the data nodes as well
-        if not restore:
+        if cluster_init:
             for ip in node_copilot_public_ips:
                 controller_rules.append(
                     {
@@ -559,7 +553,7 @@ def manage_sg_rules(ec2_client,
         )
     # if it's a new deployment (not a restore), we also want to add the rules for the data nodes to
     # every other copilot data node
-    if not restore:
+    if cluster_init:
         for i in range(len(node_copilot_private_ips)):
             manage_ingress_rules(
                 ec2_client=ec2_client,
