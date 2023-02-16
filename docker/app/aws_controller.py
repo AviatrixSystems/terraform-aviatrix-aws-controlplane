@@ -1809,7 +1809,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                     return
         # raise AvxError("Restore failed, did not update lambda config")
     finally:
-        sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
+        sns_msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
         response = asg_client.complete_lifecycle_action(
             AutoScalingGroupName=sns_msg_json["AutoScalingGroupName"],
@@ -1906,7 +1906,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
     except Exception as err:
         print(f"Can't find Copilot with name {instance_name}. {str(err)}")
     finally:
-        sns_msg_json = json.loads(event["Records"][0]["Sns"]["Message"])
+        sns_msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
         response = asg_client.complete_lifecycle_action(
             AutoScalingGroupName=sns_msg_json["AutoScalingGroupName"],
