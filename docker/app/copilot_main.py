@@ -48,7 +48,7 @@ def handle_coplot_ha(event):
                                  node_copilot_public_ips=event['copilot_data_node_public_ips'],
                                  main_copilot_private_ip=event['copilot_info']['private_ip'],
                                  node_copilot_private_ips=event['copilot_data_node_private_ips'],
-                                 restore=False,
+                                 cluster_init=event['copilot_init'],
                                  private_mode=False,
                                  add=True)
   # login in to the controller and copilot
@@ -136,7 +136,6 @@ def handle_coplot_ha(event):
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   controller_copilot_setup(api, event['copilot_info'])  
-
 
 if __name__ == "__main__":
   copilot_event = {
