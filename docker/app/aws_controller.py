@@ -288,7 +288,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         if envvar["name"] in env_dict:
             envvar["value"] = env_dict[envvar["name"]]
     print("Updating task definition")
-    ecs_client.update_function_configuration(**new_task_def)
+    ecs_client.register_task_definition(**new_task_def)
 
     print("Updated environment dictionary")
 
@@ -479,7 +479,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         if envvar["name"] in env_dict:
             envvar["value"] = env_dict[envvar["name"]]
     print("Updating task definition")
-    ecs_client.update_function_configuration(**new_task_def)
+    ecs_client.register_task_definition(**new_task_def)
     os.environ.update(env_dict)
 
 
