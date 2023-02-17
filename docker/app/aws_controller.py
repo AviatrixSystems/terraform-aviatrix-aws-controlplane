@@ -1824,7 +1824,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             task_def = ecs_client.describe_task_definition(
                 taskDefinition=TASK_DEF_FAMILY,
             )
-            env_vars = copy.deepcopy(task_def["containerDefinitions"][0]["environment"])
+            env_vars = copy.deepcopy(
+                task_def["taskDefinition"]["containerDefinitions"][0]["environment"]
+            )
             env = {env_var["name"]: env_var["value"] for env_var in env_vars}
             sync_env_var(ecs_client, env, {"TMP_SG_GRP": ""})
             restore_security_group_access(client, sg_modified)
