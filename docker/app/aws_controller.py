@@ -326,7 +326,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
         if envvar["name"] in env_dict:
             envvar["value"] = env_dict[envvar["name"]]
     print("Updating task definition")
-    ecs_client.update_function_configuration(**new_task_def)
+    ecs_client.register_task_definition(**new_task_def)
     print("Updated environment dictionary")
 
 
