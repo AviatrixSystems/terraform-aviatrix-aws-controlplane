@@ -110,7 +110,7 @@ variable "cop_default_data_volume_type" {
   type        = string
   description = "Default data disk volume type for Copilot"
   default     = "gp3"
-} 
+}
 
 variable "incoming_ssl_cidr" {
   type        = list(string)
