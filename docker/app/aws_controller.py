@@ -175,6 +175,17 @@ def ecs_handler():
                 sns_msg_dest,
             )
 
+    # Delete message from SQS after processing
+    response = queue.delete_messages(
+        Entries=[
+            {
+                "Id": queue_messages[0].message_id,
+                "ReceiptHandle": queue_messages[0].receipt_handle,
+            }
+        ]
+    )
+    print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
+
 
 def create_new_sg(client):
     """Creates a new security group"""
