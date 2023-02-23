@@ -250,7 +250,7 @@ resource "aws_ecs_task_definition" "task_def" {
 
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name               = "ecsTaskExecutionRole"
+  name               = "ecsTaskExecutionRole-${var.region}"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume_role.json
 }
 
@@ -458,7 +458,7 @@ module "aviatrix_eventbridge" {
   create_bus = false
   #bus_name = "aviatrix-event-bus"
   create_role       = true
-  role_name         = "aviatrix-event-role"
+  role_name         = "aviatrix-event-role-${var.region}"
   attach_ecs_policy = true
   ecs_target_arns = [
     aws_ecs_task_definition.task_def.arn
