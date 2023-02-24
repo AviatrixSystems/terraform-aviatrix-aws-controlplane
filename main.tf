@@ -43,7 +43,6 @@ module "region1" {
   record_name                  = var.record_name
   inter_region_backup_enabled  = var.inter_region_backup_enabled
   ecr_image                    = "${aws_ecr_repository.repo.repository_url}:latest"
-  ecs_cluster_arn              = module.ecs_cluster.cluster_arn
 }
 
 module "region2" {
@@ -95,7 +94,6 @@ module "region2" {
   record_name                  = var.record_name
   inter_region_backup_enabled  = var.inter_region_backup_enabled
   ecr_image                    = "${aws_ecr_repository.repo.repository_url}:latest"
-  ecs_cluster_arn              = module.ecs_cluster.cluster_arn
 }
 
 # data "aws_caller_identity" "current" {}
@@ -268,49 +266,6 @@ resource "null_resource" "push_ecr_image" {
   depends_on = [
     docker_image.ecr_image
   ]
-}
-
-module "ecs_cluster" {
-  source  = "terraform-aws-modules/ecs/aws"
-  version = "4.1.2"
-
-  cluster_name = "avx_platform_ha"
-
-  cluster_configuration = {
-    execute_command_configuration = {
-      logging = "OVERRIDE"
-      log_configuration = {
-        # You can set a simple string and ECS will create the CloudWatch log group for you
-        # or you can create the resource yourself as shown here to better manage retetion, tagging, etc.
-        # Embedding it into the module is not trivial and therefore it is externalized
-        cloud_watch_log_group_name = aws_cloudwatch_log_group.log_group.name
-      }
-    }
-  }
-
-  # Capacity provider
-  fargate_capacity_providers = {
-    FARGATE = {
-      default_capacity_provider_strategy = {
-        weight = 50
-        base   = 20
-      }
-    }
-    FARGATE_SPOT = {
-      default_capacity_provider_strategy = {
-        weight = 50
-      }
-    }
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_cloudwatch_log_group" "log_group" {
-  name              = "/aws/ecs/avx_platform_ha"
-  retention_in_days = 7
-
-  tags = local.common_tags
 }
 
 data "aws_caller_identity" "current" {}

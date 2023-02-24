@@ -15,7 +15,7 @@ resource "aws_ecs_task_definition" "task_def" {
   task_role_arn            = var.iam_for_lambda_arn
   container_definitions = jsonencode([
     {
-      name   = var.ecs_service_name
+      name   = module.ecs_cluster.cluster_name
       image  = var.ecr_image
       cpu    = 256
       memory = 512
@@ -496,7 +496,7 @@ module "aviatrix_eventbridge" {
     ha_controller_event = [
       {
         name            = "ecs_task_target"
-        arn             = var.ecs_cluster_arn
+        arn             = module.ecs_cluster.cluster_arn
         attach_role_arn = true
 
         ecs_target = {
@@ -587,3 +587,46 @@ module "aviatrix_eventbridge" {
 #    ]
 #  })
 #}
+
+module "ecs_cluster" {
+  source  = "terraform-aws-modules/ecs/aws"
+  version = "4.1.2"
+
+  cluster_name = "avx_platform_ha"
+
+  cluster_configuration = {
+    execute_command_configuration = {
+      logging = "OVERRIDE"
+      log_configuration = {
+        # You can set a simple string and ECS will create the CloudWatch log group for you
+        # or you can create the resource yourself as shown here to better manage retetion, tagging, etc.
+        # Embedding it into the module is not trivial and therefore it is externalized
+        cloud_watch_log_group_name = aws_cloudwatch_log_group.log_group.name
+      }
+    }
+  }
+
+  # Capacity provider
+  fargate_capacity_providers = {
+    FARGATE = {
+      default_capacity_provider_strategy = {
+        weight = 50
+        base   = 20
+      }
+    }
+    FARGATE_SPOT = {
+      default_capacity_provider_strategy = {
+        weight = 50
+      }
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "log_group" {
+  name              = "/aws/ecs/avx_platform_ha"
+  retention_in_days = 7
+
+  tags = local.common_tags
+}

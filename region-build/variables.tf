@@ -299,14 +299,3 @@ variable "ecr_image" {
   description = "The AMI ID of the Aviatrix Controller"
   default     = ""
 }
-
-variable "ecs_service_name" {
-  type        = string
-  description = "The ECS service name"
-  default     = "avx_controller_ha"
-}
-
-variable "ecs_cluster_arn" {
-  type        = string
-  description = "The ECS cluster ARN"
-}
