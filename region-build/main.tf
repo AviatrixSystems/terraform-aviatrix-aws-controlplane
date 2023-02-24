@@ -482,7 +482,8 @@ module "aviatrix_eventbridge" {
         ],
         detail = {
           AutoScalingGroupName = [
-            "avtx_controller"
+            "avtx_controller",
+            "avtx_copilot"
           ]
           LifecycleTransition = [
             "autoscaling:EC2_INSTANCE_LAUNCHING"
