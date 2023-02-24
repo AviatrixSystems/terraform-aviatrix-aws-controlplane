@@ -1663,7 +1663,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
                 if response_json.get("return", False) is True:
                     if os.environ.get("INTER_REGION") == "True":
-                        region = event["Records"][0]["Sns"]["TopicArn"].split(":")[3]
+                        region = event["TopicArn"].split(":")[3]
                         # In the inter-region case, enable controller backups on
                         # the primary controller if INTER_REGION_BACKUP_ENABLED is true
                         if (
