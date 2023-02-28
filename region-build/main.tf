@@ -503,7 +503,10 @@ module "aviatrix_eventbridge" {
         ecs_target = {
           task_count = 5
           # Remove the revision number so that the latest revision of the task definition is invoked
-          task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
+          task_definition_arn = aws_ecs_task_definition.task_def.arn
+          # task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
+          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:latest"
+          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:*"
           launch_type         = "FARGATE"
           network_configuration = {
             subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
