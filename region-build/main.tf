@@ -453,7 +453,7 @@ POLICY
 }
 
 module "aviatrix_eventbridge" {
-  source = "terraform-aws-modules/eventbridge/aws"
+  source = "./modules/terraform-aws-eventbridge"
 
   create_bus = false
   #bus_name = "aviatrix-event-bus"
@@ -594,8 +594,7 @@ module "aviatrix_eventbridge" {
 #}
 
 module "ecs_cluster" {
-  source  = "terraform-aws-modules/ecs/aws"
-  version = "4.1.2"
+  source = "./modules/terraform-aws-ecs"
 
   cluster_name = "avx_platform_ha"
 
