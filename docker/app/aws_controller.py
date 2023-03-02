@@ -87,8 +87,8 @@ def ecs_handler():
     event = json.loads(queue_messages[0].body)
 
     try:
-        region = event["TopicArn"].split(":")[3]
-        print(f"Event in region {region}")
+        sns_region = event["TopicArn"].split(":")[3]
+        print(f"Event in region {sns_region}")
     except (AttributeError, IndexError, KeyError, TypeError) as e:
         pprint(queue_messages[0].body)
         print(e)
@@ -1847,6 +1847,8 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
+    for name, value in os.environ.items():
+        print(f"{name}: {value}")
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
         print(f"Copilot instance name: {instance_name}")
@@ -1858,66 +1860,77 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             ]
         )["Reservations"][0]["Instances"][0]
 
-        print(f"{copilot_instanceobj}")
+        controller_instance_name = os.environ.get("AVIATRIX_TAG")
+        print(f"Controller instance name: {controller_instance_name}")
 
+        controller_instanceobj = client.describe_instances(
+            Filters=[
+                {"Name": "instance-state-name", "Values": ["running"]},
+                {"Name": "tag:Name", "Values": [controller_instance_name]},
+            ]
+        )["Reservations"][0]["Instances"][0]
+
+        print(f"CoPilot: {copilot_instanceobj}")
+        print(f"Controller: {controller_instanceobj}")
+        controller_creds = get_ssm_creds("us-east-1")
         # Assign COP_EIP
         if (
-            json.loads(event["Records"][0]["Sns"]["Message"]).get("Destination", "")
+            json.loads(event["Message"]).get("Destination", "")
             == "AutoScalingGroup"
         ):
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
                 raise AvxError("Could not assign EIP to Copilot")
         copilot_event = {
-            "region": "",
+            "region": os.environ.get("SQS_QUEUE_REGION"),
             "copilot_init": True,
-            "copilot_type": "",  # values should be "singleNode" or "clustered"
+            "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "instance_ids": [
-                "",
-                "",
+                copilot_instanceobj['InstanceId'],
+                controller_instanceobj['InstanceId']
             ],  # list of instances that should be "instance_status_ok"
             "cluster_ha_main_node": True,  # if clustered copilot HA case, set to True if HA for main node
-            "copilot_data_node_public_ips": ["", ""],  # cluster data nodes public IPs
-            "copilot_data_node_private_ips": ["", ""],  # cluster data nodes private IPs
+            "copilot_data_node_public_ips": ["", "", ""],  # cluster data nodes public IPs
+            "copilot_data_node_private_ips": ["", "", ""],  # cluster data nodes private IPs
             "copilot_data_node_regions": [
-                "",
-                "",
+                os.environ.get("SQS_QUEUE_REGION"),
+                os.environ.get("SQS_QUEUE_REGION"),
+                os.environ.get("SQS_QUEUE_REGION")
             ],  # cluster data nodes regions (should be the same)
-            "copilot_data_node_names": [
-                "",
-                "",
-            ],  # names to be displayed in copilot cluster info
-            "copilot_data_node_usernames": ["", ""],
-            "copilot_data_node_passwords": ["", ""],
+            "copilot_data_node_names": [ "", "", ""],  # names to be displayed in copilot cluster info
+            "copilot_data_node_usernames": ["admin", "admin", "admin"],
+            "copilot_data_node_passwords": [controller_creds, controller_creds, controller_creds],
             "copilot_data_node_volumes": [
-                "",
-                "",
+                "/dev/sdf",
+                "/dev/sdf",
+                "/dev/sdf",
             ],  # linux volume names (eg "/dev/sdf") - can be the same
             "copilot_data_node_sg_names": [
                 "",
                 "",
             ],  # cluster data nodes security group names
             "controller_info": {
-                "public_ip": "",
-                "private_ip": "",
-                "username": "",
-                "password": "",
-                "sg_id": "",  # controller security group ID
-                "sg_name": "",  # controller security group name
+                "public_ip": os.environ.get("EIP"),
+                "private_ip": controller_instanceobj['PrivateIpAddress'],
+                "username": "admin",
+                "password": controller_creds,
+                "sg_id": controller_instanceobj['SecurityGroups'][0]['GroupId'],  # controller security group ID
+                "sg_name": controller_instanceobj['SecurityGroups'][0]['GroupName'],  # controller security group name
             },
             "copilot_info": {
-                "public_ip": "",
-                "private_ip": "",
-                "username": "",
-                "password": "",
-                "sg_id": "",  # (main) copilot security group ID
-                "sg_name": "",  # (main) copilot security group name
+                "public_ip": os.environ.get("COP_EIP"),
+                "private_ip": copilot_instanceobj['PrivateIpAddress'],
+                "username": "admin",
+                "password": controller_creds,
+                "sg_id": copilot_instanceobj['SecurityGroups'][0]['GroupId'],  # (main) copilot security group ID
+                "sg_name": copilot_instanceobj['SecurityGroups'][0]['GroupName'],  # (main) copilot security group name
             },
         }
+        print(f"copilot_event: {copilot_event}")
         if False:
             cp_lib.handle_coplot_ha(event=copilot_event)
-
-    except Exception as err:
-        print(f"Can't find Copilot with name {instance_name}. {str(err)}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"handle_cop_ha_event failed with err: {str(err)}")
     finally:
         sns_msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
