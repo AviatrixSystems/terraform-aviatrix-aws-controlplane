@@ -1,5 +1,7 @@
 import boto3
+import os
 import time
+import traceback
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
@@ -28,16 +30,45 @@ def handle_coplot_ha(event):
   print(f"Starting CoPilot HA with copilot_init = '{event['copilot_init']}' and copilot_type = '{event['copilot_type']}'")
   print(f"Waiting for CoPilot API to be ready")
   ec2_client = boto3.client("ec2", region_name=event['region'])
-  waiter = ec2_client.get_waiter("instance_status_ok")
-  waiter.wait(InstanceIds=event['instance_ids'])
-  time.sleep(600)
+  # waiter = ec2_client.get_waiter("instance_status_ok")
+  # waiter.wait(InstanceIds=event['instance_ids'])
+  print("sleeping for 1200 seconds")
+  time.sleep(1200)
 
   # Security group adjustment
   if event['copilot_type'] == "singleNode":
-    single_cplt.authorize_security_group_ingress(ec2_client,
-                                                 event['controller_info']['sg_id'],
-                                                 443, 443, 'tcp',
-                                                 [f"{event['copilot_info']['public_ip']}/32"])
+    try:
+      single_cplt.authorize_security_group_ingress(ec2_client,
+                                                  event['controller_info']['sg_id'],
+                                                  443, 443, 'tcp',
+                                                  [f"{event['copilot_info']['public_ip']}/32"])
+    except Exception as err:  # pylint: disable=broad-except
+      print(str(traceback.format_exc()))
+      print("Adding CoPilot IP to Controller SG failed due to " + str(err))
+    try:
+      single_cplt.authorize_security_group_ingress(ec2_client,
+                                                  event['copilot_info']['sg_id'],
+                                                  443, 443, 'tcp',
+                                                  [f"{event['controller_info']['public_ip']}/32"])
+    except Exception as err:  # pylint: disable=broad-except
+      print(str(traceback.format_exc()))
+      print("Adding Controller IP to CoPilot SG failed due to " + str(err))
+    try:
+      single_cplt.authorize_security_group_ingress(ec2_client,
+                                                  event['controller_info']['sg_id'],
+                                                  443, 443, 'tcp',
+                                                  [f"0.0.0.0/0"])
+    except Exception as err:  # pylint: disable=broad-except
+      print(str(traceback.format_exc()))
+      print("Adding 0/0 route to controller SG failed due to " + str(err))
+    try:
+      single_cplt.authorize_security_group_ingress(ec2_client,
+                                                  event['copilot_info']['sg_id'],
+                                                  443, 443, 'tcp',
+                                                  [f"0.0.0.0/0"])
+    except Exception as err:  # pylint: disable=broad-except
+      print(str(traceback.format_exc()))
+      print("Adding 0/0 route to copilot SG failed due to " + str(err))
   elif event['copilot_type'] == "clustered":
     cluster_cplt.manage_sg_rules(ec2_client,
                                  controller_sg_name=event['controller_info']['sg_name'],
@@ -52,6 +83,8 @@ def handle_coplot_ha(event):
                                  private_mode=False,
                                  add=True)
   # login in to the controller and copilot
+  print("sleeping for 600 seconds")
+  time.sleep(600)
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
   api.login(username=event['controller_info']['username'],
             password=event['controller_info']['password'])
@@ -135,7 +168,25 @@ def handle_coplot_ha(event):
   print(f"get_copilot_backup: {response}")
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
-  controller_copilot_setup(api, event['copilot_info'])  
+  controller_copilot_setup(api, event['copilot_info'])
+
+  # remove open rules
+  try:
+    single_cplt.revoke_security_group_ingress(ec2_client,
+                                              event['controller_info']['sg_id'],
+                                              443, 443, 'tcp',
+                                              [f"0.0.0.0/0"])
+  except Exception as err:  # pylint: disable=broad-except
+    print(str(traceback.format_exc()))
+    print("Removing 0/0 route to controller SG failed due to " + str(err))
+  try:
+    single_cplt.revoke_security_group_ingress(ec2_client,
+                                              event['copilot_info']['sg_id'],
+                                              443, 443, 'tcp',
+                                              [f"0.0.0.0/0"])
+  except Exception as err:  # pylint: disable=broad-except
+    print(str(traceback.format_exc()))
+    print("Removing 0/0 route to copilot SG failed due to " + str(err))
 
 if __name__ == "__main__":
   copilot_event = {
