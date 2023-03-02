@@ -176,10 +176,17 @@ data "aws_iam_policy_document" "ecs" {
   count = local.create_role && var.attach_ecs_policy ? 1 : 0
 
   statement {
-    sid       = "ECSAccess"
+    sid       = "ECSAccess1"
     effect    = "Allow"
     actions   = ["ecs:RunTask"]
-    resources = [for arn in var.ecs_target_arns : replace(arn, "/:\\d+$/", ":*")]
+    resources = [for arn in var.ecs_target_arns : format("%s%s", arn, "/*")]
+  }
+
+  statement {
+    sid       = "ECSAccess2"
+    effect    = "Allow"
+    actions   = ["ecs:RunTask"]
+    resources = [for arn in var.ecs_target_arns : replace(arn, "/:\\d+$/", "")]
   }
 
   statement {
