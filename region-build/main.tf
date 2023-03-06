@@ -380,7 +380,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   initial_lifecycle_hook {
     name                 = "init"
     default_result       = "CONTINUE"
-    heartbeat_timeout    = 900
+    heartbeat_timeout    = 1200
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn
@@ -453,7 +453,7 @@ POLICY
 }
 
 module "aviatrix_eventbridge" {
-  source = "terraform-aws-modules/eventbridge/aws"
+  source = "./modules/terraform-aws-eventbridge"
 
   create_bus = false
   #bus_name = "aviatrix-event-bus"
@@ -461,7 +461,7 @@ module "aviatrix_eventbridge" {
   role_name         = "aviatrix-event-role-${var.region}"
   attach_ecs_policy = true
   ecs_target_arns = [
-    aws_ecs_task_definition.task_def.arn
+    trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
   ]
 
   rules = {
@@ -501,9 +501,13 @@ module "aviatrix_eventbridge" {
         attach_role_arn = true
 
         ecs_target = {
-          task_count          = 5
-          task_definition_arn = aws_ecs_task_definition.task_def.arn
-          launch_type         = "FARGATE"
+          task_count = 5
+          # Remove the revision number so that the latest revision of the task definition is invoked
+          # task_definition_arn = aws_ecs_task_definition.task_def.arn
+          task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
+          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:latest"
+          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:*"
+          launch_type = "FARGATE"
           network_configuration = {
             subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
             security_groups  = [aws_security_group.AviatrixSecurityGroup.id]
@@ -590,8 +594,7 @@ module "aviatrix_eventbridge" {
 #}
 
 module "ecs_cluster" {
-  source  = "terraform-aws-modules/ecs/aws"
-  version = "4.1.2"
+  source = "./modules/terraform-aws-ecs"
 
   cluster_name = "avx_platform_ha"
 

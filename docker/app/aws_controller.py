@@ -237,41 +237,41 @@ def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in lambda"""
 
     env_dict = {
-        "EIP": os.environ.get("EIP"),
-        "COP_EIP": os.environ.get("COP_EIP"),
-        "VPC_ID": os.environ.get("VPC_ID"),
-        "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
-        "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
-        "CTRL_ASG": os.environ.get("CTRL_ASG"),
-        "COP_ASG": os.environ.get("COP_ASG"),
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
-        "PRIV_IP": os.environ.get("PRIV_IP", ""),
-        "INST_ID": os.environ.get("INST_ID", ""),
-        "S3_BUCKET_BACK": os.environ.get("S3_BUCKET_BACK"),
-        "S3_BUCKET_REGION": os.environ.get("S3_BUCKET_REGION", ""),
-        "DISKS": os.environ.get("DISKS", ""),
-        "TAGS": os.environ.get("TAGS", "[]"),
-        "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
+        "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
+        "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
+        "COP_ASG": os.environ.get("COP_ASG"),
+        "COP_EIP": os.environ.get("COP_EIP"),
+        "CTRL_ASG": os.environ.get("CTRL_ASG"),
+        "DISKS": os.environ.get("DISKS", ""),
+        "EIP": os.environ.get("EIP"),
+        "INST_ID": os.environ.get("INST_ID", ""),
         "INTER_REGION": os.environ.get("INTER_REGION"),
-        # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
-        # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
+        "PRIV_IP": os.environ.get("PRIV_IP", ""),
+        "S3_BUCKET_BACK": os.environ.get("S3_BUCKET_BACK"),
+        "S3_BUCKET_REGION": os.environ.get("S3_BUCKET_REGION"),
+        "SQS_QUEUE_NAME": os.environ.get("SQS_QUEUE_NAME"),
+        "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
+        "TAGS": os.environ.get("TAGS", "[]"),
+        "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
+        "VPC_ID": os.environ.get("VPC_ID"),
     }
     if os.environ.get("INTER_REGION") == "True":
-        env_dict["DR_REGION"] = os.environ.get("DR_REGION")
-        env_dict["PRIMARY_ACC_NAME"] = os.environ.get("PRIMARY_ACC_NAME")
-        # env_dict['CTRL_INIT_VER'] = os.environ.get('CTRL_INIT_VER')
-        env_dict["CTRL_INIT_VER"] = os.environ.get("CTRL_INIT_VER", "")
-        env_dict["ADMIN_EMAIL"] = os.environ.get("ADMIN_EMAIL")
-        env_dict["PREEMPTIVE"] = os.environ.get("PREEMPTIVE", "")
         env_dict["ACTIVE_REGION"] = os.environ.get("ACTIVE_REGION")
-        env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
-        env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
-        env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
+        env_dict["ADMIN_EMAIL"] = os.environ.get("ADMIN_EMAIL")
+        env_dict["CTRL_INIT_VER"] = os.environ.get("CTRL_INIT_VER", "")
+        env_dict["DR_REGION"] = os.environ.get("DR_REGION")
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
+        env_dict["PREEMPTIVE"] = os.environ.get("PREEMPTIVE", "")
+        env_dict["PRIMARY_ACC_NAME"] = os.environ.get("PRIMARY_ACC_NAME")
+        env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
+        env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
+        env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
+
     # wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
@@ -294,13 +294,14 @@ def update_env_dict(ecs_client, replace_dict={}):
     for arg in remove_args:
         new_task_def.pop(arg)
 
-    env_def = new_task_def["containerDefinitions"][0]["environment"]
-    for envvar in env_def:
-        if envvar["name"] in env_dict:
-            envvar["value"] = env_dict[envvar["name"]]
+    new_env_list = []
+    for name, value in env_dict.items():
+        new_env_list.append({"name": name, "value": value})
+
+    new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
-
     print("Updated environment dictionary")
 
 
@@ -318,6 +319,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     current_task_def = ecs_client.describe_task_definition(
         taskDefinition=TASK_DEF_FAMILY,
     )
+
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
     remove_args = [
@@ -332,10 +334,11 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     for arg in remove_args:
         new_task_def.pop(arg)
 
-    env_def = new_task_def["containerDefinitions"][0]["environment"]
-    for envvar in env_def:
-        if envvar["name"] in env_dict:
-            envvar["value"] = env_dict[envvar["name"]]
+    new_env_list = []
+    for name, value in env_dict.items():
+        new_env_list.append({"name": name, "value": value})
+    new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
     print("Updated environment dictionary")
@@ -453,6 +456,8 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
+        "SQS_QUEUE_NAME": os.environ.get("SQS_QUEUE_NAME"),
+        "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
@@ -485,10 +490,12 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     for arg in remove_args:
         new_task_def.pop(arg)
 
-    env_def = new_task_def["containerDefinitions"][0]["environment"]
-    for envvar in env_def:
-        if envvar["name"] in env_dict:
-            envvar["value"] = env_dict[envvar["name"]]
+    new_env_list = []
+    for name, value in env_dict.items():
+        new_env_list.append({"name": name, "value": value})
+
+    new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
     os.environ.update(env_dict)
