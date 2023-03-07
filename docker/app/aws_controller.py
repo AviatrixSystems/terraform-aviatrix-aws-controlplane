@@ -495,7 +495,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         new_env_list.append({"name": name, "value": value})
 
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
-    
+
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
     os.environ.update(env_dict)
@@ -1192,21 +1192,24 @@ def update_record(zone_name, record_name, asg_name, region):
 
 
 def handle_ctrl_inter_region_event(
-    pri_region, dr_region, context, revert=False, preemptive=None
+    pri_region, dr_region, revert=False, preemptive=None
 ):
     start_time = time.time()
     # 1. Fetching all env variables in between regions
     pri_client = boto3.client("ec2", pri_region)
-    pri_lambda_client = boto3.client("lambda", pri_region)
+    pri_ecs_client = boto3.client("ecs", pri_region)
     dr_client = boto3.client("ec2", dr_region)
-    dr_lambda_client = boto3.client("lambda", dr_region)
-    function_name = context.function_name
-    pri_env = pri_lambda_client.get_function_configuration(FunctionName=function_name)[
-        "Environment"
-    ]["Variables"]
-    dr_env = dr_lambda_client.get_function_configuration(FunctionName=function_name)[
-        "Environment"
-    ]["Variables"]
+    dr_ecs_client = boto3.client("ecs", dr_region)
+    pri_env_var = pri_ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY
+    )["taskDefinition"]["containerDefinitions"][0]["environment"]
+    dr_env_var = dr_ecs_client.describe_task_definition(taskDefinition=TASK_DEF_FAMILY)[
+        "taskDefinition"
+    ]["containerDefinitions"][0]["environment"]
+
+    # Convert lists to dicts
+    pri_env = {env_var["name"]: env_var["value"] for env_var in pri_env_var}
+    dr_env = {env_var["name"]: env_var["value"] for env_var in dr_env_var}
 
     # if revert == True:
     #     if dr_env.get('STATE',"") == 'INIT':
@@ -1275,13 +1278,12 @@ def handle_ctrl_inter_region_event(
         try:
             if not dr_duplicate:
                 sync_env_var(
-                    dr_lambda_client,
+                    dr_ecs_client,
                     dr_env,
-                    context,
                     {"TMP_SG_GRP": dr_sg_modified, "STATE": "INIT"},
                 )
             else:
-                sync_env_var(dr_lambda_client, dr_env, context, {"STATE": "INIT"})
+                sync_env_var(dr_ecs_client, dr_env, {"STATE": "INIT"})
             # while total_time <= MAX_LOGIN_TIMEOUT:
             while time.time() - start_time < HANDLE_HA_TIMEOUT:
                 try:
@@ -1323,9 +1325,8 @@ def handle_ctrl_inter_region_event(
                 "Update ACTIVE_REGION & STANDBY_REGION in DR Lambda environment variables"
             )
             sync_env_var(
-                dr_lambda_client,
+                dr_ecs_client,
                 dr_env,
-                context,
                 {
                     "ACTIVE_REGION": current_standby_region,
                     "STANDBY_REGION": current_active_region,
@@ -1336,9 +1337,8 @@ def handle_ctrl_inter_region_event(
                 "Update ACTIVE_REGION & STANDBY_REGION in primary Lambda environment variables"
             )
             sync_env_var(
-                pri_lambda_client,
+                pri_ecs_client,
                 pri_env,
-                context,
                 {
                     "ACTIVE_REGION": current_standby_region,
                     "STANDBY_REGION": current_active_region,
@@ -1391,9 +1391,8 @@ def handle_ctrl_inter_region_event(
                 print(f"Reverting sg {dr_sg_modified}")
                 restore_security_group_access(dr_client, dr_sg_modified)
             sync_env_var(
-                dr_lambda_client,
+                dr_ecs_client,
                 dr_env,
-                context,
                 {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
             )
             print("- Completed function -")
@@ -1881,10 +1880,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         print(f"Controller: {controller_instanceobj}")
         controller_creds = get_ssm_creds("us-east-1")
         # Assign COP_EIP
-        if (
-            json.loads(event["Message"]).get("Destination", "")
-            == "AutoScalingGroup"
-        ):
+        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
                 raise AvxError("Could not assign EIP to Copilot")
         copilot_event = {
@@ -1892,20 +1888,36 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             "copilot_init": True,
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "instance_ids": [
-                copilot_instanceobj['InstanceId'],
-                controller_instanceobj['InstanceId']
+                copilot_instanceobj["InstanceId"],
+                controller_instanceobj["InstanceId"],
             ],  # list of instances that should be "instance_status_ok"
             "cluster_ha_main_node": True,  # if clustered copilot HA case, set to True if HA for main node
-            "copilot_data_node_public_ips": ["", "", ""],  # cluster data nodes public IPs
-            "copilot_data_node_private_ips": ["", "", ""],  # cluster data nodes private IPs
+            "copilot_data_node_public_ips": [
+                "",
+                "",
+                "",
+            ],  # cluster data nodes public IPs
+            "copilot_data_node_private_ips": [
+                "",
+                "",
+                "",
+            ],  # cluster data nodes private IPs
             "copilot_data_node_regions": [
                 os.environ.get("SQS_QUEUE_REGION"),
                 os.environ.get("SQS_QUEUE_REGION"),
-                os.environ.get("SQS_QUEUE_REGION")
+                os.environ.get("SQS_QUEUE_REGION"),
             ],  # cluster data nodes regions (should be the same)
-            "copilot_data_node_names": [ "", "", ""],  # names to be displayed in copilot cluster info
+            "copilot_data_node_names": [
+                "",
+                "",
+                "",
+            ],  # names to be displayed in copilot cluster info
             "copilot_data_node_usernames": ["admin", "admin", "admin"],
-            "copilot_data_node_passwords": [controller_creds, controller_creds, controller_creds],
+            "copilot_data_node_passwords": [
+                controller_creds,
+                controller_creds,
+                controller_creds,
+            ],
             "copilot_data_node_volumes": [
                 "/dev/sdf",
                 "/dev/sdf",
@@ -1917,19 +1929,27 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             ],  # cluster data nodes security group names
             "controller_info": {
                 "public_ip": os.environ.get("EIP"),
-                "private_ip": controller_instanceobj['PrivateIpAddress'],
+                "private_ip": controller_instanceobj["PrivateIpAddress"],
                 "username": "admin",
                 "password": controller_creds,
-                "sg_id": controller_instanceobj['SecurityGroups'][0]['GroupId'],  # controller security group ID
-                "sg_name": controller_instanceobj['SecurityGroups'][0]['GroupName'],  # controller security group name
+                "sg_id": controller_instanceobj["SecurityGroups"][0][
+                    "GroupId"
+                ],  # controller security group ID
+                "sg_name": controller_instanceobj["SecurityGroups"][0][
+                    "GroupName"
+                ],  # controller security group name
             },
             "copilot_info": {
                 "public_ip": os.environ.get("COP_EIP"),
-                "private_ip": copilot_instanceobj['PrivateIpAddress'],
+                "private_ip": copilot_instanceobj["PrivateIpAddress"],
                 "username": "admin",
                 "password": controller_creds,
-                "sg_id": copilot_instanceobj['SecurityGroups'][0]['GroupId'],  # (main) copilot security group ID
-                "sg_name": copilot_instanceobj['SecurityGroups'][0]['GroupName'],  # (main) copilot security group name
+                "sg_id": copilot_instanceobj["SecurityGroups"][0][
+                    "GroupId"
+                ],  # (main) copilot security group ID
+                "sg_name": copilot_instanceobj["SecurityGroups"][0][
+                    "GroupName"
+                ],  # (main) copilot security group name
             },
         }
         print(f"copilot_event: {copilot_event}")
