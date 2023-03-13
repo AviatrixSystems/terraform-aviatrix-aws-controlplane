@@ -1883,9 +1883,14 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
                 raise AvxError("Could not assign EIP to Copilot")
+        if os.environ.get("PRIV_IP"):
+            copilot_init = False
+        else:
+            copilot_init = True
+
         copilot_event = {
             "region": os.environ.get("SQS_QUEUE_REGION"),
-            "copilot_init": True,
+            "copilot_init": copilot_init,
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "instance_ids": [
                 copilot_instanceobj["InstanceId"],
@@ -1953,8 +1958,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             },
         }
         print(f"copilot_event: {copilot_event}")
-        if False:
-            cp_lib.handle_coplot_ha(event=copilot_event)
+        cp_lib.handle_coplot_ha(event=copilot_event)
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
         print(f"handle_cop_ha_event failed with err: {str(err)}")
