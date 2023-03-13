@@ -4,7 +4,6 @@ import urllib3
 import time
 import traceback
 import requests
-import uuid
 from typing import Dict, List, Any
 import json
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -175,6 +174,41 @@ class ControllerAPI:
         except Exception as err:
             print(f"Failed to get API token, {err}")
         return resp
+
+    def open_controller_sg(self, ec2_client, sg_id):
+        try:
+            print(f"Adding 0.0.0.0/0 to Controller SG {sg_id}")
+            authorize_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Adding 0.0.0.0/0 to Controller SG {sg_id} failed due to {str(err)}")
+
+    def close_controller_sg(self, ec2_client, sg_id):
+        try:
+            print(f"Removing 0.0.0.0/0 to Controller SG {sg_id}")
+            revoke_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Removing 0.0.0.0/0 to Controller SG {sg_id} failed due to {str(err)}")
+
+    def retry_login(self, ec2_client, sg_id, username: str, password: str) -> bool:
+        attempts = 0
+        retries = 5
+        delay = 300
+        while attempts <= retries:
+            print(f"Retrying login attempt #{attempts}")
+            print("Open controller SG before login")
+            self.open_controller_sg(ec2_client, sg_id)
+            self.login(username, password)
+            if self._cid:
+                print(f"Retrieved CID. Login successful: {self._cid}")
+                return True
+            else:
+                print(f"Unable to retrieve CID. Retrying login after {delay} seconds")
+                time.sleep(delay)
+            attempts += 1
+        print("Close controller SG after login")
+        self.close_controller_sg(ec2_client, sg_id)
 
     def login(self, username: str, password: str) -> None:
         self.get_api_token()
