@@ -266,7 +266,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
-        env_dict["PREEMPTIVE"] = os.environ.get("PREEMPTIVE", "")
         env_dict["PRIMARY_ACC_NAME"] = os.environ.get("PRIMARY_ACC_NAME")
         env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
@@ -463,7 +462,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["DR_REGION"] = os.environ.get("DR_REGION")
-        env_dict["PREEMPTIVE"] = os.environ.get("PREEMPTIVE", "")
         env_dict["ACTIVE_REGION"] = os.environ.get("ACTIVE_REGION")
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
         env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
@@ -1191,9 +1189,7 @@ def update_record(zone_name, record_name, asg_name, region):
     )
 
 
-def handle_ctrl_inter_region_event(
-    pri_region, dr_region, revert=False, preemptive=None
-):
+def handle_ctrl_inter_region_event(pri_region, dr_region):
     start_time = time.time()
     # 1. Fetching all env variables in between regions
     pri_client = boto3.client("ec2", pri_region)
@@ -1210,15 +1206,6 @@ def handle_ctrl_inter_region_event(
     # Convert lists to dicts
     pri_env = {env_var["name"]: env_var["value"] for env_var in pri_env_var}
     dr_env = {env_var["name"]: env_var["value"] for env_var in dr_env_var}
-
-    # if revert == True:
-    #     if dr_env.get('STATE',"") == 'INIT':
-    #         raise AvxError(f"{dr_region} is not fully initialized")
-    #     elif pri_env.get('STATE',"") != 'ACTIVE':
-    #         print("- Route 53 False Positive Alarm or DR is not active -")
-    #         raise AvxError(f"{pri_region} is not Active")
-    #     else:
-    #         print("Initiating failback")
 
     # 2. Trying to find Instance in DR region
     if dr_env.get("INST_ID"):
@@ -1364,19 +1351,6 @@ def handle_ctrl_inter_region_event(
                 "Updating %s to point to the LB in %s"
                 % (pri_env.get("RECORD_NAME"), dr_region)
             )
-
-            # 6. Detach target group from asg if preemptive is False
-            if migrate.get("return", False) is True and not revert:
-                if pri_env["PREEMPTIVE"] == "False":
-                    print("START: Detaching target group from ASG")
-                    detach_autoscaling_target_group(pri_region, pri_env)
-                    print("END: Detaching target group from ASG")
-
-            # # 7. Terminate instance if revert is True
-            # if revert == True:
-            #     print(f"START: Stopping instance in {pri_region}")
-            #     pri_client.stop_instances(InstanceIds=[pri_env['INST_ID']])
-            #     print(f"END: Stopping instance in {pri_region}")
 
         finally:
             if s3_ctrl_version and s3_ctrl_version != dr_env.get("CTRL_INIT_VER"):

@@ -253,12 +253,6 @@ variable "dr_region" {
   default     = ""
 }
 
-variable "preemptive" {
-  type        = bool
-  description = "If it is true and when primary region controller is back online, the network automatically switches back to using that primary controller."
-  default     = false
-}
-
 variable "zone_name" {
   type        = string
   description = "The exisitng route 53 zone name"
