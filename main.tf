@@ -35,7 +35,6 @@ module "region1" {
   subnet_names                 = var.subnet_names
   name_prefix                  = var.name_prefix
   license_type                 = var.license_type
-  preemptive                   = var.preemptive
   iam_for_lambda_arn           = aws_iam_role.iam_for_lambda.arn
   inter_region_primary         = var.region
   inter_region_standby         = var.dr_region
@@ -86,7 +85,6 @@ module "region2" {
   subnet_names                 = var.dr_subnet_names
   name_prefix                  = var.name_prefix
   license_type                 = var.license_type
-  preemptive                   = var.preemptive
   iam_for_lambda_arn           = aws_iam_role.iam_for_lambda.arn
   inter_region_primary         = var.region
   inter_region_standby         = var.dr_region

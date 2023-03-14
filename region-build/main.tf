@@ -105,10 +105,6 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.dr_region
         },
         {
-          name  = "PREEMPTIVE",
-          value = var.preemptive ? "True" : "False"
-        },
-        {
           name  = "ACTIVE_REGION",
           value = var.inter_region_primary
         },
