@@ -102,8 +102,6 @@ module "region2" {
   avx_password_ssm_region      = var.avx_password_ssm_region
 }
 
-# data "aws_caller_identity" "current" {}
-
 module "aviatrix-iam-roles" {
   count         = var.create_iam_roles ? 1 : 0
   source        = "./aviatrix-controller-iam-roles"
@@ -175,11 +173,12 @@ resource "aws_iam_policy" "lambda-policy" {
     {
       "Effect":"Allow",
       "Action":[
-        "ssm:GetParametersByPath",
-        "ssm:GetParameters",
         "ssm:GetParameter"
       ],
-      "Resource":"arn:aws:ssm:*:*:parameter/aviatrix/*"
+      "Resource":[
+        "arn:aws:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
+        "arn:aws:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
+        ]
     },
     {
       "Action": [
@@ -219,7 +218,6 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
   role       = aws_iam_role.iam_for_lambda.name
   policy_arn = aws_iam_policy.lambda-policy.arn
 }
-
 
 ##################################
 # Create ECS Resources
