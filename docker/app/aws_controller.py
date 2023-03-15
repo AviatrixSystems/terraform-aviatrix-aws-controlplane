@@ -1132,32 +1132,38 @@ def set_admin_email(controller_ip, cid, admin_email):
     return output
 
 
-def get_ssm_creds(region):
+# # Replaced by get_ssm_parameter_value
+# def get_ssm_creds(region):
+#     try:
+#         ssm_client = boto3.client("ssm", region)
+#         resp = ssm_client.get_parameters_by_path(
+#             Path="/aviatrix/controller/", WithDecryption=True
+#         )
+#         avx_params = {}
+#         for param in resp["Parameters"]:
+#             avx_params[param["Name"].split("/")[-1]] = param["Value"]
+#         return avx_params["password"]
+#     except Exception as err:
+#         raise AvxError(f"Error fetching creds from ssm")
+
+
+def get_ssm_parameter_value(path, region):
     try:
         ssm_client = boto3.client("ssm", region)
-        resp = ssm_client.get_parameters_by_path(
-            Path="/aviatrix/controller/", WithDecryption=True
-        )
-        avx_params = {}
-        for param in resp["Parameters"]:
-            avx_params[param["Name"].split("/")[-1]] = param["Value"]
-        return avx_params["password"]
+        resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
+        return resp["Parameter"]["Value"]
     except Exception as err:
-        raise AvxError(f"Error fetching creds from ssm")
+        raise AvxError(f"Error fetching from ssm")
 
 
 def set_admin_password(controller_ip, cid, old_admin_password):
     """Set admin password"""
 
     # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-    ssm_client = boto3.client("ssm", "us-east-1")
-    resp = ssm_client.get_parameters_by_path(
-        Path="/aviatrix/controller/", WithDecryption=True
+    ssm_client = boto3.client("ssm", os.environ.get("AVX_PASSWORD_SSM_REGION"))
+    resp = ssm_client.get_parameter(
+        Name=os.environ.get("AVX_PASSWORD_SSM_PATH"), WithDecryption=True
     )
-
-    avx_params = {}
-    for param in resp["Parameters"]:
-        avx_params[param["Name"].split("/")[-1]] = param["Value"]
 
     base_url = "https://%s/v1/api" % controller_ip
 
@@ -1167,7 +1173,7 @@ def set_admin_password(controller_ip, cid, old_admin_password):
         "account_name": "admin",
         "user_name": "admin",
         "old_password": old_admin_password,
-        "password": avx_params["password"],
+        "password": resp["Parameter"]["Value"],
     }
 
     payload_with_hidden_password = dict(post_data)
@@ -1329,7 +1335,11 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
         )
     )
     total_time = 0
-    creds = get_ssm_creds("us-east-1")
+
+    creds = get_ssm_parameter_value(
+        os.environ.get("AVX_PASSWORD_SSM_PATH"),
+        os.environ.get("AVX_PASSWORD_SSM_REGION"),
+    )
 
     # Check if this is the Active or Standby region
     if pri_region == pri_env.get("ACTIVE_REGION"):
@@ -1925,7 +1935,10 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
 
         print(f"CoPilot: {copilot_instanceobj}")
         print(f"Controller: {controller_instanceobj}")
-        controller_creds = get_ssm_creds("us-east-1")
+        controller_creds = get_ssm_parameter_value(
+            os.environ.get("AVX_PASSWORD_SSM_PATH"),
+            os.environ.get("AVX_PASSWORD_SSM_REGION"),
+        )
         # Assign COP_EIP
         if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
             if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
