@@ -35,9 +35,6 @@ resource "aws_ecs_task_definition" "task_def" {
           name  = "AVIATRIX_COP_TAG",
           value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
         },
-        # Logic moved to calling the module
-        # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
-        # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
         {
           name  = "AWS_ROLE_APP_NAME",
           value = var.app_role_name
@@ -157,9 +154,6 @@ resource "aws_ecs_task_definition" "task_def" {
           name  = "AVIATRIX_COP_TAG",
           value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
         },
-        # Logic moved to calling the module
-        # AWS_ROLE_APP_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-app-name : var.app_role_name,
-        # AWS_ROLE_EC2_NAME = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name,
         {
           name  = "AWS_ROLE_APP_NAME",
           value = var.app_role_name
@@ -347,8 +341,6 @@ resource "aws_launch_template" "avtx-controller" {
   ebs_optimized = true
 
   iam_instance_profile {
-    # Logic moved to calling the module
-    # name = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
     name = var.ec2_role_name
   }
 
@@ -525,10 +517,7 @@ module "aviatrix_eventbridge" {
         ecs_target = {
           task_count = 5
           # Remove the revision number so that the latest revision of the task definition is invoked
-          # task_definition_arn = aws_ecs_task_definition.task_def.arn
           task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
-          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:latest"
-          # task_definition_arn = "${trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")}:*"
           launch_type = "FARGATE"
           network_configuration = {
             subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
