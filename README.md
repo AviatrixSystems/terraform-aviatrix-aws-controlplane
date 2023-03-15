@@ -25,9 +25,13 @@ The module will create the following:
 - The AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
 - The S3 bucket for Controller backup should pre-exist.
 - The Auto Scaling group uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alerts to SNS.
-- The admin password required to initilaize the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/password.
+- The admin password required to initilaize the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/password in us-east-1.
 
-  `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX"`
+  `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX" --region="us-east-1"`
+
+- The customer ID required to license the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/customer_id in us-east-1.
+
+  `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/customer_id" --value "XXXXXXXXX" --region="us-east-1"`
 
 ### Usage Example
 
@@ -55,6 +59,10 @@ module "aws_controller_ha" {
 | admin_email                 |                                            | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.    |
 | asg_notif_email             |                                            | The email address for Controller failover notifications                                                                                       |
 | app_role_name               | aviatrix-role-app                          | The name of the Aviatrix App role                                                                                                             |
+| avx_customer_id_ssm_path    | /aviatrix/controller/customer_id           | The path to the Aviatrix customer ID                                                                                                          |
+| avx_customer_id_ssm_region  | us-east-1                                  | The region the customer ID parameter is in                                                                                                    |
+| avx_password_ssm_path       | /aviatrix/controller/password              | The path to the Aviatrix password                                                                                                             |
+| avx_password_ssm_region     | us-east-1                                  | The region the password parameter is in                                                                                                       |
 | controller_version          | ""                                         | The initial version of the Aviatrix Controller at launch                                                                                      |
 | cop_allowed_cidrs           | TCP 443, UDP 5000, UDP 31283 for 0.0.0.0/0 | CoPilot allowed CIDRs                                                                                                                         |
 | cop_instance_type           | t3.2xlarge                                 | CoPilot instance size                                                                                                                         |

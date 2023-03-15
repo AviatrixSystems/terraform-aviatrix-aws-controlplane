@@ -4,7 +4,6 @@ resource "time_sleep" "wait_for_zip" {
   create_duration = "60s"
 }
 
-
 resource "aws_ecs_task_definition" "task_def" {
   family                   = "AVX_PLATFORM_HA"
   requires_compatibilities = ["FARGATE"]
@@ -131,6 +130,22 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "SQS_QUEUE_REGION",
           value = var.region
+        },
+        {
+          name  = "AVX_CUSTOMER_ID_SSM_PATH",
+          value = var.avx_customer_id_ssm_path
+        },
+        {
+          name  = "AVX_CUSTOMER_ID_SSM_REGION",
+          value = var.avx_customer_id_ssm_region
+        },
+        {
+          name  = "AVX_PASSWORD_SSM_PATH",
+          value = var.avx_password_ssm_path
+        },
+        {
+          name  = "AVX_PASSWORD_SSM_REGION",
+          value = var.avx_password_ssm_region
         }
 
         ] : [
@@ -213,12 +228,26 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "SQS_QUEUE_REGION",
           value = var.region
+        },
+        {
+          name  = "AVX_CUSTOMER_ID_SSM_PATH",
+          value = var.avx_customer_id_ssm_path
+        },
+        {
+          name  = "AVX_CUSTOMER_ID_SSM_REGION",
+          value = var.avx_customer_id_ssm_region
+        },
+        {
+          name  = "AVX_PASSWORD_SSM_PATH",
+          value = var.avx_password_ssm_path
+        },
+        {
+          name  = "AVX_PASSWORD_SSM_REGION",
+          value = var.avx_password_ssm_region
         }
       ]
     }
   ])
-
-
 
   tags = local.common_tags
 
@@ -241,9 +270,6 @@ resource "aws_ecs_task_definition" "task_def" {
     ]
   }
 }
-
-
-
 
 resource "aws_iam_role" "ecs_task_execution_role" {
   name               = "ecsTaskExecutionRole-${var.region}"

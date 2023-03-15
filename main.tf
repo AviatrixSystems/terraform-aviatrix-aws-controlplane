@@ -42,6 +42,10 @@ module "region1" {
   record_name                  = var.record_name
   inter_region_backup_enabled  = var.inter_region_backup_enabled
   ecr_image                    = "${aws_ecr_repository.repo.repository_url}:latest"
+  avx_customer_id_ssm_path     = var.avx_customer_id_ssm_path
+  avx_customer_id_ssm_region   = var.avx_customer_id_ssm_region
+  avx_password_ssm_path        = var.avx_password_ssm_path
+  avx_password_ssm_region      = var.avx_password_ssm_region
 }
 
 module "region2" {
@@ -92,6 +96,10 @@ module "region2" {
   record_name                  = var.record_name
   inter_region_backup_enabled  = var.inter_region_backup_enabled
   ecr_image                    = "${aws_ecr_repository.repo.repository_url}:latest"
+  avx_customer_id_ssm_path     = var.avx_customer_id_ssm_path
+  avx_customer_id_ssm_region   = var.avx_customer_id_ssm_region
+  avx_password_ssm_path        = var.avx_password_ssm_path
+  avx_password_ssm_region      = var.avx_password_ssm_region
 }
 
 # data "aws_caller_identity" "current" {}

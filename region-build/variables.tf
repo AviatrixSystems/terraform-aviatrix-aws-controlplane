@@ -293,3 +293,27 @@ variable "ecr_image" {
   description = "The AMI ID of the Aviatrix Controller"
   default     = ""
 }
+
+variable "avx_customer_id_ssm_path" {
+  type        = string
+  description = "The path to the Aviatrix customer ID"
+  default     = "/aviatrix/controller/customer_id"
+}
+
+variable "avx_customer_id_ssm_region" {
+  type        = string
+  description = "The region the customer ID parameter is in"
+  default     = "us-east-1"
+}
+
+variable "avx_password_ssm_path" {
+  type        = string
+  description = "The path to the Aviatrix password"
+  default     = "/aviatrix/controller/password"
+}
+
+variable "avx_password_ssm_region" {
+  type        = string
+  description = "The region the password parameter is in"
+  default     = "us-east-1"
+}
