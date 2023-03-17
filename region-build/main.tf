@@ -60,6 +60,14 @@ resource "aws_ecs_task_definition" "task_def" {
           value = aws_eip.copilot_eip.public_ip
         },
         {
+          name  = "COP_USERNAME",
+          value = var.copilot_username
+        },
+        {
+          name  = "COP_EMAIL",
+          value = var.copilot_email
+        },
+        {
           name = "CTRL_ASG",
           # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
           value = "avtx_controller"
@@ -141,6 +149,10 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.avx_password_ssm_path
         },
         {
+          name  = "AVX_COPILOT_PASSWORD_SSM_PATH",
+          value = var.avx_copilot_password_ssm_path
+        },
+        {
           name  = "AVX_PASSWORD_SSM_REGION",
           value = var.avx_password_ssm_region
         }
@@ -177,6 +189,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EIP",
           value = aws_eip.copilot_eip.public_ip
+        },
+        {
+          name  = "COP_USERNAME",
+          value = var.copilot_username
+        },
+        {
+          name  = "COP_EMAIL",
+          value = var.copilot_email
         },
         {
           name = "CTRL_ASG",
@@ -236,6 +256,10 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.avx_password_ssm_path
         },
         {
+          name  = "AVX_COPILOT_PASSWORD_SSM_PATH",
+          value = var.avx_copilot_password_ssm_path
+        },
+        {
           name  = "AVX_PASSWORD_SSM_REGION",
           value = var.avx_password_ssm_region
         }
@@ -262,6 +286,10 @@ resource "aws_ecs_task_definition" "task_def" {
     ignore_changes = [
       container_definitions
     ]
+    precondition {
+      condition     = (var.copilot_email == "" && var.copilot_username == "") || (var.copilot_email != "" && var.copilot_username != "")
+      error_message = "To add a user for copilot, please provide both the username and the email. Otherwise, they both should be empty."
+    }
   }
 }
 

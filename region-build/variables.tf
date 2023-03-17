@@ -82,6 +82,18 @@ variable "copilot_name" {
   description = "Name of controller that will be launched"
 }
 
+variable "copilot_username" {
+  default     = ""
+  type        = string
+  description = "CoPilot service account username, if desired"
+}
+
+variable "copilot_email" {
+  default     = ""
+  type        = string
+  description = "CoPilot user email address, if desired"
+}
+
 variable "cop_type" {
   type        = string
   description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
@@ -309,6 +321,12 @@ variable "avx_customer_id_ssm_region" {
 variable "avx_password_ssm_path" {
   type        = string
   description = "The path to the Aviatrix password"
+  default     = "/aviatrix/controller/password"
+}
+
+variable "avx_copilot_password_ssm_path" {
+  type        = string
+  description = "The path to the password for CoPilot"
   default     = "/aviatrix/controller/password"
 }
 
