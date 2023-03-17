@@ -82,6 +82,18 @@ variable "copilot_name" {
   description = "Name of controller that will be launched"
 }
 
+variable "copilot_username" {
+  default     = ""
+  type        = string
+  description = "CoPilot service account username, if desired"
+}
+
+variable "copilot_email" {
+  default     = ""
+  type        = string
+  description = "CoPilot user email address, if desired"
+}
+
 variable "cop_type" {
   type        = string
   description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
@@ -102,13 +114,13 @@ variable "cop_root_volume_type" {
 
 variable "cop_default_data_volume_size" {
   type        = number
-  description = "Root volume disk size for Copilot"
+  description = "Default data volume disk size for Copilot"
   default     = 8
 }
 
 variable "cop_default_data_volume_type" {
   type        = string
-  description = "Root volume type for Copilot"
+  description = "Default data volume type for Copilot"
   default     = "gp3"
 }
 
@@ -314,6 +326,12 @@ variable "avx_password_ssm_path" {
   type        = string
   description = "The path to the Aviatrix password"
   default     = "/aviatrix/controller/password"
+}
+
+variable "avx_copilot_password_ssm_path" {
+  type        = string
+  description = "The path to the password for CoPilot"
+  default     = "/aviatrix/copilot/password"
 }
 
 variable "avx_password_ssm_region" {
