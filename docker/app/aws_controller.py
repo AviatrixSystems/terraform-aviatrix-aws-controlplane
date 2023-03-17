@@ -1032,11 +1032,15 @@ def set_customer_id(cid, controller_api_ip):
     """Set the customer ID if set in environment to migrate to a different AMI type"""
 
     print("Setting up Customer ID")
+    customer_id = get_ssm_parameter_value(
+        os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
+        os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
+    )
     base_url = "https://" + controller_api_ip + "/v1/api"
     post_data = {
         "CID": cid,
         "action": "setup_customer_id",
-        "customer_id": os.environ.get("CUSTOMER_ID"),
+        "customer_id": customer_id,
     }
 
     try:
@@ -1629,6 +1633,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             ctrl_version = os.environ.get("CTRL_INIT_VER")
         else:
             ctrl_version = "latest"
+
+        # Set Customer ID
+        set_customer_id(cid, controller_api_ip)
 
         # Initialize new Controller instance when asg_dest = ASG or WarmPool
         if asg_orig == "EC2":
