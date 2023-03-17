@@ -243,7 +243,9 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
+            "AVX_COPILOT_PASSWORD_SSM_PATH"
+        ),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
@@ -532,7 +534,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
+            "AVX_COPILOT_PASSWORD_SSM_PATH"
+        ),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "COP_USERNAME": os.environ.get("COP_USERNAME"),
         "COP_EMAIL": os.environ.get("COP_EMAIL"),
@@ -1957,7 +1961,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 os.environ.get("AVX_PASSWORD_SSM_REGION"),
             )
             copilot_email = os.environ.get("COP_EMAIL")
-            copilot_user_groups = ["admin"] # hardcode copilot user group
+            copilot_user_groups = ["admin"]  # hardcode copilot user group
             copilot_custom_user = True
         else:
             copilot_username = "admin"
@@ -1999,7 +2003,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             "copilot_data_node_usernames": [
                 copilot_username,
                 copilot_username,
-                copilot_username
+                copilot_username,
             ],
             "copilot_data_node_passwords": [
                 copilot_password,
@@ -2020,8 +2024,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "private_ip": controller_instanceobj["PrivateIpAddress"],
                 "username": "admin",
                 "password": controller_creds,
-                "sg_id": controller_instanceobj["SecurityGroups"][0]["GroupId"],  # controller security group ID
-                "sg_name": controller_instanceobj["SecurityGroups"][0]["GroupName"],  # controller security group name
+                "sg_id": controller_instanceobj["SecurityGroups"][0][
+                    "GroupId"
+                ],  # controller security group ID
+                "sg_name": controller_instanceobj["SecurityGroups"][0][
+                    "GroupName"
+                ],  # controller security group name
             },
             "copilot_info": {
                 "public_ip": os.environ.get("COP_EIP"),
@@ -2030,8 +2038,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "password": copilot_password,
                 "email": copilot_email,
                 "groups": copilot_user_groups,
-                "sg_id": copilot_instanceobj["SecurityGroups"][0]["GroupId"],  # (main) copilot security group ID
-                "sg_name": copilot_instanceobj["SecurityGroups"][0]["GroupName"],  # (main) copilot security group name
+                "sg_id": copilot_instanceobj["SecurityGroups"][0][
+                    "GroupId"
+                ],  # (main) copilot security group ID
+                "sg_name": copilot_instanceobj["SecurityGroups"][0][
+                    "GroupName"
+                ],  # (main) copilot security group name
             },
         }
         print(f"copilot_event: {copilot_event}")
