@@ -243,6 +243,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH"),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
@@ -261,6 +262,8 @@ def update_env_dict(ecs_client, replace_dict={}):
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
         "VPC_ID": os.environ.get("VPC_ID"),
+        "COP_USERNAME": os.environ.get("COP_USERNAME"),
+        "COP_EMAIL": os.environ.get("COP_EMAIL"),
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["ACTIVE_REGION"] = os.environ.get("ACTIVE_REGION")
@@ -529,7 +532,10 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH"),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
+        "COP_USERNAME": os.environ.get("COP_USERNAME"),
+        "COP_EMAIL": os.environ.get("COP_EMAIL"),
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
@@ -1914,7 +1920,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         print(f"{name}: {value}")
     try:
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
-        print(f"Copilot instance name: {instance_name}")
 
         copilot_instanceobj = client.describe_instances(
             Filters=[
@@ -1924,7 +1929,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         )["Reservations"][0]["Instances"][0]
 
         controller_instance_name = os.environ.get("AVIATRIX_TAG")
-        print(f"Controller instance name: {controller_instance_name}")
 
         controller_instanceobj = client.describe_instances(
             Filters=[
@@ -1933,8 +1937,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             ]
         )["Reservations"][0]["Instances"][0]
 
-        print(f"CoPilot: {copilot_instanceobj}")
-        print(f"Controller: {controller_instanceobj}")
         controller_creds = get_ssm_parameter_value(
             os.environ.get("AVX_PASSWORD_SSM_PATH"),
             os.environ.get("AVX_PASSWORD_SSM_REGION"),
@@ -1948,10 +1950,27 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         else:
             copilot_init = True
 
+        if os.environ.get("COP_USERNAME") and os.environ.get("COP_USERNAME") != "":
+            copilot_username = os.environ.get("COP_USERNAME")
+            copilot_password = get_ssm_parameter_value(
+                os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH"),
+                os.environ.get("AVX_PASSWORD_SSM_REGION"),
+            )
+            copilot_email = os.environ.get("COP_EMAIL")
+            copilot_user_groups = ["admin"] # hardcode copilot user group
+            copilot_custom_user = True
+        else:
+            copilot_username = "admin"
+            copilot_password = controller_creds
+            copilot_email = ""
+            copilot_user_groups = []
+            copilot_custom_user = False
+
         copilot_event = {
             "region": os.environ.get("SQS_QUEUE_REGION"),
             "copilot_init": copilot_init,
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
+            "copilot_custom_user": copilot_custom_user,
             "instance_ids": [
                 copilot_instanceobj["InstanceId"],
                 controller_instanceobj["InstanceId"],
@@ -1977,11 +1996,15 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "",
                 "",
             ],  # names to be displayed in copilot cluster info
-            "copilot_data_node_usernames": ["admin", "admin", "admin"],
+            "copilot_data_node_usernames": [
+                copilot_username,
+                copilot_username,
+                copilot_username
+            ],
             "copilot_data_node_passwords": [
-                controller_creds,
-                controller_creds,
-                controller_creds,
+                copilot_password,
+                copilot_password,
+                copilot_password,
             ],
             "copilot_data_node_volumes": [
                 "/dev/sdf",
@@ -1997,24 +2020,18 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "private_ip": controller_instanceobj["PrivateIpAddress"],
                 "username": "admin",
                 "password": controller_creds,
-                "sg_id": controller_instanceobj["SecurityGroups"][0][
-                    "GroupId"
-                ],  # controller security group ID
-                "sg_name": controller_instanceobj["SecurityGroups"][0][
-                    "GroupName"
-                ],  # controller security group name
+                "sg_id": controller_instanceobj["SecurityGroups"][0]["GroupId"],  # controller security group ID
+                "sg_name": controller_instanceobj["SecurityGroups"][0]["GroupName"],  # controller security group name
             },
             "copilot_info": {
                 "public_ip": os.environ.get("COP_EIP"),
                 "private_ip": copilot_instanceobj["PrivateIpAddress"],
-                "username": "admin",
-                "password": controller_creds,
-                "sg_id": copilot_instanceobj["SecurityGroups"][0][
-                    "GroupId"
-                ],  # (main) copilot security group ID
-                "sg_name": copilot_instanceobj["SecurityGroups"][0][
-                    "GroupName"
-                ],  # (main) copilot security group name
+                "username": copilot_username,
+                "password": copilot_password,
+                "email": copilot_email,
+                "groups": copilot_user_groups,
+                "sg_id": copilot_instanceobj["SecurityGroups"][0]["GroupId"],  # (main) copilot security group ID
+                "sg_name": copilot_instanceobj["SecurityGroups"][0]["GroupName"],  # (main) copilot security group name
             },
         }
         print(f"copilot_event: {copilot_event}")

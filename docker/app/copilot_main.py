@@ -4,10 +4,7 @@ import traceback
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
-def controller_copilot_setup(ec2_client, controller_sg_id, api, copilot_priv_ip, copilot_public_ip):
-  # open the controller sg to 0.0.0.0/0
-  print("Opening controller SG for post actions")
-  api.open_controller_sg(ec2_client, controller_sg_id)
+def controller_copilot_setup(api, copilot_priv_ip, copilot_public_ip):
   # enable copilot association
   print("Associate Aviatrix CoPilot with Aviatrix Controller")
   api.enable_copilot_association(copilot_priv_ip, copilot_public_ip)
@@ -25,18 +22,12 @@ def controller_copilot_setup(ec2_client, controller_sg_id, api, copilot_priv_ip,
   api.enable_syslog_configuration(copilot_public_ip)
   response = api.get_remote_syslog_logging_status()
   print(f"get_remote_syslog_logging_status: {response}")
-  # close the controller sg to 0.0.0.0/0
-  print("Closing controller SG after post actions")
-  api.close_controller_sg(ec2_client, controller_sg_id)
 
 def handle_coplot_ha(event):
   
   # Preliminary actions - wait for CoPilot instances to be ready
   print(f"Starting CoPilot HA with copilot_init = '{event['copilot_init']}' and copilot_type = '{event['copilot_type']}'")
-  print(f"Waiting for CoPilot API to be ready")
   ec2_client = boto3.client("ec2", region_name=event['region'])
-  # waiter = ec2_client.get_waiter("instance_status_ok")
-  # waiter.wait(InstanceIds=event['instance_ids'])
   print("sleeping for 900 seconds")
   time.sleep(900)
 
@@ -73,21 +64,31 @@ def handle_coplot_ha(event):
                                  cluster_init=event['copilot_init'],
                                  private_mode=False,
                                  add=True)
-  # login in to the controller and copilot
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-  api.retry_login(ec2_client,
-                  event['controller_info']['sg_id'],
-                  username=event['controller_info']['username'],
-                  password=event['controller_info']['password'])
-  copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'],
-                                        cid=api._cid)
+  # make sure controller sg is open
+  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
+  # if custom copilot user is needed, login with the controller user,
+  # and then create the copilot user
+  if event["copilot_custom_user"]:
+    api.retry_login(username=event['controller_info']['username'], password=event['controller_info']['password'])
+    api.add_account_user(event['copilot_info']['username'],
+                         event['copilot_info']['password'],
+                         event['copilot_info']['email'],
+                         event['copilot_info']['groups'])
+    print("sleep for 20 seconds after adding user")
+    time.sleep(20)
+  # login with copilot user
+  api.retry_login(username=event['copilot_info']['username'], password=event['copilot_info']['password'])
+  copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'], cid=api._cid)
   # set the new copilot to use the controller to verify logins
   print("Set controller IP on CoPilot")
-  resp = copilot_api.set_controller_ip(event['controller_info']['public_ip'],
-                                        event['copilot_info']['username'],
-                                        event['copilot_info']['password'])
+  resp = copilot_api.retry_set_controller_ip(event['controller_info']['public_ip'],
+                                             event['copilot_info']['username'],
+                                             event['copilot_info']['password'])
   print(f"set_controller_ip: {resp}")
 
+  # make sure controller sg is open
+  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   if event['copilot_init']:
     # copilot init use case - not HA
     if event['copilot_type'] == "singleNode":
@@ -132,7 +133,6 @@ def handle_coplot_ha(event):
       # 1. get saved config from controller
       print(f"SingleNode CoPilot HA OR Cluster main node HA begin ...")
       print(f"Getting saved CoPilot config from the controller")
-      api.open_controller_sg(ec2_client, event['controller_info']['sg_id'])
       config = api.get_copilot_config(event['copilot_type'])
       print(f"get_copilot_config: {config}")
       # 2. restore saved config on new copilot
@@ -142,7 +142,6 @@ def handle_coplot_ha(event):
       print(f"Getting restore_config status")
       copilot_api.wait_copilot_restore_complete(event['copilot_type'])
       print("CoPilot restore end")
-      api.close_controller_sg(ec2_client, event['controller_info']['sg_id'])
     else:
       # clustered copilot HA - either main node or data node
       if event['cluster_ha_main_node']:
@@ -161,11 +160,11 @@ def handle_coplot_ha(event):
   print(f"get_copilot_backup: {response}")
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
-  controller_copilot_setup(ec2_client,
-                           event['controller_info']['sg_id'],
-                           api,
-                           event['copilot_info']['private_ip'],
-                           event['copilot_info']['public_ip'])
+  # make sure controller sg is open
+  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
+  controller_copilot_setup(api, event['copilot_info']['private_ip'], event['copilot_info']['public_ip'])
+  # close controller sg
+  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
 
 if __name__ == "__main__":
   copilot_event = {

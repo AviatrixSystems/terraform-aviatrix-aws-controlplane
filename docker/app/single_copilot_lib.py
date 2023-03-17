@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import warnings
 import urllib3
 import time
@@ -175,40 +176,51 @@ class ControllerAPI:
             print(f"Failed to get API token, {err}")
         return resp
 
-    def open_controller_sg(self, ec2_client, sg_id):
+    def manage_sg_access(self, ec2_client, sg_id, open=True):
         try:
-            print(f"Adding 0.0.0.0/0 to Controller SG {sg_id}")
-            authorize_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
+            if open:
+                print(f"Adding 0.0.0.0/0 to SG {sg_id}")
+                authorize_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
+            else:
+                print(f"Removing 0.0.0.0/0 from SG {sg_id}")
+                revoke_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
+        except botocore.exceptions.ClientError as err:
+            if err.response['Error']['Code'] == "InvalidPermission.Duplicate":
+                open and print(f"SG {sg_id} is already open to 0.0.0.0/0")
+            elif err.response['Error']['Code'] == "InvalidPermission.NotFound":
+                not open and print(f"SG {sg_id} is already closed to 0.0.0.0/0")
+            else:
+                print(str(traceback.format_exc()))
+                if open:
+                    print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
+                else:
+                    print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
+                print(f"Error message: {err.response['Error']['Message']}")
         except Exception as err:  # pylint: disable=broad-except
             print(str(traceback.format_exc()))
-            print(f"Adding 0.0.0.0/0 to Controller SG {sg_id} failed due to {str(err)}")
+            if open:
+                print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
+            else:
+                print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
+            print(f"Error message: {err.response['Error']['Message']}")
 
-    def close_controller_sg(self, ec2_client, sg_id):
-        try:
-            print(f"Removing 0.0.0.0/0 to Controller SG {sg_id}")
-            revoke_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
-        except Exception as err:  # pylint: disable=broad-except
-            print(str(traceback.format_exc()))
-            print(f"Removing 0.0.0.0/0 to Controller SG {sg_id} failed due to {str(err)}")
-
-    def retry_login(self, ec2_client, sg_id, username: str, password: str) -> bool:
+    def retry_login(self, username: str, password: str) -> bool:
         attempts = 0
         retries = 5
         delay = 300
+        login_success = False
         while attempts <= retries:
-            print(f"Retrying login attempt #{attempts}")
-            print("Open controller SG before login")
-            self.open_controller_sg(ec2_client, sg_id)
+            print(f"Retrying login attempt {attempts} / {retries}")
             self.login(username, password)
             if self._cid:
                 print(f"Retrieved CID. Login successful: {self._cid}")
-                return True
+                login_success = True
+                break
             else:
                 print(f"Unable to retrieve CID. Retrying login after {delay} seconds")
                 time.sleep(delay)
             attempts += 1
-        print("Close controller SG after login")
-        self.close_controller_sg(ec2_client, sg_id)
+        return login_success
 
     def login(self, username: str, password: str) -> None:
         self.get_api_token()
@@ -264,6 +276,19 @@ class ControllerAPI:
                 "subaction": "restart",
             }
             return self.v1_backend("cloudxd_diag", data=data)
+        except Exception as e:
+            return {"return": False, "reason": str(e)}
+
+    def add_account_user(self, username: str, password: str, email: str, groups: List[str]) -> Dict[str, Any]:
+        try:
+            data = {
+                "username": username,
+                "password": password,
+                "email": email,
+                "groups": groups
+            }
+            print(f"Adding user: {data}")
+            return self.v1(action="add_account_user", data=data)
         except Exception as e:
             return {"return": False, "reason": str(e)}
 
@@ -423,6 +448,24 @@ class CoPilotAPI:
             return self.v1("GET", "cluster")
         else:
             raise Exception(f"get_copilot_init_status: Unexpected type: {type}")
+    
+    def retry_set_controller_ip(self, controller_ip, username: str, password: str) -> bool:
+        attempts = 0
+        retries = 5
+        delay = 20
+        set_ip = False
+        while attempts <= retries:
+            print(f"Retrying setting controller IP on copilot attempt #{attempts} / {retries}")
+            resp = self.set_controller_ip(controller_ip=controller_ip, username=username, password=password)
+            if str(resp) == "200":
+                print(f"Successfully set controller IP")
+                set_ip = True
+                break
+            else:
+                print(f"Unable to set controller IP. Retrying after {delay} seconds")
+                time.sleep(delay)
+            attempts += 1
+        return set_ip
     
     def set_controller_ip(self, controller_ip, username: str, password: str) -> Dict[str, Any]:
         data = {
