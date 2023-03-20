@@ -1028,6 +1028,47 @@ def restore_backup(cid, controller_ip, s3_file, account_name):
     return response_json
 
 
+def is_controller_ready_v2(
+    ip_addr="123.123.123.123",
+    CID="ABCD1234",
+):
+    start_time = time.time()
+    api_endpoint_url = "https://" + ip_addr + "/v2/api"
+    data = {"action": "is_controller_ready", "CID": CID}
+    print("API endpoint url: %s", str(api_endpoint_url))
+    payload_with_hidden_password = dict(data)
+    payload_with_hidden_password["CID"] = "************"
+    print(
+        f"Request payload: "
+        f"{str(json.dumps(obj=payload_with_hidden_password, indent=4))}"
+    )
+
+    while time.time() - start_time < 600:
+        try:
+            response = requests.get(
+                url=api_endpoint_url, params=data, verify=False, timeout=60
+            )
+            if response is not None:
+                py_dict = response.json()
+
+                if response.status_code == 200 and py_dict["return"] is True:
+                    print(f"Controller is ready to operate")
+                    return True
+                    break
+            else:
+                print(f"Controller is not ready")
+        except requests.Timeout:
+            print(f"The API request timed out after 60 seconds")
+        except Exception as err:
+            print(str(err))
+            raise
+        print(f"Checking if controller is ready in 60 seconds.")
+        time.sleep(60)
+
+    print(f"Controller is not ready to operate")
+    return False
+
+
 def set_customer_id(cid, controller_api_ip):
     """Set the customer ID if set in environment to migrate to a different AMI type"""
 
@@ -1398,9 +1439,22 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
                 failover = "completed"
 
             # 5. Migrate IP
-            print("START: Migrate IP")
-            migrate = migrate_ip(dr_api_ip, cid, pri_env["EIP"])
-            print("END: Migrate IP")
+
+            if s3_ctrl_version and int(s3_ctrl_version.split(".")[0]) >= 7:
+                if is_controller_ready_v2(dr_api_ip, cid) == True:
+                    print("START: Migrate IP")
+                    migrate_ip(dr_api_ip, cid, pri_env["EIP"])
+                    print("END: Migrate IP")
+                else:
+                    print(
+                        "Controller is still restoring, migrate previous ip: %s manually"
+                        % pri_env["EIP"]
+                    )
+            else:
+                print(
+                    "Once the restore process is completed, migrate previous ip: %s manually"
+                    % pri_env["EIP"]
+                )
 
             current_active_region = pri_env.get("ACTIVE_REGION")
             current_standby_region = pri_env.get("STANDBY_REGION")
