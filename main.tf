@@ -37,7 +37,7 @@ module "region1" {
   subnet_names                  = var.subnet_names
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
-  iam_for_lambda_arn            = aws_iam_role.iam_for_lambda.arn
+  iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn
   inter_region_primary          = var.region
   inter_region_standby          = var.dr_region
   zone_name                     = var.zone_name
@@ -94,7 +94,7 @@ module "region2" {
   subnet_names                  = var.dr_subnet_names
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
-  iam_for_lambda_arn            = aws_iam_role.iam_for_lambda.arn
+  iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn
   inter_region_primary          = var.region
   inter_region_standby          = var.dr_region
   zone_name                     = var.zone_name
@@ -115,8 +115,8 @@ module "aviatrix-iam-roles" {
   app_role_name = var.app_role_name
 }
 
-resource "aws_iam_role" "iam_for_lambda" {
-  name = "iam_for_avtx_ctrl_lambda"
+resource "aws_iam_role" "iam_for_ecs" {
+  name = "aviatrix-controller-ecs"
 
   assume_role_policy = <<EOF
 {
@@ -135,8 +135,8 @@ resource "aws_iam_role" "iam_for_lambda" {
 EOF
 }
 
-resource "aws_iam_policy" "lambda-policy" {
-  name        = "aviatrix-ctrl-lambda-policy"
+resource "aws_iam_policy" "ecs-policy" {
+  name        = "aviatrix-ctrl-ecs-policy"
   path        = "/"
   description = "Policy for creating aviatrix-controller"
   policy      = <<EOF
@@ -222,8 +222,8 @@ EOF
 }
 
 resource "aws_iam_role_policy_attachment" "attach-policy" {
-  role       = aws_iam_role.iam_for_lambda.name
-  policy_arn = aws_iam_policy.lambda-policy.arn
+  role       = aws_iam_role.iam_for_ecs.name
+  policy_arn = aws_iam_policy.ecs-policy.arn
 }
 
 ##################################

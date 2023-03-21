@@ -277,9 +277,9 @@ variable "record_name" {
   default     = true
 }
 
-variable "iam_for_lambda_arn" {
+variable "iam_for_ecs_arn" {
   type        = string
-  description = "The ARN of the IAM for Lambda"
+  description = "The ARN of the IAM for ECS"
 }
 
 variable "inter_region_primary" {

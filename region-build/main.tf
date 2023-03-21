@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "task_def" {
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = var.iam_for_lambda_arn
+  task_role_arn            = var.iam_for_ecs_arn
   container_definitions = jsonencode([
     {
       name   = module.ecs_cluster.cluster_name
@@ -546,7 +546,7 @@ module "aviatrix_eventbridge" {
           task_count = 5
           # Remove the revision number so that the latest revision of the task definition is invoked
           task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
-          launch_type = "FARGATE"
+          launch_type         = "FARGATE"
           network_configuration = {
             subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
             security_groups  = [aws_security_group.AviatrixSecurityGroup.id]
