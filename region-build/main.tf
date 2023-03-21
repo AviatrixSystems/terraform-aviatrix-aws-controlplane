@@ -269,19 +269,6 @@ resource "aws_ecs_task_definition" "task_def" {
 
   tags = local.common_tags
 
-  # Can't use depends_on and configure providers at the same time:
-  #
-  # Error: Module module.controller_ha.module.region2 contains provider configuration
-  # Providers cannot be configured within modules using count, for_each or depends_on.
-  #
-  # Using a time_sleep that's longer than the time needed to generate the zip file for now
-  # This can be removed when we reference the zip file on S3.
-  # depends_on = [
-  #   time_sleep.wait_for_zip
-  # ]
-  # depends_on moved to calling the module
-  # depends_on    = [null_resource.lambda]
-
   lifecycle {
     ignore_changes = [
       container_definitions

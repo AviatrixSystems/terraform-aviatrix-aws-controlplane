@@ -226,11 +226,10 @@ variable "license_type" {
 }
 
 locals {
-  name_prefix     = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol     = jsondecode(data.http.avx_iam_id.response_body).BYOL
-  images_platinum = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
-  images_custom   = jsondecode(data.http.avx_iam_id.response_body).Custom
-  #  images_copilot  = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinumCopilot
+  name_prefix       = var.name_prefix != "" ? "${var.name_prefix}-" : ""
+  images_byol       = jsondecode(data.http.avx_iam_id.response_body).BYOL
+  images_platinum   = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
+  images_custom     = jsondecode(data.http.avx_iam_id.response_body).Custom
   images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
