@@ -251,6 +251,8 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "COP_ASG": os.environ.get("COP_ASG"),
         "COP_EIP": os.environ.get("COP_EIP"),
+        "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
+        "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "CTRL_ASG": os.environ.get("CTRL_ASG"),
         "DISKS": os.environ.get("DISKS", ""),
         "EIP": os.environ.get("EIP"),
@@ -264,8 +266,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
         "VPC_ID": os.environ.get("VPC_ID"),
-        "COP_USERNAME": os.environ.get("COP_USERNAME"),
-        "COP_EMAIL": os.environ.get("COP_EMAIL"),
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["ACTIVE_REGION"] = os.environ.get("ACTIVE_REGION")
@@ -538,8 +538,8 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
             "AVX_COPILOT_PASSWORD_SSM_PATH"
         ),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
-        "COP_USERNAME": os.environ.get("COP_USERNAME"),
-        "COP_EMAIL": os.environ.get("COP_EMAIL"),
+        "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
+        "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
         # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
