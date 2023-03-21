@@ -102,7 +102,7 @@ def ecs_handler():
         and os.environ.get("STATE", "") != "INIT"
         and asg == os.environ.get("CTRL_ASG")
     ):
-        print("Lambda probably did not complete last time. Reverting sg %s" % tmp_sg)
+        print("ECS probably did not complete last time. Reverting sg %s" % tmp_sg)
         update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
         restore_security_group_access(ec2_client, tmp_sg)
 
@@ -234,7 +234,7 @@ def create_new_sg(client):
 
 
 def update_env_dict(ecs_client, replace_dict={}):
-    """Update particular variables in the Environment variables in lambda"""
+    """Update particular variables in the Environment variables in ECS"""
 
     env_dict = {
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
@@ -280,7 +280,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
         env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
 
-    # wait_function_update_successful(lambda_client, context.function_name)
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
@@ -314,8 +313,7 @@ def update_env_dict(ecs_client, replace_dict={}):
 
 
 def sync_env_var(ecs_client, env_dict, replace_dict={}):
-    """Update DR environment variables in lambda"""
-    # wait_function_update_successful(lambda_client, context.function_name)
+    """Update DR environment variables in ECS"""
     # Removing empty key's from the env
     empty_keys = [key for key, val in env_dict.items() if not val]
     for key in empty_keys:
@@ -352,18 +350,18 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     print("Updated environment dictionary")
 
 
-def wait_function_update_successful(lambda_client, function_name, raise_err=False):
-    """Wait until get_function_configuration LastUpdateStatus=Successful"""
-    # https://aws.amazon.com/blogs/compute/coming-soon-expansion-of-aws-lambda-states-to-all-functions/
-    try:
-        waiter = lambda_client.get_waiter("function_updated")
-        print(f"Waiting for function update to be successful: {function_name}")
-        waiter.wait(FunctionName=function_name)
-        print(f"{function_name} update state is successful")
-    except botocore.exceptions.WaiterError as err:
-        print(str(err))
-        if raise_err:
-            raise AvxError(str(err)) from err
+# def wait_function_update_successful(lambda_client, function_name, raise_err=False):
+#     """Wait until get_function_configuration LastUpdateStatus=Successful"""
+#     # https://aws.amazon.com/blogs/compute/coming-soon-expansion-of-aws-lambda-states-to-all-functions/
+#     try:
+#         waiter = lambda_client.get_waiter("function_updated")
+#         print(f"Waiting for function update to be successful: {function_name}")
+#         waiter.wait(FunctionName=function_name)
+#         print(f"{function_name} update state is successful")
+#     except botocore.exceptions.WaiterError as err:
+#         print(str(err))
+#         if raise_err:
+#             raise AvxError(str(err)) from err
 
 
 def get_api_token(ip_addr):
@@ -540,8 +538,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
-        # 'AVIATRIX_USER_BACK': os.environ.get('AVIATRIX_USER_BACK'),
-        # 'AVIATRIX_PASS_BACK': os.environ.get('AVIATRIX_PASS_BACK'),
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["DR_REGION"] = os.environ.get("DR_REGION")
@@ -620,8 +616,6 @@ def verify_bucket(controller_instanceobj):
     eip = controller_instanceobj["NetworkInterfaces"][0]["Association"].get("PublicIp")
     print(eip)
 
-    # login_to_controller(eip, os.environ.get('AVIATRIX_USER_BACK'),
-    #                     os.environ.get('AVIATRIX_PASS_BACK'))
     return True, bucket_region
 
 
@@ -937,7 +931,7 @@ def handle_login_failure(priv_ip, client, ecs_client, controller_instanceobj, ei
     else:
         print(
             "Successfully retrieved version. Previous restore operation had succeeded. "
-            "Previous lambda may have exceeded 5 min. Updating lambda config"
+            "Previous ECS may have exceeded 5 min. Updating ECS config"
         )
         set_environ(client, ecs_client, controller_instanceobj, eip)
 
@@ -1146,7 +1140,6 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
             output = {"return": False, "reason": str(err)}
     else:
         output = response.json()
-        # print(output)
 
     return output
 
@@ -1187,21 +1180,6 @@ def set_admin_email(controller_ip, cid, admin_email):
     return output
 
 
-# # Replaced by get_ssm_parameter_value
-# def get_ssm_creds(region):
-#     try:
-#         ssm_client = boto3.client("ssm", region)
-#         resp = ssm_client.get_parameters_by_path(
-#             Path="/aviatrix/controller/", WithDecryption=True
-#         )
-#         avx_params = {}
-#         for param in resp["Parameters"]:
-#             avx_params[param["Name"].split("/")[-1]] = param["Value"]
-#         return avx_params["password"]
-#     except Exception as err:
-#         raise AvxError(f"Error fetching creds from ssm")
-
-
 def get_ssm_parameter_value(path, region):
     try:
         ssm_client = boto3.client("ssm", region)
@@ -1234,8 +1212,6 @@ def set_admin_password(controller_ip, cid, old_admin_password):
     payload_with_hidden_password = dict(post_data)
     payload_with_hidden_password["password"] = "************"
     payload_with_hidden_password["CID"] = "*********"
-    # print("Request payload: \n" +
-    #    str(json.dumps(obj=payload_with_hidden_password, indent=4)))
 
     print(
         "Setting admin password: " + str(json.dumps(obj=payload_with_hidden_password))
@@ -1460,7 +1436,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
             current_standby_region = pri_env.get("STANDBY_REGION")
 
             print(
-                "Update ACTIVE_REGION & STANDBY_REGION in DR Lambda environment variables"
+                "Update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables"
             )
             sync_env_var(
                 dr_ecs_client,
@@ -1472,7 +1448,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
             )
 
             print(
-                "Update ACTIVE_REGION & STANDBY_REGION in primary Lambda environment variables"
+                "Update ACTIVE_REGION & STANDBY_REGION in primary ECS environment variables"
             )
             sync_env_var(
                 pri_ecs_client,
@@ -1707,7 +1683,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
         login_complete = False
         response_json = {}
 
-        # while total_time <= INITIAL_SETUP_WAIT:
         while time.time() - start_time < HANDLE_HA_TIMEOUT:
             print(
                 "Maximum of "
@@ -1810,7 +1785,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                                 cid,
                                 os.environ.get("PRIMARY_ACC_NAME"),
                             )
-                            print("Updating lambda configuration")
+                            print("Updating ECS configuration")
                             set_environ(
                                 client,
                                 ecs_client,
@@ -1819,7 +1794,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                             )
                             break
                         else:
-                            print("Updating lambda configuration")
+                            print("Updating ECS configuration")
                             set_environ(
                                 client,
                                 ecs_client,
@@ -1831,7 +1806,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                         response_json = setup_ctrl_backup(
                             controller_api_ip, cid, os.environ.get("PRIMARY_ACC_NAME")
                         )
-                        print("Updating lambda configuration")
+                        print("Updating ECS configuration")
                         set_environ(client, ecs_client, controller_instanceobj, eip)
                         break
                 else:
@@ -1901,7 +1876,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                     print("Creating new backup")
                     setup_ctrl_backup(controller_api_ip, cid, temp_acc_name, "true")
 
-                    print("Updating lambda configuration")
+                    print("Updating ECS configuration")
                     set_environ(client, ecs_client, controller_instanceobj, eip)
                     return
 
@@ -1952,7 +1927,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                         + str(response_json.get("reason", ""))
                     )
                     return
-        # raise AvxError("Restore failed, did not update lambda config")
+
     finally:
         sns_msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
