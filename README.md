@@ -2,28 +2,34 @@
 
 ### Goals
 
-- Ensure an Aviatrix Controller is always deployed with high availability
+- Ensure that Aviatrix Controller and CoPilot are always deployed with high availability
 - Optionally support a hot standby Controller instance which reduces Controller switchover time to under a minute
 
 ### Description
 
-This module creates AWS IAM credentials (IAM roles, policies, etc...), which are used to grant AWS API permissions to Aviatrix Controller in order to allow it to access resources in AWS account(s). This Terraform module should be run in the AWS account where you are installing the Controller.
+This Terraform module will create the following:
 
-The module will create the following:
-
-1. An Aviatrix Role for Lambda with corresponding role policy with required permissions.
-2. An Aviatrix Role for Controller with corresponding role policy with required permissions.
-3. A Lambda function for handling Controller failover events and restoring configuration automatically on a new instance.
-4. AWS launch template for Aviatrix Controller instance.
-5. An Aviatrix Auto Scaling group with a size of 1 along with an optional warm pool instance.
-6. An SNS topic to trigger Lambda.
-7. An active Controller and a standby Controller which can be in running or stopped state.
+- An Auto Scaling Group (ASG) for Aviatrix Controller
+  - The Controller will be initialized to the specified version (latest by default) and Controller backups will be configured.
+- An Auto Scaling Group (ASG) for Aviatrix CoPilot
+- An AWS load balancer with the Controller and CoPilot instances as targets
+- An Elastic Container Service (ECS) cluster and task definition. ECS handles Controller and CoPilot failover events and restores the configuration from the latest backup automatically on new instances.
+- An Amazon EventBridge event rule that monitors events from the ASGs and sends relevant events to ECS.
+- An Amazon Simple Notification Service (SNS) topic that receives events from the ASGs.
+- An Amazon Simple Queue Service (SQS) queue that is subscribed to the SNS topic. When EventBridge triggers ECS, ECS reads messages from the SQS queue and takes the appropriate actions.
+- Additional roles for the resources above with corresponding role policies with required permissions
+- If `ha_distribution` is set to "inter-region":
+  - The resources listed above will also be deployed in a second region
+  - A Route 53 record specified by `record_name` will be created in the zone specified by `zone_name`
 
 ### Prerequisites
 
-- The AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
-- The S3 bucket for Controller backup should pre-exist.
-- The Auto Scaling group uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alerts to SNS.
+Docker must be installed on the system where Terraform is run. Docker is required to create the Docker image that contains the Python code. This image is then uploaded to a private repository in Amazon Elastic Container Registry (ECR). Docker will only be required during the development/testing phase since we plan to publish a Docker image once the solution is GA.
+
+The following resources should be created before running Terraform. The module will not create these resources.
+
+- The S3 bucket used for Controller backups
+- The Key Pair to be used by the Launch Templates in the Auto Scaling Groups
 - The admin password required to initilaize the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/password in us-east-1.
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX" --region="us-east-1"`
@@ -36,6 +42,8 @@ The module will create the following:
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/copilot/password" --value "XXXXXXXXX" --region="us-east-1"`
 
+- If `ha_distribution` is set to "inter-region", the hosted zone specified by `zone_name` must already exist in Route 53.
+
 ### Usage Example
 
 ```
@@ -45,8 +53,8 @@ module "aws_controller_ha" {
   dr_region           = "us-east-2"
   keypair             = "keypair1"
   dr_keypair          = "keypair2"
-  incoming_ssl_cidr   = ["1.1.1.1/32"]
-  access_account_name = "AWS-account"
+  incoming_ssl_cidr   = ["x.x.x.x/32"]
+  access_account_name = "AWS-Account"
   admin_email         = "admin@example.com"
   asg_notif_email     = "asg@example.com"
   s3_backup_bucket    = "backup-bucket"
