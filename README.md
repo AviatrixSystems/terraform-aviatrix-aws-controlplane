@@ -21,7 +21,6 @@ The module will create the following:
 
 ### Prerequisites
 
-- ~~This module assumes that customer already has a vpc with atleast 2 public subnets allocated for Controller deployment.~~
 - The AWS Keypair should pre-exist and will be used by the lauch template to spin up Controller.
 - The S3 bucket for Controller backup should pre-exist.
 - The Auto Scaling group uses the AWS managed AWSServiceRoleForAutoScaling role for publishing alerts to SNS.
@@ -33,7 +32,7 @@ The module will create the following:
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/customer_id" --value "XXXXXXXXX" --region="us-east-1"`
 
-- for CoPilot initialization, if a specific service account is used, and the `copilot_username` and `copilot_email` variables are provided, then the service account password should be set in the AWS Systems Manager parameter store. The path for the password may be provided via the `avx_copilot_password_ssm_path` variable, or the default path `/aviatrix/copilot/password` will be checked. The password should be stored in the region defined in the `avx_password_ssm_region` variable. Otherwise, the default region of `us-east-1` will be checked. If service account information is not provided via the `copilot_username` and the `copilot_email` variables, then the default `admin` account on the controller will be used as the service account to initialize the CoPilot.
+- For CoPilot initialization, if a specific service account is used, and the `copilot_username` and `copilot_email` variables are provided, then the service account password should be set in the AWS Systems Manager parameter store. The path for the password may be provided via the `avx_copilot_password_ssm_path` variable, or the default path `/aviatrix/copilot/password` will be checked. The password should be stored in the region defined in the `avx_password_ssm_region` variable. Otherwise, the default region of `us-east-1` will be checked. If service account information is not provided via the `copilot_username` and the `copilot_email` variables, then the default `admin` account on the controller will be used as the service account to initialize the CoPilot.
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/copilot/password" --value "XXXXXXXXX" --region="us-east-1"`
 
@@ -41,7 +40,7 @@ The module will create the following:
 
 ```
 module "aws_controller_ha" {
-  source              = "github.com/aviatrix-automation/AWS_Controller"
+  source              = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   region              = "us-east-1"
   dr_region           = "us-east-2"
   keypair             = "keypair1"
@@ -63,10 +62,10 @@ module "aws_controller_ha" {
 | admin_email                   |                                            | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.    |
 | asg_notif_email               |                                            | The email address for Controller failover notifications                                                                                       |
 | app_role_name                 | aviatrix-role-app                          | The name of the Aviatrix App role                                                                                                             |
+| avx_copilot_password_ssm_path | /aviatrix/copilot/password                 | The path to the Aviatrix CoPilot password                                                                                                     |
 | avx_customer_id_ssm_path      | /aviatrix/controller/customer_id           | The path to the Aviatrix customer ID                                                                                                          |
 | avx_customer_id_ssm_region    | us-east-1                                  | The region the customer ID parameter is in                                                                                                    |
 | avx_password_ssm_path         | /aviatrix/controller/password              | The path to the Aviatrix password                                                                                                             |
-| avx_copilot_password_ssm_path | /aviatrix/copilot/password                 | The path to the Aviatrix CoPilot password                                                                                                     |
 | avx_password_ssm_region       | us-east-1                                  | The region the password parameter is in                                                                                                       |
 | controller_version            | ""                                         | The initial version of the Aviatrix Controller at launch                                                                                      |
 | cop_allowed_cidrs             | TCP 443, UDP 5000, UDP 31283 for 0.0.0.0/0 | CoPilot allowed CIDRs                                                                                                                         |
@@ -76,9 +75,9 @@ module "aws_controller_ha" {
 | cop_root_volume_type          | gp3                                        | Root volume type for CoPilot                                                                                                                  |
 | cop_default_data_volume_size  | 8GB                                        | Default data volume disk size for CoPilot                                                                                                     |
 | cop_default_data_volume_type  | gp3                                        | Default data volume type for CoPilot                                                                                                          |
+| copilot_email                 |                                            | CoPilot account email. See Prerequisites above for more information                                                                           |
 | copilot_name                  |                                            | Name of CoPilot                                                                                                                               |
 | copilot_username              |                                            | CoPilot account username. See Prerequisites above for more information                                                                        |
-| copilot_email                 |                                            | CoPilot account email. See Prerequisites above for more information                                                                           |
 | create_iam_roles              | true                                       | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
 | dr_keypair                    |                                            | Key pair which should be used by DR Controller                                                                                                |
 | dr_region                     | ""                                         | Region to deploy the DR Controller                                                                                                            |
