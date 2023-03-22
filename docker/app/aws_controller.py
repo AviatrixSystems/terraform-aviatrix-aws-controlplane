@@ -1,4 +1,4 @@
-""" Aviatrix Controller Deployment with HA Lambda script """
+""" Aviatrix Controller Deployment with HA script """
 import time
 import copy
 import os
@@ -19,7 +19,6 @@ import boto3
 import botocore
 import copilot_main as cp_lib
 
-# import version
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -129,7 +128,6 @@ def ecs_handler():
 
     print(f"SNS Event {sns_msg_lifecycle} Description {sns_msg_desc}")
 
-    # Moved INTER_REGION code up otherwise PRIV_IP will already be set.
     if sns_msg_event == "autoscaling:TEST_NOTIFICATION":
         print("Successfully received Test Event from ASG")
     # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
@@ -350,20 +348,6 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     print("Updated environment dictionary")
 
 
-# def wait_function_update_successful(lambda_client, function_name, raise_err=False):
-#     """Wait until get_function_configuration LastUpdateStatus=Successful"""
-#     # https://aws.amazon.com/blogs/compute/coming-soon-expansion-of-aws-lambda-states-to-all-functions/
-#     try:
-#         waiter = lambda_client.get_waiter("function_updated")
-#         print(f"Waiting for function update to be successful: {function_name}")
-#         waiter.wait(FunctionName=function_name)
-#         print(f"{function_name} update state is successful")
-#     except botocore.exceptions.WaiterError as err:
-#         print(str(err))
-#         if raise_err:
-#             raise AvxError(str(err)) from err
-
-
 def get_api_token(ip_addr):
     """Get API token from controller. Older controllers that don't support it will not have this
     API or endpoints. We return None in that scenario to be backkward compatible"""
@@ -477,8 +461,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     keyname = controller_instanceobj.get("KeyName", "")
     priv_ip = controller_instanceobj.get("NetworkInterfaces")[0].get("PrivateIpAddress")
     iam_arn = controller_instanceobj.get("IamInstanceProfile", {}).get("Arn", "")
-    # mon_bool = controller_instanceobj.get('Monitoring', {}).get('State', 'disabled') != 'disabled'
-    # monitoring = 'enabled' if mon_bool else 'disabled'
 
     tags = controller_instanceobj.get("Tags", [])
     tags_stripped = []
@@ -1624,7 +1606,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                 update_env_dict(ecs_client, {"TMP_SG_GRP": sg_modified})
 
         total_time = 0
-        # while total_time <= MAX_LOGIN_TIMEOUT:
+
         while time.time() - start_time < HANDLE_HA_TIMEOUT:
             try:
                 cid = login_to_controller(controller_api_ip, "admin", new_private_ip)
@@ -1636,7 +1618,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             else:
                 break
 
-        # if total_time >= MAX_LOGIN_TIMEOUT:
         if time.time() - start_time >= HANDLE_HA_TIMEOUT:
             print(
                 "Could not login to the controller. Attempting to handle login failure"
@@ -1814,8 +1795,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                         f"Unable to create primary account {os.environ.get('PRIMARY_ACC_NAME')}"
                     )
                     break
-
-            # print(response_json)
 
             print(f"initial_setup_complete = {initial_setup_complete}")
             print(f"priv_ip= {priv_ip}")
