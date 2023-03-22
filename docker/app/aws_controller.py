@@ -1037,7 +1037,6 @@ def is_controller_ready_v2(
             print(f"The API request timed out after 60 seconds")
         except Exception as err:
             print(str(err))
-            raise
         print(f"Checking if controller is ready in 60 seconds.")
         time.sleep(60)
 
