@@ -86,8 +86,8 @@ def ecs_handler():
     event = json.loads(queue_messages[0].body)
 
     try:
-        sns_region = event["TopicArn"].split(":")[3]
-        print(f"Event in region {sns_region}")
+        region = event["TopicArn"].split(":")[3]
+        print(f"Event in region {region}")
     except (AttributeError, IndexError, KeyError, TypeError) as e:
         pprint(queue_messages[0].body)
         print(e)
@@ -95,7 +95,7 @@ def ecs_handler():
 
     tmp_sg = os.environ.get("TMP_SG_GRP", "")
     asg = event.get("AutoScalingGroupName")
-    # This code only needs to run when the SNS event is from the Controller ASG
+    # This code only needs to run when the event is from the Controller ASG
     if (
         tmp_sg
         and os.environ.get("STATE", "") != "INIT"
@@ -106,71 +106,62 @@ def ecs_handler():
         restore_security_group_access(ec2_client, tmp_sg)
 
     try:
-        sns_msg_json = json.loads(event["Message"])
-        sns_alarm_name = sns_msg_json.get("AlarmName", "")
-        sns_msg_asg = sns_msg_json.get("AutoScalingGroupName", "")
-        sns_msg_lifecycle = sns_msg_json.get("LifecycleTransition", "")
-        sns_msg_desc = sns_msg_json.get("Description", "")
+        msg_json = json.loads(event["Message"])
+        msg_asg = msg_json.get("AutoScalingGroupName", "")
+        msg_lifecycle = msg_json.get("LifecycleTransition", "")
+        msg_desc = msg_json.get("Description", "")
         # https://docs.aws.amazon.com/autoscaling/ec2/userguide/warm-pools-eventbridge-events.html
-        sns_msg_orig = sns_msg_json.get("Origin", "")
-        sns_msg_dest = sns_msg_json.get("Destination", "")
-        sns_msg_inst = sns_msg_json.get("EC2InstanceId", "")
-        sns_msg_event = sns_msg_json.get("Event", "")
-        sns_msg_trigger = sns_msg_json.get("Trigger", "")
-        sns_msg_Nvalue = sns_msg_json.get("NewStateValue", "")
-        sns_msg_Ovalue = sns_msg_json.get("OldStateValue", "")
-        if sns_msg_trigger:
-            MetricName = sns_msg_trigger["MetricName"]
-        else:
-            MetricName = ""
+        msg_orig = msg_json.get("Origin", "")
+        msg_dest = msg_json.get("Destination", "")
+        msg_inst = msg_json.get("EC2InstanceId", "")
+        msg_event = msg_json.get("Event", "")
+
     except (KeyError, IndexError, ValueError) as err:
-        raise AvxError("Could not parse SNS message %s" % str(err)) from err
+        raise AvxError("Could not parse message %s" % str(err)) from err
 
-    print(f"SNS Event {sns_msg_lifecycle} Description {sns_msg_desc}")
+    print(f"Event {msg_lifecycle} Description {msg_desc}")
 
-    if sns_msg_event == "autoscaling:TEST_NOTIFICATION":
+    if msg_event == "autoscaling:TEST_NOTIFICATION":
         print("Successfully received Test Event from ASG")
     # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
     elif (
         os.environ.get("INTER_REGION") == "True"
-        and sns_msg_asg == os.environ.get("CTRL_ASG")
+        and msg_asg == os.environ.get("CTRL_ASG")
         and os.environ.get("PRIV_IP")
     ):
-        pri_region = sns_region
+        pri_region = region
         dr_region = os.environ.get("DR_REGION")
         handle_ctrl_inter_region_event(pri_region, dr_region)
-    elif sns_msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
+    elif msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
-    if sns_msg_lifecycle == "autoscaling:EC2_INSTANCE_LAUNCHING":
-        if sns_msg_orig == "EC2" and sns_msg_dest == "AutoScalingGroup":
+    if msg_lifecycle == "autoscaling:EC2_INSTANCE_LAUNCHING":
+        if msg_orig == "EC2" and msg_dest == "AutoScalingGroup":
             print("New instance launched into AutoscalingGroup")
-        elif sns_msg_orig == "EC2" and sns_msg_dest == "WarmPool":
+        elif msg_orig == "EC2" and msg_dest == "WarmPool":
             print("New instance launched into WarmPool")
-        elif sns_msg_orig == "WarmPool" and sns_msg_dest == "AutoScalingGroup":
+        elif msg_orig == "WarmPool" and msg_dest == "AutoScalingGroup":
             print("Failover event..Instance moving from WarmPool into AutoScaling")
         else:
-            print(
-                f"Unknown instance launch origin {sns_msg_orig} and/or dest {sns_msg_dest}"
-            )
+            print(f"Unknown instance launch origin {msg_orig} and/or dest {msg_dest}")
 
-        if sns_msg_asg == os.environ.get("CTRL_ASG"):
+        if msg_asg == os.environ.get("CTRL_ASG"):
             handle_ctrl_ha_event(
                 ec2_client,
                 ecs_client,
                 event,
-                sns_msg_inst,
-                sns_msg_orig,
-                sns_msg_dest,
+                msg_inst,
+                msg_orig,
+                msg_dest,
             )
-        elif sns_msg_asg == os.environ.get("COP_ASG"):
+        elif msg_asg == os.environ.get("COP_ASG"):
             handle_cop_ha_event(
                 ec2_client,
                 ecs_client,
                 event,
-                sns_msg_inst,
-                sns_msg_orig,
-                sns_msg_dest,
+                msg_inst,
+                msg_orig,
+                msg_dest,
             )
 
     # Delete message from SQS after processing
@@ -1907,13 +1898,13 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                     return
 
     finally:
-        sns_msg_json = json.loads(event["Message"])
+        msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
         response = asg_client.complete_lifecycle_action(
-            AutoScalingGroupName=sns_msg_json["AutoScalingGroupName"],
+            AutoScalingGroupName=msg_json["AutoScalingGroupName"],
             LifecycleActionResult="CONTINUE",
-            InstanceId=sns_msg_json["EC2InstanceId"],
-            LifecycleHookName=sns_msg_json["LifecycleHookName"],
+            InstanceId=msg_json["EC2InstanceId"],
+            LifecycleHookName=msg_json["LifecycleHookName"],
         )
 
         print(f"Complete lifecycle action response {response}")
@@ -2066,13 +2057,13 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         print(str(traceback.format_exc()))
         print(f"handle_cop_ha_event failed with err: {str(err)}")
     finally:
-        sns_msg_json = json.loads(event["Message"])
+        msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
         response = asg_client.complete_lifecycle_action(
-            AutoScalingGroupName=sns_msg_json["AutoScalingGroupName"],
+            AutoScalingGroupName=msg_json["AutoScalingGroupName"],
             LifecycleActionResult="CONTINUE",
-            LifecycleActionToken=sns_msg_json["LifecycleActionToken"],
-            LifecycleHookName=sns_msg_json["LifecycleHookName"],
+            LifecycleActionToken=msg_json["LifecycleActionToken"],
+            LifecycleHookName=msg_json["LifecycleHookName"],
         )
 
         print(f"Complete lifecycle action response {response}")
