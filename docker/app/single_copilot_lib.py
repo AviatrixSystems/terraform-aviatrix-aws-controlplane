@@ -399,7 +399,7 @@ class CoPilotAPI:
     ) -> Dict[str, Any]:
         try:
             if endpoint == "login":
-                url = f"https://{self._copilot_ip}/login"
+                url = f"https://{self._copilot_ip}/api/login"
             else:
                 url = f"https://{self._copilot_ip}/v1/api/{endpoint}"
             resp = {}
