@@ -85,6 +85,24 @@ def ecs_handler():
     print(queue_messages[0].body)
     event = json.loads(queue_messages[0].body)
 
+    # Delete message from SQS
+    #
+    # We are deleting the message immediately because some tasks may take a long time to run. If we exceed the
+    # SQS visibility timeout, the message will be put back into SQS which may lead to 2 problems:
+    # 1. If another task gets invoked before the first task is done processing the message, but after the SQS
+    #    visibility timeout, the message could be processed again
+    # 2. We’ll get into the scenario where we have more messages than task invocations since the task that should
+    #    have processed a new message is processing an old message instead
+    response = queue.delete_messages(
+        Entries=[
+            {
+                "Id": queue_messages[0].message_id,
+                "ReceiptHandle": queue_messages[0].receipt_handle,
+            }
+        ]
+    )
+    print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
+
     try:
         region = event["TopicArn"].split(":")[3]
         print(f"Event in region {region}")
@@ -163,17 +181,6 @@ def ecs_handler():
                 msg_orig,
                 msg_dest,
             )
-
-    # Delete message from SQS after processing
-    response = queue.delete_messages(
-        Entries=[
-            {
-                "Id": queue_messages[0].message_id,
-                "ReceiptHandle": queue_messages[0].receipt_handle,
-            }
-        ]
-    )
-    print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
 
 
 def create_new_sg(client):

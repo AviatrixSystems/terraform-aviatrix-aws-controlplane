@@ -435,10 +435,13 @@ resource "aws_sns_topic" "controller_updates" {
   name = "controller-ha-updates"
 }
 
+# Test notifications are not caught by EventBridge rules, so we'll filter them from getting to SQS also
 resource "aws_sns_topic_subscription" "asg_updates_for_sqs" {
-  topic_arn = aws_sns_topic.controller_updates.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.controller_updates_queue.arn
+  topic_arn           = aws_sns_topic.controller_updates.arn
+  protocol            = "sqs"
+  endpoint            = aws_sqs_queue.controller_updates_queue.arn
+  filter_policy       = jsonencode({ "LifecycleTransition" = ["autoscaling:EC2_INSTANCE_LAUNCHING"] })
+  filter_policy_scope = "MessageBody"
 }
 
 resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
@@ -530,7 +533,7 @@ module "aviatrix_eventbridge" {
         attach_role_arn = true
 
         ecs_target = {
-          task_count = 5
+          task_count = 1
           # Remove the revision number so that the latest revision of the task definition is invoked
           task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
           launch_type         = "FARGATE"
