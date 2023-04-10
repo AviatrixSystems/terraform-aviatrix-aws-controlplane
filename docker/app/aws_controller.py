@@ -1932,40 +1932,64 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
+    # print the info
     for name, value in os.environ.items():
         print(f"{name}: {value}")
     try:
+        # get env information
+        inter_region = os.environ.get("INTER_REGION") == "True"
+        current_region = os.environ.get("SQS_QUEUE_REGION")
+        inter_region_primary = os.environ.get("ACTIVE_REGION")
+        inter_region_standby = os.environ.get("STANDBY_REGION")
+        copilot_init = False if os.environ.get("PRIV_IP") else True
         instance_name = os.environ.get("AVIATRIX_COP_TAG")
+        dr_region = os.environ.get("DR_REGION")
 
-        copilot_instanceobj = client.describe_instances(
+        # use cases:
+        # intra-region init
+        #   assign pri copilot eip
+        #    restore copilot
+        # intra-region ha
+        #   assign pri copilot eip
+        #    restore copilot
+        # inter-region init in primary region
+        #   assign pri copilot eip
+        #   restore pri region copilot
+        # inter-region init in standby region
+        #   assign pri copilot eip
+        #   return
+        # inter-region ha in primary region
+        #   assign pri copilot eip
+        #   restore to dr region copilot with dr controller
+        # inter-region ha in secondary region
+        #   assign pri copilot eip
+        #   restore to pri region copilot with pri controller
+
+        # get current region copilot to restore eip
+        curr_region_cop_instanceobj = client.describe_instances(
             Filters=[
                 {"Name": "instance-state-name", "Values": ["running"]},
                 {"Name": "tag:Name", "Values": [instance_name]},
             ]
         )["Reservations"][0]["Instances"][0]
 
+        # Assign COP_EIP to current region copilot
+        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+            if not assign_eip(client, curr_region_cop_instanceobj, os.environ.get("COP_EIP")):
+                print(f"Could not assign EIP to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}")
+                raise AvxError("Could not assign EIP to primary region Copilot")
+
+        # return if inter-region init in standby_region
+        if inter_region and copilot_init and current_region == inter_region_standby:
+            print(f"Not initializing copilot in the standby region '{current_region}' in inter-region init")
+            return
+
         controller_instance_name = os.environ.get("AVIATRIX_TAG")
-
-        controller_instanceobj = client.describe_instances(
-            Filters=[
-                {"Name": "instance-state-name", "Values": ["running"]},
-                {"Name": "tag:Name", "Values": [controller_instance_name]},
-            ]
-        )["Reservations"][0]["Instances"][0]
-
         controller_creds = get_ssm_parameter_value(
             os.environ.get("AVX_PASSWORD_SSM_PATH"),
             os.environ.get("AVX_PASSWORD_SSM_REGION"),
         )
-        # Assign COP_EIP
-        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-            if not assign_eip(client, copilot_instanceobj, os.environ.get("COP_EIP")):
-                raise AvxError("Could not assign EIP to Copilot")
-        if os.environ.get("PRIV_IP"):
-            copilot_init = False
-        else:
-            copilot_init = True
-
+        # get copilot user info
         if os.environ.get("COP_USERNAME") and os.environ.get("COP_USERNAME") != "":
             copilot_username = os.environ.get("COP_USERNAME")
             copilot_password = get_ssm_parameter_value(
@@ -1982,15 +2006,47 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             copilot_user_groups = []
             copilot_custom_user = False
 
+        # determine restore region based on event type
+        if inter_region and not copilot_init:
+            print(f"inter-region HA in current region '{current_region}'")
+            print(f"restore to dr region '{dr_region}'")
+            restore_client = boto3.client("ec2", dr_region)
+            restore_region = dr_region
+        else:
+            print(f"intra-region init/HA OR inter-region init - create/restore in current region")
+            print(f"if inter-region, current region '{current_region}' is inter-region primary '{inter_region_primary}'")
+            restore_client = client
+            restore_region = current_region
+
+        # get restore_region copilot to be created/restored
+        copilot_instanceobj = restore_client.describe_instances(
+            Filters=[
+                {"Name": "instance-state-name", "Values": ["running"]},
+                {"Name": "tag:Name", "Values": [instance_name]},
+            ]
+        )["Reservations"][0]["Instances"][0]
+
+        # get restore region controller
+        controller_instanceobj = restore_client.describe_instances(
+            Filters=[
+                {"Name": "instance-state-name", "Values": ["running"]},
+                {"Name": "tag:Name", "Values": [controller_instance_name]},
+            ]
+        )["Reservations"][0]["Instances"][0]
+
+        # determine correct controller/copilot IPs based on event
+        if inter_region and not copilot_init:
+            copilot_public_ip = copilot_instanceobj["PublicIpAddress"]
+            controller_public_ip = controller_instanceobj["PublicIpAddress"]
+        else:
+            copilot_public_ip = os.environ.get("COP_EIP")
+            controller_public_ip = os.environ.get("EIP")
+
         copilot_event = {
-            "region": os.environ.get("SQS_QUEUE_REGION"),
+            "region": restore_region,
             "copilot_init": copilot_init,
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "copilot_custom_user": copilot_custom_user,
-            "instance_ids": [
-                copilot_instanceobj["InstanceId"],
-                controller_instanceobj["InstanceId"],
-            ],  # list of instances that should be "instance_status_ok"
             "cluster_ha_main_node": True,  # if clustered copilot HA case, set to True if HA for main node
             "copilot_data_node_public_ips": [
                 "",
@@ -2003,9 +2059,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "",
             ],  # cluster data nodes private IPs
             "copilot_data_node_regions": [
-                os.environ.get("SQS_QUEUE_REGION"),
-                os.environ.get("SQS_QUEUE_REGION"),
-                os.environ.get("SQS_QUEUE_REGION"),
+                restore_region,
+                restore_region,
+                restore_region,
             ],  # cluster data nodes regions (should be the same)
             "copilot_data_node_names": [
                 "",
@@ -2032,7 +2088,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "",
             ],  # cluster data nodes security group names
             "controller_info": {
-                "public_ip": os.environ.get("EIP"),
+                "public_ip": controller_public_ip,
                 "private_ip": controller_instanceobj["PrivateIpAddress"],
                 "username": "admin",
                 "password": controller_creds,
@@ -2044,7 +2100,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 ],  # controller security group name
             },
             "copilot_info": {
-                "public_ip": os.environ.get("COP_EIP"),
+                "public_ip": copilot_public_ip,
                 "private_ip": copilot_instanceobj["PrivateIpAddress"],
                 "username": copilot_username,
                 "password": copilot_password,
