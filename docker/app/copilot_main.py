@@ -135,6 +135,12 @@ def handle_coplot_ha(event):
       print(f"Getting saved CoPilot config from the controller")
       config = api.get_copilot_config(event['copilot_type'])
       print(f"get_copilot_config: {config}")
+      # abort restore if unable to get config
+      if config == {}:
+        print(f"Unable to get saved config. Abort restore")
+        return
+      # setting possibly new controller IP in saved config
+      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['controller_info']['public_ip']
       # 2. restore saved config on new copilot
       print(f"Restoring config on CoPilot")
       response = copilot_api.restore_copilot(config)
@@ -171,8 +177,6 @@ if __name__ == "__main__":
     "region": "",
     "copilot_init": True,
     "copilot_type": "singleNode", # values should be "singleNode" or "clustered"
-    "instance_ids": ["",
-                      ""], # list of instances that should be "instance_status_ok"
     "cluster_ha_main_node": True, # if clustered copilot HA case, set to True if HA for main node
     "copilot_data_node_public_ips": ["",
                                       ""], # cluster data nodes public IPs
