@@ -49,6 +49,7 @@ module "region1" {
   avx_password_ssm_path         = var.avx_password_ssm_path
   avx_copilot_password_ssm_path = var.avx_copilot_password_ssm_path
   avx_password_ssm_region       = var.avx_password_ssm_region
+  attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
 }
 
 module "region2" {
@@ -106,6 +107,7 @@ module "region2" {
   avx_password_ssm_path         = var.avx_password_ssm_path
   avx_copilot_password_ssm_path = var.avx_copilot_password_ssm_path
   avx_password_ssm_region       = var.avx_password_ssm_region
+  attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
 }
 
 module "aviatrix-iam-roles" {
@@ -224,6 +226,56 @@ EOF
 resource "aws_iam_role_policy_attachment" "attach-policy" {
   role       = aws_iam_role.iam_for_ecs.name
   policy_arn = aws_iam_policy.ecs-policy.arn
+}
+
+resource "aws_iam_role" "iam_for_eventbridge" {
+  name = "aviatrix-eventbridge-role"
+
+  assume_role_policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "events.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "eventbridge-policy" {
+  name        = "aviatrix-eventbridge-policy"
+  path        = "/"
+  description = "Policy for EventBridge to run ECS tasks"
+  policy      = <<EOF
+{
+    "Statement": [
+        {
+            "Action": "ecs:RunTask",
+            "Effect": "Allow",
+            "Resource": "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/*",
+            "Sid": "ECSAccess1"
+        },
+        {
+            "Action": "iam:PassRole",
+            "Effect": "Allow",
+            "Resource": "*",
+            "Sid": "PassRole"
+        }
+    ],
+    "Version": "2012-10-17"
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "eventbridge-attach-policy" {
+  role       = aws_iam_role.iam_for_eventbridge.name
+  policy_arn = aws_iam_policy.eventbridge-policy.arn
 }
 
 ##################################

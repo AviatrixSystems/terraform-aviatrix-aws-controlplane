@@ -487,10 +487,8 @@ POLICY
 module "aviatrix_eventbridge" {
   source = "./modules/terraform-aws-eventbridge"
 
-  create_bus = false
-  #bus_name = "aviatrix-event-bus"
-  create_role       = true
-  role_name         = "aviatrix-event-role-${var.region}"
+  create_bus        = false
+  create_role       = false
   attach_ecs_policy = true
   ecs_target_arns = [
     trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
@@ -530,7 +528,7 @@ module "aviatrix_eventbridge" {
       {
         name            = "ecs_task_target"
         arn             = module.ecs_cluster.cluster_arn
-        attach_role_arn = true
+        attach_role_arn = var.attach_eventbridge_role_arn
 
         ecs_target = {
           task_count = 1
@@ -577,50 +575,6 @@ module "aviatrix_eventbridge" {
     ]
   }
 }
-
-#resource "aws_iam_role" "ha_controller_events" {
-#  name = "ha_controller_events_role"
-#  assume_role_policy = jsonencode({
-#    Version = "2012-10-17"
-#    Statement = [
-#      {
-#        Action = "sts:AssumeRole"
-#        Effect = "Allow"
-#        Principal = {
-#          Service = "events.amazonaws.com"
-#        }
-#      }
-#    ]
-#  })
-#}
-#
-## This authorizes cloudwatch to run an ECS task with any given role.
-## The task needs the role to access the controller & whatever else it
-## might be doing. Constraining which roles can be passed would be a
-## good idea.
-#resource "aws_iam_role_policy" "ha_controller_events" {
-#  name = "avtx-ha-controller-events-run-task-with-any-role"
-#  role = "${aws_iam_role.ha_controller_events.id}"
-#  policy = jsonencode({
-#    Version = "2012-10-17"
-#    Statement = [
-#      {
-#        Action = [
-#          "iam:PassRole"
-#        ]
-#        Effect = "Allow"
-#        Resource = "*"
-#      },
-#      {
-#        Action = [
-#          "ecs:RunTask"
-#        ]
-#        Effect = "Allow"
-#        Resource = "${replace(aws_ecs_task_definition.task_def.arn, "/:\\d+$/", ":*")}"
-#      }
-#    ]
-#  })
-#}
 
 module "ecs_cluster" {
   source = "./modules/terraform-aws-ecs"

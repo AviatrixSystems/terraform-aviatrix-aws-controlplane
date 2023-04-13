@@ -334,3 +334,7 @@ variable "avx_password_ssm_region" {
   description = "The region the password parameter is in"
   default     = "us-east-1"
 }
+
+variable "attach_eventbridge_role_arn" {
+  description = "EventBridge role ARN"
+}
