@@ -421,7 +421,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     value               = "Controller"
     propagate_at_launch = true
   }
-  wait_for_capacity_timeout = "20m"
+  wait_for_capacity_timeout = "30m"
   timeouts {
     delete = "15m"
   }
