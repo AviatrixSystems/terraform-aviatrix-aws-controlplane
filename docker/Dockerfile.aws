@@ -1,0 +1,12 @@
+FROM --platform=linux/amd64 python:3.9-alpine
+
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+
+ADD app/ /usr/src/app/
+
+RUN pip3 install --no-cache-dir -r aws_requirements.txt
+
+ENTRYPOINT ["python3"]
+
+CMD ["-m", "aws_controller"]

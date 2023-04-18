@@ -82,6 +82,18 @@ variable "copilot_name" {
   description = "Name of controller that will be launched"
 }
 
+variable "copilot_username" {
+  default     = ""
+  type        = string
+  description = "CoPilot service account username, if desired"
+}
+
+variable "copilot_email" {
+  default     = ""
+  type        = string
+  description = "CoPilot user email address, if desired"
+}
+
 variable "cop_type" {
   type        = string
   description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
@@ -91,12 +103,24 @@ variable "cop_type" {
 variable "cop_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
-  default     = 2000
+  default     = 25
 }
 
 variable "cop_root_volume_type" {
   type        = string
   description = "Root volume type for Copilot"
+  default     = "gp3"
+}
+
+variable "cop_default_data_volume_size" {
+  type        = number
+  description = "Default data volume disk size for Copilot"
+  default     = 8
+}
+
+variable "cop_default_data_volume_type" {
+  type        = string
+  description = "Default data volume type for Copilot"
   default     = "gp3"
 }
 
@@ -202,11 +226,10 @@ variable "license_type" {
 }
 
 locals {
-  name_prefix     = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol     = jsondecode(data.http.avx_iam_id.response_body).BYOL
-  images_platinum = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
-  images_custom   = jsondecode(data.http.avx_iam_id.response_body).Custom
-  #  images_copilot  = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinumCopilot
+  name_prefix       = var.name_prefix != "" ? "${var.name_prefix}-" : ""
+  images_byol       = jsondecode(data.http.avx_iam_id.response_body).BYOL
+  images_platinum   = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
+  images_custom     = jsondecode(data.http.avx_iam_id.response_body).Custom
   images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
@@ -268,12 +291,6 @@ variable "dr_keypair" {
   description = "Key pair which should be used by Aviatrix controller"
 }
 
-variable "preemptive" {
-  type        = bool
-  description = "If it is true and when primary region controller is back online, the network automatically switches back to using that primary controller."
-  default     = false
-}
-
 variable "zone_name" {
   type        = string
   description = "The exisitng route 53 zone name"
@@ -290,4 +307,34 @@ variable "inter_region_backup_enabled" {
   type        = bool
   description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
   default     = false
+}
+
+variable "avx_customer_id_ssm_path" {
+  type        = string
+  description = "The path to the Aviatrix customer ID"
+  default     = "/aviatrix/controller/customer_id"
+}
+
+variable "avx_customer_id_ssm_region" {
+  type        = string
+  description = "The region the customer ID parameter is in"
+  default     = "us-east-1"
+}
+
+variable "avx_password_ssm_path" {
+  type        = string
+  description = "The path to the Aviatrix password"
+  default     = "/aviatrix/controller/password"
+}
+
+variable "avx_copilot_password_ssm_path" {
+  type        = string
+  description = "The path to the password for CoPilot"
+  default     = "/aviatrix/copilot/password"
+}
+
+variable "avx_password_ssm_region" {
+  type        = string
+  description = "The region the password parameter is in"
+  default     = "us-east-1"
 }
