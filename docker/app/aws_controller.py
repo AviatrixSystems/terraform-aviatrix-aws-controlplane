@@ -2042,9 +2042,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             copilot_public_ip = os.environ.get("COP_EIP")
             controller_public_ip = os.environ.get("EIP")
 
+        primary_account_name = os.environ.get("PRIMARY_ACC_NAME")
+
         copilot_event = {
             "region": restore_region,
             "copilot_init": copilot_init,
+            "primary_account_name": primary_account_name,
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "copilot_custom_user": copilot_custom_user,
             "cluster_ha_main_node": True,  # if clustered copilot HA case, set to True if HA for main node
@@ -2097,7 +2100,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 ],  # controller security group ID
                 "sg_name": controller_instanceobj["SecurityGroups"][0][
                     "GroupName"
-                ],  # controller security group name
+                ],  # controller security group name,
+                "instance_id": controller_instanceobj["InstanceId"],
+                "vpc_id": controller_instanceobj["VpcId"]
             },
             "copilot_info": {
                 "public_ip": copilot_public_ip,
@@ -2112,6 +2117,8 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 "sg_name": copilot_instanceobj["SecurityGroups"][0][
                     "GroupName"
                 ],  # (main) copilot security group name
+                "instance_id": copilot_instanceobj["InstanceId"],
+                "vpc_id": copilot_instanceobj["VpcId"]
             },
         }
         print(f"copilot_event: {copilot_event}")
