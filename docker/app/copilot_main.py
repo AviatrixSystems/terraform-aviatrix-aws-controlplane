@@ -4,24 +4,33 @@ import traceback
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
-def controller_copilot_setup(api, copilot_priv_ip, copilot_public_ip):
+def controller_copilot_setup(api, event):
   # enable copilot association
   print("Associate Aviatrix CoPilot with Aviatrix Controller")
-  api.enable_copilot_association(copilot_priv_ip, copilot_public_ip)
+  api.enable_copilot_association(event['copilot_info']['private_ip'], event['copilot_info']['public_ip'])
   response = api.get_copilot_association_status()
   print(f"get_copilot_association_status: {response}")
   # enable netflow
   print("Enable Netflow Agent configuration on Aviatrix Controller")
-  api.enable_netflow_agent(copilot_public_ip)
+  api.enable_netflow_agent(event['copilot_info']['public_ip'])
   # api.enable_netflow_agent(copilot_info["private_ip"])
   response = api.get_netflow_agent()
   print(f"get_netflow_agent: {response}")
   # enable syslog
   print("Enable Remote Syslog configuration on Aviatrix Controller")
   # api.enable_syslog_configuration(copilot_info["private_ip"])
-  api.enable_syslog_configuration(copilot_public_ip)
+  api.enable_syslog_configuration(event['copilot_info']['public_ip'])
   response = api.get_remote_syslog_logging_status()
   print(f"get_remote_syslog_logging_status: {response}")
+  print("Enable CoPilot SG management on Aviatrix Controller")
+  # api.enable_copilot_sg(copilot_info["private_ip"])
+  api.enable_copilot_sg(event['primary_account_name'],
+                        "1",
+                        event['region'],
+                        event['copilot_info']['vpc_id'],
+                        event['copilot_info']['instance_id'])
+  response = api.wait_and_get_copilot_sg_status()
+  print(f"get_copilot_sg_status: {response}")
 
 def handle_coplot_ha(event):
   
@@ -168,7 +177,7 @@ def handle_coplot_ha(event):
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   # make sure controller sg is open
   api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
-  controller_copilot_setup(api, event['copilot_info']['private_ip'], event['copilot_info']['public_ip'])
+  controller_copilot_setup(api, event)
   # close controller sg
   api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
 
