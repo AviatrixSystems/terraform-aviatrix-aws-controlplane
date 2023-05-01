@@ -82,7 +82,7 @@ def handle_coplot_ha(event):
   copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'], cid=api._cid)
   # set the new copilot to use the controller to verify logins
   print("Set controller IP on CoPilot")
-  resp = copilot_api.retry_set_controller_ip(event['controller_info']['public_ip'],
+  resp = copilot_api.retry_set_controller_ip(event['auth_ip'],
                                              event['copilot_info']['username'],
                                              event['copilot_info']['password'])
   print(f"set_controller_ip: {resp}")

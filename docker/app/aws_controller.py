@@ -249,6 +249,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "COP_EIP": os.environ.get("COP_EIP"),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
+        "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "CTRL_ASG": os.environ.get("CTRL_ASG"),
         "DISKS": os.environ.get("DISKS", ""),
         "EIP": os.environ.get("EIP"),
@@ -517,6 +518,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         ),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
+        "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
     }
     if os.environ.get("INTER_REGION") == "True":
@@ -2042,9 +2044,15 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             copilot_public_ip = os.environ.get("COP_EIP")
             controller_public_ip = os.environ.get("EIP")
 
+        if os.environ.get("COP_AUTH_IP") == "private":
+            controller_auth_ip = controller_instanceobj["PrivateIpAddress"]
+        else:
+            controller_auth_ip = controller_public_ip
+
         copilot_event = {
             "region": restore_region,
             "copilot_init": copilot_init,
+            "auth_ip": controller_auth_ip, # values should be "public" or "private"
             "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
             "copilot_custom_user": copilot_custom_user,
             "cluster_ha_main_node": True,  # if clustered copilot HA case, set to True if HA for main node
