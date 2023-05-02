@@ -19,6 +19,7 @@ variable "keypair" {
 variable "region" {
   type        = string
   description = "The region to deploy this module in"
+  default     = "us-east-1"
 }
 
 variable "create_iam_roles" {
@@ -261,7 +262,7 @@ data "http" "copilot_iam_id" {
 variable "dr_region" {
   type        = string
   description = "DR Region for Aviatrix Controller"
-  default     = ""
+  default     = "us-east-2"
 }
 
 variable "dr_vpc_name" {
@@ -289,6 +290,7 @@ variable "dr_vpc_cidr" {
 variable "dr_keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
+  default     = ""
 }
 
 variable "zone_name" {

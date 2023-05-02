@@ -46,13 +46,12 @@ The following resources should be created before running Terraform. The module w
 
 ### Usage Example
 
+#### Single-AZ
+
 ```
 module "aws_controller_ha" {
   source              = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  region              = "us-east-1"
-  dr_region           = "us-east-2"
   keypair             = "keypair1"
-  dr_keypair          = "keypair2"
   incoming_ssl_cidr   = ["x.x.x.x/32"]
   access_account_name = "AWS-Account"
   admin_email         = "admin@example.com"
@@ -87,10 +86,10 @@ module "aws_controller_ha" {
 | copilot_name                  |                                            | Name of CoPilot                                                                                                                               |
 | copilot_username              |                                            | CoPilot account username. See Prerequisites above for more information                                                                        |
 | create_iam_roles              | true                                       | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                  |
-| dr_keypair                    |                                            | Key pair which should be used by DR Controller                                                                                                |
-| dr_region                     | ""                                         | Region to deploy the DR Controller                                                                                                            |
+| dr_keypair                    | ""                                         | Key pair which should be used by DR Controller. Only applicable if `ha_distribution` is "inter-region".                                       |
+| dr_region                     | "us-east-2"                                | Region to deploy the DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                   |
 | dr_subnet_names               |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                      |
-| dr_vpc                        | ""                                         | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true).                                                                 |
+| dr_vpc                        | ""                                         | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true. Only applicable if `ha_distribution` is "inter-region".          |
 | dr_vpc_cidr                   | 10.0.0.0/24                                | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
 | dr_vpc_name                   | ""                                         | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false. |
 | ec2_role_name                 | aviatrix-role-ec2                          | The name of the Aviatrix EC2 role                                                                                                             |
@@ -102,7 +101,7 @@ module "aws_controller_ha" {
 | license_type                  | BYOL                                       | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                 |
 | name_prefix                   | avx                                        | Additional name prefix for resources created by this module                                                                                   |
 | record_name                   | true                                       | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.     |
-| region                        |                                            | Region to deploy the Controller and CoPilot                                                                                                   |
+| region                        | "us-east-1"                                | Region to deploy the Controller and CoPilot                                                                                                   |
 | root_volume_size              | 64                                         | Root volume disk size for Controller                                                                                                          |
 | root_volume_type              | gp3                                        | Root volume type for Controller                                                                                                               |
 | s3_backup_bucket              |                                            | S3 bucket for Controller DB backup                                                                                                            |
