@@ -155,8 +155,15 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "AVX_PASSWORD_SSM_REGION",
           value = var.avx_password_ssm_region
+        },
+        {
+          name  = "AVX_CUSTOMER_ID",
+          value = var.avx_customer_id
+        },
+        {
+          name  = "AVX_PASSWORD",
+          value = var.avx_password
         }
-
         ] : [
         {
           name  = "AVIATRIX_TAG",
@@ -262,6 +269,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "AVX_PASSWORD_SSM_REGION",
           value = var.avx_password_ssm_region
+        },
+        {
+          name  = "AVX_CUSTOMER_ID",
+          value = var.avx_customer_id
+        },
+        {
+          name  = "AVX_PASSWORD",
+          value = var.avx_password
         }
       ]
     }
