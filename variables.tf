@@ -244,7 +244,6 @@ locals {
   })
 }
 
-
 data "http" "avx_iam_id" {
   url = "https://s3-us-west-2.amazonaws.com/aviatrix-download/AMI_ID/ami_id.json"
   request_headers = {
@@ -269,7 +268,6 @@ variable "dr_vpc_name" {
   type    = string
   default = "Aviatrix-DR-VPC"
 }
-
 
 variable "dr_vpc" {
   type        = string
@@ -339,4 +337,16 @@ variable "avx_password_ssm_region" {
   type        = string
   description = "The region the password parameter is in"
   default     = "us-east-1"
+}
+
+variable "avx_customer_id" {
+  type        = string
+  description = "The customer ID"
+  default     = ""
+}
+
+variable "avx_password" {
+  type        = string
+  description = "The admin password for the Aviatrix Controller"
+  default     = ""
 }

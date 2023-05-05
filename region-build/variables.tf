@@ -335,6 +335,18 @@ variable "avx_password_ssm_region" {
   default     = "us-east-1"
 }
 
+variable "avx_customer_id" {
+  type        = string
+  description = "The customer ID"
+  default     = ""
+}
+
+variable "avx_password" {
+  type        = string
+  description = "The admin password for the Aviatrix Controller"
+  default     = ""
+}
+
 variable "attach_eventbridge_role_arn" {
   description = "EventBridge role ARN"
 }
