@@ -236,8 +236,10 @@ def update_env_dict(ecs_client, replace_dict={}):
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
         "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
+        "AVX_CUSTOMER_ID": os.environ.get("AVX_CUSTOMER_ID", ""),
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
+        "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH"
@@ -510,8 +512,10 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "INTER_REGION": os.environ.get("INTER_REGION"),
         "SQS_QUEUE_NAME": os.environ.get("SQS_QUEUE_NAME"),
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
+        "AVX_CUSTOMER_ID": os.environ.get("AVX_CUSTOMER_ID", ""),
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
+        "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH"
@@ -1048,10 +1052,14 @@ def set_customer_id(cid, controller_api_ip):
     """Set the customer ID if set in environment to migrate to a different AMI type"""
 
     print("Setting up Customer ID")
-    customer_id = get_ssm_parameter_value(
-        os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
-        os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
-    )
+    if os.environ.get("AVX_CUSTOMER_ID", "") == "":
+        customer_id = get_ssm_parameter_value(
+            os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
+            os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
+        )
+    else:
+        customer_id = os.environ.get("AVX_CUSTOMER_ID", "")
+
     base_url = "https://" + controller_api_ip + "/v1/api"
     post_data = {
         "CID": cid,
@@ -1173,11 +1181,15 @@ def get_ssm_parameter_value(path, region):
 def set_admin_password(controller_ip, cid, old_admin_password):
     """Set admin password"""
 
-    # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-    ssm_client = boto3.client("ssm", os.environ.get("AVX_PASSWORD_SSM_REGION"))
-    resp = ssm_client.get_parameter(
-        Name=os.environ.get("AVX_PASSWORD_SSM_PATH"), WithDecryption=True
-    )
+    if os.environ.get("AVX_PASSWORD", "") == "":
+        # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
+        ssm_client = boto3.client("ssm", os.environ.get("AVX_PASSWORD_SSM_REGION"))
+        resp = ssm_client.get_parameter(
+            Name=os.environ.get("AVX_PASSWORD_SSM_PATH"), WithDecryption=True
+        )
+        new_admin_password = resp["Parameter"]["Value"]
+    else:
+        new_admin_password = os.environ.get("AVX_PASSWORD", "")
 
     base_url = "https://%s/v1/api" % controller_ip
 
@@ -1187,7 +1199,7 @@ def set_admin_password(controller_ip, cid, old_admin_password):
         "account_name": "admin",
         "user_name": "admin",
         "old_password": old_admin_password,
-        "password": resp["Parameter"]["Value"],
+        "password": new_admin_password,
     }
 
     payload_with_hidden_password = dict(post_data)
@@ -1348,10 +1360,13 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     )
     total_time = 0
 
-    creds = get_ssm_parameter_value(
-        os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        os.environ.get("AVX_PASSWORD_SSM_REGION"),
-    )
+    if os.environ.get("AVX_PASSWORD", "") == "":
+        creds = get_ssm_parameter_value(
+            os.environ.get("AVX_PASSWORD_SSM_PATH"),
+            os.environ.get("AVX_PASSWORD_SSM_REGION"),
+        )
+    else:
+        creds = os.environ.get("AVX_PASSWORD", "")
 
     # Check if this is the Active or Standby region
     if pri_region == pri_env.get("ACTIVE_REGION"):

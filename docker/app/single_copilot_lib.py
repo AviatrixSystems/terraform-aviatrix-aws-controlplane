@@ -322,6 +322,13 @@ class ControllerAPI:
         # return self.v2("GET", "get_netflow_agent")
         return self.v1("get_netflow_agent")
 
+    def get_copilot_sg_status(self) -> Dict[str, Any]:
+        return self.v2("GET", "get_copilot_sg")
+
+    def wait_and_get_copilot_sg_status(self) -> Dict[str, Any]:
+        time.sleep(15)
+        return self.get_copilot_sg_status()
+
     def enable_copilot_association(self, copilot_ip: str, public_ip: str) -> Dict[str, Any]:
         data = {
             "copilot_ip": copilot_ip,
@@ -329,6 +336,23 @@ class ControllerAPI:
         }
         # return self.v2("POST", "enable_copilot_association", data=data)
         return self.v1("enable_copilot_association", data=data)
+
+    def enable_copilot_sg(
+        self,
+        account_name: str,
+        cloud_type: str,
+        region: str,
+        vpc_id: str,
+        instance_id: str
+    ) -> Dict[str, Any]:
+        data = {
+            "account_name": account_name,
+            "cloud_type": cloud_type,
+            "region": region,
+            "vpc_id": vpc_id,
+            "instance_id": instance_id,
+        }
+        return self.v2("POST", "enable_copilot_sg", data=data)
 
     def enable_netflow_agent(self, copilot_ip: str) -> Dict[str, Any]:
         data = {

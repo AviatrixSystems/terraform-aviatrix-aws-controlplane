@@ -19,6 +19,7 @@ variable "keypair" {
 variable "region" {
   type        = string
   description = "The region to deploy this module in"
+  default     = "us-east-1"
 }
 
 variable "create_iam_roles" {
@@ -249,7 +250,6 @@ locals {
   })
 }
 
-
 data "http" "avx_iam_id" {
   url = "https://s3-us-west-2.amazonaws.com/aviatrix-download/AMI_ID/ami_id.json"
   request_headers = {
@@ -267,14 +267,13 @@ data "http" "copilot_iam_id" {
 variable "dr_region" {
   type        = string
   description = "DR Region for Aviatrix Controller"
-  default     = ""
+  default     = "us-east-2"
 }
 
 variable "dr_vpc_name" {
   type    = string
   default = "Aviatrix-DR-VPC"
 }
-
 
 variable "dr_vpc" {
   type        = string
@@ -295,6 +294,7 @@ variable "dr_vpc_cidr" {
 variable "dr_keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
+  default     = ""
 }
 
 variable "zone_name" {
@@ -343,4 +343,16 @@ variable "avx_password_ssm_region" {
   type        = string
   description = "The region the password parameter is in"
   default     = "us-east-1"
+}
+
+variable "avx_customer_id" {
+  type        = string
+  description = "The customer ID"
+  default     = ""
+}
+
+variable "avx_password" {
+  type        = string
+  description = "The admin password for the Aviatrix Controller"
+  default     = ""
 }
