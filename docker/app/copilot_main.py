@@ -1,5 +1,6 @@
 import boto3
 import time
+import datetime
 import traceback
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
@@ -122,6 +123,35 @@ def get_copilot_auth_ip(env, public_ips, controller):
 
   return copilot_auth_ip
 
+def log_failover_status(env, type):
+    curr_region = get_current_region(env)
+    if type == "controller":
+        instance_name = env["AVIATRIX_TAG"]
+        recent_reboot_log = "The Controller instance was recently restarted."
+        no_recent_reboot_log = "The Controller instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
+    else:
+        instance_name = env["AVIATRIX_COP_TAG"]
+        recent_reboot_log = "The CoPilot instance was recently restarted."
+        no_recent_reboot_log = "The CoPilot instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
+    # Retrieve the launch time of the current region instance by instance name
+    curr_region_client = boto3.client("ec2", curr_region)
+    # get current region instance
+    instanceobj = curr_region_client.describe_instances(
+        Filters=[
+            {"Name": "instance-state-name", "Values": ["running"]},
+            {"Name": "tag:Name", "Values": [instance_name]},
+        ]
+    )["Reservations"][0]["Instances"][0]
+    launch_time = instanceobj["LaunchTime"]
+    # Calculate the time difference between the launch time and current time
+    delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
+    # Check if the instance was recently restarted (e.g. within the last 10 minutes)
+    if delta < datetime.timedelta(minutes=10):
+        print(recent_reboot_log)
+    else:
+        print(no_recent_reboot_log)
+
+
 def handle_copilot_ha(env):
   # use cases:
   # intra-region init
@@ -151,6 +181,13 @@ def handle_copilot_ha(env):
   if inter_region and copilot_init and get_current_region(env) == get_standby_region(env):
     print(f"Not initializing copilot in the standby region '{get_current_region(env)}' in inter-region init")
     return
+
+  # log controller failover status
+  try:
+    log_failover_status(env, "controller")
+  except Exception as err:
+    print(f"Logging controller failover status failed with the error below.")
+    print(str(err))
 
   # get controller instance and auth info
   controller_instance_name = env["AVIATRIX_TAG"]
@@ -186,10 +223,10 @@ def handle_copilot_ha(env):
   instance_public_ips = get_controller_copilot_public_ips(env, controller_instanceobj, copilot_instanceobj)
   copilot_auth_ip = get_copilot_auth_ip(env, instance_public_ips, controller_instanceobj)
 
-
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
+    "primary_account_name": env["PRIMARY_ACC_NAME"],
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
     "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
@@ -208,6 +245,8 @@ def handle_copilot_ha(env):
         "password": controller_creds,
         "sg_id": controller_instanceobj["SecurityGroups"][0]["GroupId"],  # controller security group ID
         "sg_name": controller_instanceobj["SecurityGroups"][0]["GroupName"],  # controller security group name
+        "instance_id": controller_instanceobj["InstanceId"],
+        "vpc_id": controller_instanceobj["VpcId"],
     },
     "copilot_info": {
         "public_ip": instance_public_ips["copilot_public_ip"],
@@ -215,6 +254,8 @@ def handle_copilot_ha(env):
         "user_info": copilot_user_info,
         "sg_id": copilot_instanceobj["SecurityGroups"][0]["GroupId"],  # (main) copilot security group ID
         "sg_name": copilot_instanceobj["SecurityGroups"][0]["GroupName"],  # (main) copilot security group name
+        "instance_id": copilot_instanceobj["InstanceId"],
+        "vpc_id": copilot_instanceobj["VpcId"],
     },
   }
   print(f"copilot_event: {copilot_event}")
