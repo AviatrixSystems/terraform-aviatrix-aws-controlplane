@@ -350,3 +350,15 @@ variable "avx_password" {
 variable "attach_eventbridge_role_arn" {
   description = "EventBridge role ARN"
 }
+
+variable "use_existing_eip" {
+  type        = bool
+  description = "Set to true if using an existing EIP"
+  default     = false
+}
+
+variable "existing_eip" {
+  type        = string
+  description = "Existing EIP to associate with the Aviatrix Controller"
+  default     = ""
+}

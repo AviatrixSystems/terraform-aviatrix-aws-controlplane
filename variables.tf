@@ -350,3 +350,21 @@ variable "avx_password" {
   description = "The admin password for the Aviatrix Controller"
   default     = ""
 }
+
+variable "use_existing_eip" {
+  type        = bool
+  description = "Set to true if using an existing EIP"
+  default     = false
+}
+
+variable "existing_eip" {
+  type        = string
+  description = "Existing EIP to associate with the Aviatrix Controller"
+  default     = ""
+}
+
+variable "existing_dr_eip" {
+  type        = string
+  description = "Existing EIP to associate with the DR Aviatrix Controller"
+  default     = ""
+}

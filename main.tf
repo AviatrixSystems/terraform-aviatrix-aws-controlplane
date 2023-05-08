@@ -52,6 +52,8 @@ module "region1" {
   avx_customer_id               = var.avx_customer_id
   avx_password                  = var.avx_password
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
+  use_existing_eip              = var.use_existing_eip
+  existing_eip                  = var.existing_eip
 }
 
 module "region2" {
@@ -112,6 +114,8 @@ module "region2" {
   avx_customer_id               = var.avx_customer_id
   avx_password                  = var.avx_password
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
+  use_existing_eip              = var.use_existing_eip
+  existing_eip                  = var.existing_dr_eip
 }
 
 module "aviatrix-iam-roles" {
