@@ -68,12 +68,21 @@ def get_restore_region(env):
   # determine restore region based on event type
   if get_copilot_inter_region(env) and not get_copilot_init(env):
     print(f"inter-region HA in current region '{get_current_region(env)}'")
-    print(f"restore to dr region '{get_dr_region(env)}'")
-    restore_region = get_dr_region(env)
+    if get_instance_recent_restart(env, "controller"):
+      restore_region = get_current_region(env)
+      print(f"HA event in an inter-region deployment, but the controller was not restarted recently. We will assume that only the CoPilot VM failed")
+      print(f"restore copilot in current region because assuming controller did not fail in inter-region HA: '{restore_region}'")
+    else:
+      restore_region = get_dr_region(env)
+      print(f"Controller was also restarted recently, so we will assume regional failure")
+      print(f"restore controller and copilot to dr region'{restore_region}'")
   else:
-    print(f"intra-region init/HA OR inter-region init - create/restore in current region")
-    print(f"if inter-region, current region '{get_current_region(env)}' is inter-region primary '{get_active_region(env)}'")
     restore_region = get_current_region(env)
+    if get_copilot_inter_region(env):
+      print(f"inter-region init - create in current region: '{restore_region}'")
+      print(f"current region '{get_current_region(env)}' is inter-region primary '{get_active_region(env)}'")
+    else:
+      print(f"intra-region init/HA - create/restore in current region: '{restore_region}'")
   return restore_region
 
 def get_copilot_init(env):
@@ -123,16 +132,12 @@ def get_copilot_auth_ip(env, public_ips, controller):
 
   return copilot_auth_ip
 
-def log_failover_status(env, type):
+def get_instance_recent_restart(env, type):
     curr_region = get_current_region(env)
     if type == "controller":
         instance_name = env["AVIATRIX_TAG"]
-        recent_reboot_log = "The Controller instance was recently restarted."
-        no_recent_reboot_log = "The Controller instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
     else:
         instance_name = env["AVIATRIX_COP_TAG"]
-        recent_reboot_log = "The CoPilot instance was recently restarted."
-        no_recent_reboot_log = "The CoPilot instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
@@ -146,7 +151,19 @@ def log_failover_status(env, type):
     # Calculate the time difference between the launch time and current time
     delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
     # Check if the instance was recently restarted (e.g. within the last 10 minutes)
-    if delta < datetime.timedelta(minutes=10):
+    if delta < datetime.timedelta(minutes=30):
+        return True
+    else:
+        return False
+
+def log_failover_status(env, type):
+    if type == "controller":
+        recent_reboot_log = "The Controller instance was recently restarted."
+        no_recent_reboot_log = "The Controller instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
+    else:
+        recent_reboot_log = "The CoPilot instance was recently restarted."
+        no_recent_reboot_log = "The CoPilot instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
+    if get_instance_recent_restart(env, type):
         print(recent_reboot_log)
     else:
         print(no_recent_reboot_log)
