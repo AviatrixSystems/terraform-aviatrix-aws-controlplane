@@ -53,11 +53,11 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "EIP",
-          value = aws_eip.controller_eip.public_ip
+          value = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
         },
         {
           name  = "COP_EIP",
-          value = aws_eip.copilot_eip.public_ip
+          value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
           name  = "COP_USERNAME",
@@ -191,11 +191,11 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "EIP",
-          value = aws_eip.controller_eip.public_ip
+          value = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
         },
         {
           name  = "COP_EIP",
-          value = aws_eip.copilot_eip.public_ip
+          value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
           name  = "COP_USERNAME",
@@ -320,8 +320,9 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
 
 
 resource "aws_eip" "controller_eip" {
-  vpc  = true
-  tags = merge(local.common_tags, tomap({ "Name" = "Avx-Controller" }))
+  count = var.use_existing_eip ? 0 : 1
+  vpc   = true
+  tags  = merge(local.common_tags, tomap({ "Name" = "Avx-Controller" }))
 }
 
 resource "aws_security_group" "AviatrixSecurityGroup" {
