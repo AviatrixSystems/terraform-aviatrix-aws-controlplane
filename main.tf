@@ -54,6 +54,8 @@ module "region1" {
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
   use_existing_eip              = var.use_existing_eip
   existing_eip                  = var.existing_eip
+  use_existing_copilot_eip      = var.use_existing_copilot_eip
+  existing_copilot_eip          = var.existing_copilot_eip
 }
 
 module "region2" {
@@ -116,6 +118,8 @@ module "region2" {
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
   use_existing_eip              = var.use_existing_eip
   existing_eip                  = var.existing_dr_eip
+  use_existing_copilot_eip      = var.use_existing_copilot_eip
+  existing_copilot_eip          = var.existing_copilot_dr_eip
 }
 
 module "aviatrix-iam-roles" {

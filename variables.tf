@@ -368,3 +368,21 @@ variable "existing_dr_eip" {
   description = "Existing EIP to associate with the DR Aviatrix Controller"
   default     = ""
 }
+
+variable "use_existing_copilot_eip" {
+  type        = bool
+  description = "Set to true if using an existing EIP for CoPilot"
+  default     = false
+}
+
+variable "existing_copilot_eip" {
+  type        = string
+  description = "Existing EIP to associate with the Aviatrix CoPilot"
+  default     = ""
+}
+
+variable "existing_copilot_dr_eip" {
+  type        = string
+  description = "Existing EIP to associate with the DR Aviatrix CoPilot"
+  default     = ""
+}

@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_EIP",
-          value = aws_eip.copilot_eip.public_ip
+          value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
           name  = "COP_USERNAME",
@@ -195,7 +195,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_EIP",
-          value = aws_eip.copilot_eip.public_ip
+          value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
           name  = "COP_USERNAME",
