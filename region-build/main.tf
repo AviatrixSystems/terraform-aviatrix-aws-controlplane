@@ -68,6 +68,10 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.copilot_email
         },
         {
+          name  = "COP_AUTH_IP",
+          value = var.cop_controller_auth_ip
+        },
+        {
           name = "CTRL_ASG",
           # Can not use aws_autoscaling_group.avtx_ctrl.name as that creates a circular dependency
           value = "avtx_controller"
@@ -204,6 +208,10 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EMAIL",
           value = var.copilot_email
+        },
+        {
+          name  = "COP_AUTH_IP",
+          value = var.cop_controller_auth_ip
         },
         {
           name = "CTRL_ASG",

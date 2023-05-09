@@ -279,13 +279,13 @@ class ControllerAPI:
         except Exception as e:
             return {"return": False, "reason": str(e)}
 
-    def add_account_user(self, username: str, password: str, email: str, groups: List[str]) -> Dict[str, Any]:
+    def add_account_user(self, user_info: Dict) -> Dict[str, Any]:
         try:
             data = {
-                "username": username,
-                "password": password,
-                "email": email,
-                "groups": groups
+                "username": user_info["username"],
+                "password": user_info["password"],
+                "email": user_info["email"],
+                "groups": user_info["user_groups"]
             }
             print(f"Adding user: {data}")
             return self.v1(action="add_account_user", data=data)

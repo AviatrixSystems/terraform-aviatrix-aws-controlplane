@@ -125,6 +125,12 @@ variable "cop_default_data_volume_type" {
   default     = "gp3"
 }
 
+variable "cop_controller_auth_ip" {
+  type        = string
+  description = "Controller IP type to be used by CoPilot for authentication - public, or private"
+  default     = "public"
+}
+
 variable "incoming_ssl_cidr" {
   type        = list(string)
   description = "Incoming cidr for security group used by controller"

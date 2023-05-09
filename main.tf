@@ -24,6 +24,7 @@ module "region1" {
   copilot_name                  = var.copilot_name
   copilot_username              = var.copilot_username
   copilot_email                 = var.copilot_email
+  cop_controller_auth_ip        = var.cop_controller_auth_ip
   cop_type                      = var.cop_type
   cop_root_volume_size          = var.cop_root_volume_size
   cop_root_volume_type          = var.cop_root_volume_type
@@ -88,6 +89,7 @@ module "region2" {
   copilot_name                  = var.copilot_name
   copilot_username              = var.copilot_username
   copilot_email                 = var.copilot_email
+  cop_controller_auth_ip        = var.cop_controller_auth_ip
   cop_type                      = var.cop_type
   cop_root_volume_size          = var.cop_root_volume_size
   cop_root_volume_type          = var.cop_root_volume_type
