@@ -357,6 +357,12 @@ variable "avx_password" {
   default     = ""
 }
 
+variable "avx_copilot_password" {
+  type        = string
+  description = "The service account password for the Aviatrix CoPilot"
+  default     = ""
+}
+
 variable "use_existing_eip" {
   type        = bool
   description = "Set to true if using an existing EIP"

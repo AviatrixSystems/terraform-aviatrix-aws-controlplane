@@ -46,6 +46,8 @@ The following resources should be created before running Terraform. The module w
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/copilot/password" --value "XXXXXXXXX" --region="us-east-1"`
 
+  For non-production deployments, if the `copilot_username` and the `copilot_email` variables are provided for the service account, the password for the service account can be specified by `avx_copilot_password`. This is not recommended for production because the password will be viewable in the container's environment variables.
+
 - If `ha_distribution` is set to "inter-region", the hosted zone specified by `zone_name` must already exist in Route 53.
 
 ### Usage Example
@@ -109,6 +111,7 @@ module "aws_controller_ha" {
 | admin_email                   |                                            | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
 | asg_notif_email               |                                            | The email address for Controller failover notifications                                                                                                                                                                                        |
 | app_role_name                 | aviatrix-role-app                          | The name of the Aviatrix App role                                                                                                                                                                                                              |
+| avx_copilot_password          |                                            | The Aviatrix Copilot service account password. WARNING: The password will be visible in the container's environment variables. See above note for more information.                                                                            |
 | avx_copilot_password_ssm_path | /aviatrix/copilot/password                 | The path to the Aviatrix CoPilot password                                                                                                                                                                                                      |
 | avx_customer_id               |                                            | The Aviatrix customer ID. WARNING: The Customer ID will be viewable in the container's environment variables. It is recommended to store the customer ID in an SSM parameter and to not use `avx_customer_id` for production deployments.      |
 | avx_customer_id_ssm_path      | /aviatrix/controller/customer_id           | The path to the Aviatrix customer ID. Only applicable if `avx_customer_id` is not specified.                                                                                                                                                   |
@@ -163,6 +166,7 @@ module "aws_controller_ha" {
 | vpc_cidr                      | 10.0.0.0/24                                | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                               | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                       | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
+
 ### Additional Information
 
 When an SNS HA event is triggered there are 3 scenarios depending on what `autoscaling_source` and `autoscaling_destination` are set to:

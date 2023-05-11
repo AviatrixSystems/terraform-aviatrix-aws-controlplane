@@ -167,6 +167,10 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "AVX_PASSWORD",
           value = var.avx_password
+        },
+        {
+          name  = "AVX_COP_PASSWORD",
+          value = var.avx_copilot_password
         }
         ] : [
         {
