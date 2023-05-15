@@ -41,24 +41,39 @@ def controller_copilot_setup(api, event):
   response = api.wait_and_get_copilot_sg_status()
   print(f"get_copilot_sg_status: {response}")
 
+def get_vm_password(env, pass_type="copilot"):
+  if pass_type == "copilot" and env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
+    if env["AVX_COP_PASSWORD"] == "":
+        # Fetch Aviatrix CoPilot credentials from encrypted SSM parameter store
+        password = get_ssm_parameter_value(
+          env["AVX_COPILOT_PASSWORD_SSM_PATH"],
+          env["AVX_PASSWORD_SSM_REGION"],
+        )
+    else:
+        password = env["AVX_COP_PASSWORD"]
+  else:
+    if env["AVX_PASSWORD"] == "":
+        # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
+        password =get_ssm_parameter_value(
+          env["AVX_PASSWORD_SSM_PATH"],
+          env["AVX_PASSWORD_SSM_REGION"],
+        )
+    else:
+        password = env["AVX_PASSWORD"]
+  print(f"VM_PASSWORD: {password}")
+  return password
+
 def get_copilot_user_info(env):
   # get copilot user info
   user_info = {}
-  if "COP_USERNAME" in env and env["COP_USERNAME"] != "":
+  user_info["password"] = get_vm_password(env)
+  if env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
     user_info["username"] = env["COP_USERNAME"]
-    user_info["password"] = get_ssm_parameter_value(
-      env["AVX_COPILOT_PASSWORD_SSM_PATH"],
-      env["AVX_PASSWORD_SSM_REGION"],
-    )
     user_info["email"] = env["COP_EMAIL"]
     user_info["user_groups"] = ["admin"]  # hardcode copilot user group
     user_info["custom_user"] = True
   else:
     user_info["username"] = "admin"
-    user_info["password"] = get_ssm_parameter_value(
-      env["AVX_PASSWORD_SSM_PATH"],
-      env["AVX_PASSWORD_SSM_REGION"],
-    )
     user_info["email"] = ""
     user_info["user_groups"] = []
     user_info["custom_user"] = False
@@ -209,10 +224,7 @@ def handle_copilot_ha(env):
   # get controller instance and auth info
   controller_instance_name = env["AVIATRIX_TAG"]
   controller_username = "admin"
-  controller_creds = get_ssm_parameter_value(
-    env["AVX_PASSWORD_SSM_PATH"],
-    env["AVX_PASSWORD_SSM_REGION"],
-  )
+  controller_creds = get_vm_password(env, "controller")
 
   # get copilot instance and auth info
   instance_name = env["AVIATRIX_COP_TAG"]
