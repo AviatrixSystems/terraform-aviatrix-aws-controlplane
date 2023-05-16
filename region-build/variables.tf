@@ -353,6 +353,12 @@ variable "avx_password" {
   default     = ""
 }
 
+variable "avx_copilot_password" {
+  type        = string
+  description = "The service account password for the Aviatrix CoPilot"
+  default     = ""
+}
+
 variable "attach_eventbridge_role_arn" {
   description = "EventBridge role ARN"
 }

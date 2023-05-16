@@ -240,6 +240,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
+        "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH"
@@ -265,6 +266,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
         "VPC_ID": os.environ.get("VPC_ID"),
+        "PRIMARY_ACC_NAME": os.environ.get("PRIMARY_ACC_NAME"),
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["ACTIVE_REGION"] = os.environ.get("ACTIVE_REGION")
@@ -274,7 +276,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
-        env_dict["PRIMARY_ACC_NAME"] = os.environ.get("PRIMARY_ACC_NAME")
         env_dict["RECORD_NAME"] = os.environ.get("RECORD_NAME")
         env_dict["STANDBY_REGION"] = os.environ.get("STANDBY_REGION")
         env_dict["ZONE_NAME"] = os.environ.get("ZONE_NAME")
@@ -516,6 +517,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
         "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
+        "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH"

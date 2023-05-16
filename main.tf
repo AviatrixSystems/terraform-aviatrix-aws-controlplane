@@ -52,6 +52,7 @@ module "region1" {
   avx_password_ssm_region       = var.avx_password_ssm_region
   avx_customer_id               = var.avx_customer_id
   avx_password                  = var.avx_password
+  avx_copilot_password          = var.avx_copilot_password
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
   use_existing_eip              = var.use_existing_eip
   existing_eip                  = var.existing_eip
@@ -117,6 +118,7 @@ module "region2" {
   avx_password_ssm_region       = var.avx_password_ssm_region
   avx_customer_id               = var.avx_customer_id
   avx_password                  = var.avx_password
+  avx_copilot_password          = var.avx_copilot_password
   attach_eventbridge_role_arn   = aws_iam_role.iam_for_eventbridge.arn
   use_existing_eip              = var.use_existing_eip
   existing_eip                  = var.existing_dr_eip
