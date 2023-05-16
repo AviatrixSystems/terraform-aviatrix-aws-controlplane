@@ -84,13 +84,13 @@ def get_restore_region(env):
   if get_copilot_inter_region(env) and not get_copilot_init(env):
     print(f"inter-region HA in current region '{get_current_region(env)}'")
     if get_instance_recent_restart(env, "controller"):
-      restore_region = get_current_region(env)
-      print(f"HA event in an inter-region deployment, but the controller was not restarted recently. We will assume that only the CoPilot VM failed")
-      print(f"restore copilot in current region because assuming controller did not fail in inter-region HA: '{restore_region}'")
-    else:
       restore_region = get_dr_region(env)
       print(f"Controller was also restarted recently, so we will assume regional failure")
       print(f"restore controller and copilot to dr region'{restore_region}'")
+    else:
+      restore_region = get_current_region(env)
+      print(f"HA event in an inter-region deployment, but the controller was not restarted recently. We will assume that only the CoPilot VM failed")
+      print(f"restore copilot in current region because assuming controller did not fail in inter-region HA: '{restore_region}'")
   else:
     restore_region = get_current_region(env)
     if get_copilot_inter_region(env):
@@ -221,6 +221,10 @@ def handle_copilot_ha(env):
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
 
+  # sleep
+  print("sleeping for 900 seconds")
+  time.sleep(900)
+
   # get controller instance and auth info
   controller_instance_name = env["AVIATRIX_TAG"]
   controller_username = "admin"
@@ -240,6 +244,7 @@ def handle_copilot_ha(env):
       {"Name": "tag:Name", "Values": [instance_name]},
     ]
   )["Reservations"][0]["Instances"][0]
+  print(f"copilot_instanceobj: {copilot_instanceobj}")
 
   # get restore region controller
   controller_instanceobj = restore_client.describe_instances(
@@ -248,6 +253,7 @@ def handle_copilot_ha(env):
       {"Name": "tag:Name", "Values": [controller_instance_name]},
     ]
   )["Reservations"][0]["Instances"][0]
+  print(f"controller_instanceobj: {controller_instanceobj}")
 
   instance_public_ips = get_controller_copilot_public_ips(env, controller_instanceobj, copilot_instanceobj)
   copilot_auth_ip = get_copilot_auth_ip(env, instance_public_ips, controller_instanceobj)
@@ -295,8 +301,6 @@ def handle_copilot_ha(env):
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
   print(f"Starting CoPilot HA with copilot_init = '{event['copilot_init']}' and copilot_type = '{event['copilot_type']}'")
-  print("sleeping for 900 seconds")
-  time.sleep(900)
   ec2_client = boto3.client("ec2", region_name=event['region'])
 
   # Security group adjustment
@@ -412,7 +416,7 @@ def handle_event(event):
       # setting possibly new controller IP in saved config
       config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['controller_info']['public_ip']
       # 2. restore saved config on new copilot
-      print(f"Restoring config on CoPilot")
+      print(f"Restoring config on CoPilot: {config}")
       response = copilot_api.restore_copilot(config)
       print(f"restore_config: {response}")
       print(f"Getting restore_config status")
