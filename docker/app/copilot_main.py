@@ -60,7 +60,6 @@ def get_vm_password(env, pass_type="copilot"):
         )
     else:
         password = env["AVX_PASSWORD"]
-  print(f"VM_PASSWORD: {password}")
   return password
 
 def get_copilot_user_info(env):

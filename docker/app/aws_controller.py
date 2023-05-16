@@ -56,10 +56,6 @@ def main():
 
 
 def ecs_handler():
-    print("in ECS Handler")
-    env = dict(os.environ.items())
-    for name in env:
-        print(f"{name}: {env[name]}")
     queue_region = os.environ.get("SQS_QUEUE_REGION")
     print("Queue region: %s" % queue_region)
 
