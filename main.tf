@@ -126,7 +126,7 @@ module "region2" {
 
 module "aviatrix-iam-roles" {
   count         = var.create_iam_roles ? 1 : 0
-  source        = "github.com/AviatrixSystems/terraform-modules.git//aviatrix-controller-iam-roles"
+  source        = "./aviatrix-controller-iam-roles"
   ec2_role_name = var.ec2_role_name
   app_role_name = var.app_role_name
 }
