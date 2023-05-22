@@ -24,8 +24,6 @@ This Terraform module will create the following:
 
 ### Prerequisites
 
-Docker must be installed on the system where Terraform is run. Docker is required to create the Docker image that contains the Python code. This image is then uploaded to a private repository in Amazon Elastic Container Registry (ECR). Docker will only be required during the development/testing phase since we plan to publish a Docker image once the solution is GA.
-
 The following resources should be created before running Terraform. The module will not create these resources.
 
 - The S3 bucket used for Controller backups
