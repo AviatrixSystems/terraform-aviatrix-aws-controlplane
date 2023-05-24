@@ -1,8 +1,8 @@
 data "aws_caller_identity" "current" {}
 
-resource "time_sleep" "wait_for_zip" {
-  create_duration = "60s"
-}
+# resource "time_sleep" "wait_for_zip" {
+#   create_duration = "60s"
+# }
 
 resource "aws_ecs_task_definition" "task_def" {
   family                   = "AVX_PLATFORM_HA"
