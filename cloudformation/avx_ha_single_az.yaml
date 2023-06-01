@@ -1,0 +1,622 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Aviatrix Systems - <BYOL> - Creates the necessary IAM policies, roles,
+  security group and launches Aviatrix Controller EC2 instance.
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcCidr
+          - SubnetAZ
+          - SubnetCidr
+          - AllowedHttpsIngressIpParam
+          - KeyPairName
+          - HTTPProxy
+          - HTTPSProxy
+      - Label:
+          default: IAM role creation
+        Parameters:
+          - IAMRoleParam
+      - Label:
+          default: Aviatrix Controller Setup
+        Parameters:
+          - ControllerInstanceTypeParam
+          - AdminPassword
+          - AdminPasswordConfirm
+          - AdminEmail
+          - CustomerId
+          - TargetVersion
+          - AwsAccessAccountName
+      - Label:
+          default: Aviatrix CoPilot Setup
+        Parameters:
+          - CoPilotInstanceTypeParam
+          - DataVolSize
+      - Label:
+          default: Development Stage Setup
+        Parameters:
+          - PersonalAccessToken
+    ParameterLabels:
+      VpcCidr:
+        default: VPC CIDR
+      SubnetAZ:
+        default: Subnet AZ
+      SubnetCidr:
+        default: Subnet CIDR
+      AllowedHttpsIngressIpParam:
+        default: >-
+          IPv4 CIDR for HTTPS ingress to your Aviatrix Platform
+      KeyPairName:
+        default: SSH Key Pair
+      HTTPProxy:
+        default: (Optional) HTTP Proxy
+      HTTPSProxy:
+        default: (Optional) HTTPS Proxy
+      IAMRoleParam:
+        default: >-
+          Select New if Aviatrix IAM role has not been created (first time launch). Select aviatrix-role-ec2 if there is already Aviatrix IAM role created
+      ControllerInstanceTypeParam:
+        default: Select Aviatrix Controller Size
+      CoPilotInstanceTypeParam:
+        default: Select Aviatrix CoPilot Size
+      AdminPassword:
+        default: Admin's Password
+      AdminPasswordConfirm:
+        default: Confirm Admin's Password
+      AdminEmail:
+        default: Admin's Email Address
+      CustomerId:
+        default: (Optional) Aviatrix Customer ID
+      TargetVersion:
+        default: New version of the Aviatrix Controller to which you are upgrading
+      AwsAccessAccountName:
+        default: AWS Access Account Name
+      DataVolSize:
+        default: Data Volume Size
+      PersonalAccessToken:
+        default: Github Personal Access Token
+Parameters:
+  VpcCidr:
+    Description: CIDR block for the VPC on which the Aviatrix Platform is deployed
+    Type: String
+    Default: 10.0.0.0/16
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide valid IPv4 CIDR for VPC
+  SubnetCidr:
+    Description: CIDR block for the subnet on which the Aviatrix Platform is deployed
+    Type: String
+    Default: 10.0.0.0/24
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide valid IPv4 CIDR for Subnet
+  SubnetAZ:
+    Description: Availability zone for the subnet on which the Aviatrix Platform is deployed
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ""
+  AllowedHttpsIngressIpParam:
+    Type: String
+    Description: >-
+      Enter an IPv4 CIDR(e.g. 1.2.3.4/32) that is allowed to access your Platform
+      Controller via HTTPS port 443
+    MinLength: 1
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide an non-empty and valid IPv4 CIDR for HTTPS ingress
+  KeyPairName:
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Description: "Select the SSH key pair to use for the Aviatrix Platform"
+  HTTPProxy:
+    Type: String
+    Description: Proxy server IP address for HTTP traffic. Format - <IP/FQDN>:<Port>
+  HTTPSProxy:
+    Type: String
+    Description: Proxy server IP address for HTTPS traffic. Usually the same as HTTP Proxy field. Format - <IP/FQDN>:<Port>
+  AdminPassword:
+    Type: String
+    Description: |-
+          Password of Avaitrix Controller RBAC admin user. The default password requirements are:
+          (1) Minimum characters - 8
+          (2) At least 1 upper and 1 lower case character
+          (3) At least 1 numeral character
+          (4) At least one special character
+    NoEcho: 'true'
+    MinLength: 8
+    AllowedPattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^\w\d\s]).{8,}$'
+    ConstraintDescription: Please make sure Admin's Password fulfill default password requirements
+  AdminPasswordConfirm:
+    Type: String
+    Description: Double confirm admin's password
+    NoEcho: 'true'
+  AdminEmail:
+    Type: String
+    Description: >-
+      Ensure your teams can receive important notification emails sent by Aviatrix
+    Default: admin@your-company.com
+    AllowedPattern: '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    ConstraintDescription: Must be a valid email address.
+  CustomerId:
+    Type: String
+    Description: >-
+      You need to have a customer ID provided by Aviatrix to be able to use the product. 
+      Please either subscribe to "Aviatrix Secure Networking Platform Metered 2208-Universal" marketplace offer to get customer ID 
+      or follow the instruction in the email that will be sent to the admin address above to get a Free Trial License.
+    MinLength: 1
+    Default: 'FREETRIAL'
+  TargetVersion:
+    Type: String
+    Description: >-
+      Specify a release version or use latest for the system to automatically select the latest official released build.
+    Default: 'latest'
+    AllowedPattern: '^latest|(([6-9]|[1-9][0-9])\.[0-9])$'
+    ConstraintDescription: Must be a valid release server version.
+  AwsAccessAccountName:
+    Type: String
+    Description: An AWS access account will be created. The Controller can launch gateways and build connectivity on VPCs that belong to this account.
+    Default: aws_admin
+  DataVolSize:
+    Type: Number
+    Description: >-
+      Data volume size for CoPilot. The minimum data volume size is 100GB.
+      Default: 100GB.
+    Default: 100
+    MinValue: 100
+  IAMRoleParam:
+    Description: >-
+      Determine if IAM roles aviatrix-role-ec2 and aviatrix-role-app should be
+      created.
+    Default: New
+    Type: String
+    AllowedValues:
+      - aviatrix-role-ec2
+      - New
+  ControllerInstanceTypeParam:
+    Type: String
+    Default: t3.xlarge
+    AllowedValues:
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5n.large
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
+    Description: Select an instance size for the Controller. Default is t3.xlarge
+  CoPilotInstanceTypeParam:
+    Type: String
+    Default: m5.2xlarge
+    AllowedValues:
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5n.large
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.8xlarge
+      - m5.12xlarge
+      - m5.16xlarge
+      - m5.24xlarge
+      - m5n.2xlarge
+      - m5n.4xlarge
+      - m5n.8xlarge
+      - m5n.12xlarge
+      - m5n.16xlarge
+      - m5n.24xlarge
+    Description: Select an instance size for the CoPilot. Default is m5.2xlarge
+  # TODO: Remove PersonalAccessToken after https://aviatrix.atlassian.net/browse/AVX-40126 done
+  PersonalAccessToken:
+    Description: Required during development stage. Token that can be used to access the GitHub API.
+    Type: String
+    NoEcho: 'true'
+    MinLength: 1
+Rules:
+  MatchPasswords:
+    Assertions:
+      - Assert: !Equals [!Ref AdminPassword, !Ref AdminPasswordConfirm]
+        AssertDescription: 'Passwords do not match'
+  AllowedHttpsIngressIpCheck:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref AllowedHttpsIngressIpParam, "0.0.0.0/0"]]
+        AssertDescription: Please consider limiting the allowed CIDR range
+Conditions:
+  AviatrixIAMRoleNotExist: !Equals 
+    - !Ref IAMRoleParam
+    - New
+Resources:
+  AviatrixVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      Tags:
+        - Key: Name
+          Value: AviatrixVPC
+        - Key: Project
+          Value: Aviatrix
+  AviatrixVPCInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: AviatrixInternetGateway
+        - Key: Project
+          Value: Aviatrix
+  AviatrixVPCInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref AviatrixVPC
+      InternetGatewayId: !Ref AviatrixVPCInternetGateway
+  AviatrixSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AviatrixVPC
+      CidrBlock: !Ref SubnetCidr
+      AvailabilityZone: !Ref SubnetAZ
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: AviatrixSubnet
+        - Key: Project
+          Value: Aviatrix
+  AviatrixPublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AviatrixVPC
+      Tags:
+        - Key: Name
+          Value: "AviatrixPublicSubnetRouteTable"
+        - Key: Project
+          Value: Aviatrix
+  AviatrixPublicSubnetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AviatrixVPCInternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref AviatrixPublicSubnetRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref AviatrixVPCInternetGateway
+  AviatrixPublicSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AviatrixSubnet
+      RouteTableId: !Ref AviatrixPublicSubnetRouteTable
+  AviatrixRoleEC2:
+    Type: 'AWS::IAM::Role'
+    DeletionPolicy: Retain
+    Condition: AviatrixIAMRoleNotExist
+    Properties:
+      RoleName: aviatrix-role-ec2
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+  AviatrixRoleApp:
+    Type: 'AWS::IAM::Role'
+    DeletionPolicy: Retain
+    Condition: AviatrixIAMRoleNotExist
+    Properties:
+      RoleName: aviatrix-role-app
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Join 
+                  - ''
+                  - - 'arn:'
+                    - !Ref 'AWS::Partition'
+                    - ':iam::'
+                    - !Ref 'AWS::AccountId'
+                    - ':root'
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+  AviatrixInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    DeletionPolicy: Retain
+    Condition: AviatrixIAMRoleNotExist
+    Properties:
+      Path: /
+      InstanceProfileName: aviatrix-role-ec2
+      Roles:
+        - !Ref AviatrixRoleEC2
+  AdminPasswordSsm:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Type: String
+      Name: /aviatrix/controller/password
+      Value: !Ref AdminPassword
+  CustomerIdSsm:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Type: String
+      Name: /aviatrix/controller/customer_id
+      Value: !Ref CustomerId
+  S3StateAndSoftware:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+          - .
+          - - Ref: AWS::StackName
+            - Ref: AWS::AccountId
+            - terraform-state-software
+  Adminrole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+          - .
+          - - Ref: AWS::StackName
+            - Ref: AWS::Region
+            - codebuild
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action: "*"
+                Effect: Allow
+                Resource: "*"
+          PolicyName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Project'
+  AviatrixPlatformInitResource:
+    Type: 'Custom::AviatrixPlatformInitTriggerPoint'
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken: !GetAtt AviatrixPlatformInitTriggerPoint.Arn
+  AviatrixPlatformInitTriggerPoint:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Description: Aviatrix Platform Init - Trigger Point
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Init'
+      Role: !GetAtt Adminrole.Arn
+      Timeout: 900
+      Handler: index.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          codebuild_name: !Ref AviatrixCodeBuild
+          admin_email: !Ref AdminEmail
+          customer_id: !Ref CustomerId
+          aviatrix_role_app: !If [AviatrixIAMRoleNotExist, !Ref AviatrixRoleApp, !Ref AWS::NoValue]
+          aviatrix_role_ec2: !If [AviatrixIAMRoleNotExist, !Ref AviatrixRoleEC2, !Ref AWS::NoValue]
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import json
+          import requests
+          import traceback
+          import os
+          import urllib3
+          import warnings
+          warnings.filterwarnings("ignore", category=DeprecationWarning)
+          urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+          POLICY_APP_URL = "https://s3-us-west-2.amazonaws.com/aviatrix-download/IAM_access_policy_for_CloudN.txt"
+          POLICY_EC2_URL = "https://s3-us-west-2.amazonaws.com/aviatrix-download/iam_assume_role_policy.txt"
+          POLICY_APP_NAME = "aviatrix-app-policy"
+          POLICY_EC2_NAME = "aviatrix-assume-role-policy"
+          RELEASE_SERVER = "https://release.aviatrix.com"
+          TRIAL_EMAIL_URL = f"{RELEASE_SERVER}/cloudx-license/trial-email"
+
+          def make_get_api_call(url: str):
+              try:
+                  # 1. Send a GET request to the URL to fetch the content
+                  # whynosemgrep: We use self signed certs on the release server
+                  response = requests.get(url, verify=False) # nosemgrep: python.requests.security.disabled-cert-validation.disabled-cert-validation
+                  # 2. Raise an exception if the response status code is not OK (200)
+                  response.raise_for_status()
+                  # 3. Return the JSON response
+                  document = response.json()
+                  return document
+              except requests.exceptions.HTTPError as e:
+                  print(f"HTTP error occurred: {e}")
+                  raise
+              except requests.exceptions.ConnectionError as e:
+                  print(f"Connection error occurred: {e}")
+                  raise
+              except requests.exceptions.Timeout as e:
+                  print(f"Timeout error occurred: {e}")
+                  raise
+              except requests.exceptions.RequestException as e:
+                  print(f"An error occurred: {e}")
+                  raise
+
+          def aviatrix_role_policy_attachment(iam_client, url: str, role_name: str, policy_name: str):
+              # 1. Download the policy JSON from a Aviatrix
+              document = make_get_api_call(url)
+              # 2. Create IAM policy
+              response = iam_client.create_policy(
+                  PolicyName=policy_name,
+                  PolicyDocument=json.dumps(document)
+              )
+              policy_arn = response["Policy"]["Arn"]
+              # 3. Attach the IAM policy to specific IAM role
+              iam_client.attach_role_policy(
+                  RoleName=role_name,
+                  PolicyArn=policy_arn
+              )
+
+          def trigger_trial_email(email: str):
+              try:
+                  # Trigger trial email in order to validate email and get trial customer ID
+                  print(f"Start to trigger trial email: {email}")
+                  url = f"{TRIAL_EMAIL_URL}?email={email}"
+                  resp = make_get_api_call(url)
+                  if resp.get("Status") != "Success":
+                      raise Exception(resp.get("Description"))
+                  print("Successful to trigger trial email")
+              except Exception as err:
+                  # This is an optional steps, ignore the error
+                  print(f"Failed to trigger trial email: {err}")
+
+          def lambda_handler(event, context):
+              response = {}
+              try:
+                  codebuild_name = os.environ['codebuild_name']
+                  admin_email = os.environ["admin_email"]
+                  customer_id = os.environ["customer_id"]
+                  aviatrix_role_app = os.environ.get("aviatrix_role_app")
+                  aviatrix_role_ec2 = os.environ.get("aviatrix_role_ec2")
+
+                  if aviatrix_role_app and aviatrix_role_ec2:
+                      iam_client = boto3.client("iam")
+                      aviatrix_role_policy_attachment(iam_client, POLICY_APP_URL, aviatrix_role_app, POLICY_APP_NAME)
+                      aviatrix_role_policy_attachment(iam_client, POLICY_EC2_URL, aviatrix_role_ec2, POLICY_EC2_NAME)
+
+                  if customer_id == "FREETRIAL":
+                      trigger_trial_email(email=admin_email)
+
+                  client = boto3.client('codebuild')
+                  client.start_build(projectName=codebuild_name)
+                  response["result"] = "Aviatrix HA Platform Init Trigger Success"
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
+              except Exception as err:
+                  errmsg = f"Aviatrix platform init trigger failed: {traceback.format_exc()}"
+                  print(errmsg)
+                  response["result"] = errmsg
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response)
+              return response
+  CodeBuildSourceCredential:
+    Type: AWS::CodeBuild::SourceCredential
+    Properties:
+      AuthType: PERSONAL_ACCESS_TOKEN
+      ServerType: GITHUB
+      Token: !Ref PersonalAccessToken
+  AviatrixCodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name:
+        Fn::Join:
+          - _
+          - - Ref: AWS::StackName
+            - Ref: AWS::Region
+            - TF_Apply
+      Description: build the application part for codes using terraform
+      ServiceRole: !Ref Adminrole
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: aws/codebuild/standard:6.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: tf_version
+            Value: 1.4.0
+          - Name: ha_distribution
+            Value: single-az
+          - Name: aws_region
+            Value: !Ref AWS::Region
+          - Name: aws_account_id
+            Value: !Ref AWS::AccountId
+          - Name: aws_dr_region
+            Value: ""
+          - Name: vpc_id
+            Value: !Ref AviatrixVPC
+          - Name: dr_vpc_id
+            Value: NON_EXISTENT
+          - Name: subnet_id
+            Value: !Ref AviatrixSubnet
+          - Name: dr_subnet_id
+            Value: NON_EXISTENT
+          - Name: incoming_ssl_cidr
+            Value: !Ref AllowedHttpsIngressIpParam
+          - Name: keypair_name
+            Value: !Ref KeyPairName
+          - Name: dr_keypair_name
+            Value: NON_EXISTENT
+          - Name: instance_type
+            Value: !Ref ControllerInstanceTypeParam
+          - Name: avx_password_ssm_region
+            Value: !Ref AWS::Region
+          - Name: admin_email
+            Value: !Ref AdminEmail
+          - Name: avx_customer_id_ssm_region
+            Value: !Ref AWS::Region
+          - Name: controller_version
+            Value: !Ref TargetVersion
+          - Name: access_account_name
+            Value: !Ref AwsAccessAccountName
+          - Name: s3_backup_bucket
+            Value: !Ref S3StateAndSoftware
+          - Name: cop_instance_type
+            Value: !Ref CoPilotInstanceTypeParam
+          - Name: cop_default_data_volume_size
+            Value: !Ref DataVolSize
+          - Name: stack_name
+            Value: !Ref AWS::StackName
+          - Name: destroy
+            Value: "False"
+      Source:
+        Location: https://github.com/aviatrix-automation/Aviatrix_AWS_HA
+        Type: GITHUB
+        Auth:
+          Type: OAUTH
+          Resource: CodeBuildSourceCredential
+      SourceVersion: main
+      TimeoutInMinutes: 60
+      Tags:
+        - Key: Name
+          Value: AviatrixCodebuild
+        - Key: Project
+          Value: Aviatrix
+Outputs:
+  AviatrixRoleAppARN:
+    Description: AviatrixRoleApp ARN
+    Condition: AviatrixIAMRoleNotExist
+    Value: !GetAtt
+      - AviatrixRoleApp
+      - Arn
+  AviatrixRoleEC2ARN:
+    Description: AviatrixRoleEC2 ARN
+    Condition: AviatrixIAMRoleNotExist
+    Value: !GetAtt
+      - AviatrixRoleEC2
+      - Arn
+  WARNING:
+    Value: Aviatrix Platform is deployed successfully. Please wait for about 20 mins for platform initialization. You can go to AWS CodeBuild to trace the progress.

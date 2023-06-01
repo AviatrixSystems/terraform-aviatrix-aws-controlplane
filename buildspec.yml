@@ -1,0 +1,63 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - wget -nv https://releases.hashicorp.com/terraform/${tf_version}/terraform_${tf_version}_linux_amd64.zip
+      - unzip terraform_${tf_version}_linux_amd64.zip
+      - sudo mv terraform /usr/local/bin/
+      - rm terraform_${tf_version}_linux_amd64.zip
+      - apt-get update
+      - apt-get install -y curl jq
+      - curl 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | jq 'to_entries | [ .[] | select(.key | (contains("Expiration") or contains("RoleArn"))  | not) ] |  map(if .key == "AccessKeyId" then . + {"key":"AWS_ACCESS_KEY_ID"} else . end) | map(if .key == "SecretAccessKey" then . + {"key":"AWS_SECRET_ACCESS_KEY"} else . end) | map(if .key == "Token" then . + {"key":"AWS_SESSION_TOKEN"} else . end) | map("export \(.key)=\(.value)") | .[]' -r > /tmp/aws_cred_export.txt # work around https://github.com/hashicorp/terraform/issues/8746
+      - echo "Prepare provider-output-backend.tf"
+      - |
+        cat >> provider-output-backend.tf << EOF
+        terraform {
+          backend "s3" { 
+            bucket = "$stack_name.$aws_account_id.terraform-state-software"
+            key    = "$stack_name/terraform.tfstate"
+            region = "$aws_region"
+          }
+        }
+        EOF
+      - cat provider-output-backend.tf
+      - echo "Prepare terraform.tfvars"
+      - |
+        cat >> terraform.tfvars << EOF
+        ha_distribution = "$ha_distribution"
+        region = "$aws_region"
+        dr_region = "$aws_dr_region"
+        termination_protection = false
+        inter_region_backup_enabled = true
+        use_existing_vpc = true
+        vpc = "$vpc_id"
+        dr_vpc = "$dr_vpc_id"
+        subnet_names = ["$subnet_id"]
+        dr_subnet_names = ["$dr_subnet_id"]
+        incoming_ssl_cidr = ["$incoming_ssl_cidr"]
+        asg_notif_email = "$admin_email"
+        create_iam_roles = false
+        instance_type = "$instance_type"
+        avx_password_ssm_region = "$avx_password_ssm_region"
+        admin_email = "$admin_email"
+        avx_customer_id_ssm_region = "$avx_customer_id_ssm_region"
+        license_type = "BYOL"
+        controller_version = "$controller_version"
+        keypair = "$keypair_name"
+        dr_keypair = "$dr_keypair_name"
+        access_account_name = "$access_account_name"
+        s3_backup_bucket = "$s3_backup_bucket"
+        s3_backup_region = "$aws_region"
+        cop_instance_type = "$cop_instance_type"
+        cop_default_data_volume_size = "$cop_default_data_volume_size"
+        EOF
+      - cat terraform.tfvars
+      - . /tmp/aws_cred_export.txt && terraform init
+  build:
+    commands:
+      - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
+      - echo "Post apply build"
+  post_build:
+    commands:
+      - echo "Nothing to do in the post_build for now"
