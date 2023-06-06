@@ -50,7 +50,20 @@ phases:
         s3_backup_bucket = "$s3_backup_bucket"
         s3_backup_region = "$aws_region"
         cop_instance_type = "$cop_instance_type"
-        cop_default_data_volume_size = "$cop_default_data_volume_size"
+        copilot_name = "$copilot_name"
+        copilot_username = "$copilot_username"
+        copilot_email = "$copilot_email"
+        cop_type = "$cop_type"
+        cop_root_volume_size = "$cop_root_volume_size"
+        cop_root_volume_type = "$cop_root_volume_type"
+        cop_default_data_volume_size = "$cop_default_data_volume_size
+        cop_default_data_volume_type = "$cop_default_data_volume_type"
+        cop_controller_auth_ip = "$cop_controller_auth_ip"
+        avx_copilot_password = "$avx_copilot_password"
+        avx_copilot_password_ssm_path = "$avx_copilot_password_ssm_path"
+        use_existing_copilot_eip = "$use_existing_copilot_eip"
+        existing_copilot_eip = "$existing_copilot_eip"
+        existing_copilot_dr_eip = "$existing_copilot_dr_eip"
         EOF
       - cat terraform.tfvars
       - . /tmp/aws_cred_export.txt && terraform init

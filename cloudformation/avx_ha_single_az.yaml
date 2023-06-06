@@ -31,9 +31,30 @@ Metadata:
           - AwsAccessAccountName
       - Label:
           default: Aviatrix CoPilot Setup
+      - Label:
+          default: Aviatrix CoPilot Instance Details
         Parameters:
+          - CoPilotName
+          - CoPilotType
           - CoPilotInstanceTypeParam
-          - DataVolSize
+          - CoPilotRootVolType
+          - CoPilotRootVolSize
+          - CoPilotDefaultDataVolType
+          - CoPilotDefaultDataVolSize
+          - CoPilotControllerAuthIpType
+      - Label:
+          default: Aviatrix CoPilot Service Account Details
+        Parameters:
+          - CoPilotUsername
+          - CoPilotEmail
+          - CoPilotPassword
+          - CoPilotPasswordSsmPath
+      - Label:
+          default: Aviatrix CoPilot Existing EIP Details
+        Parameters:
+          - CoPilotUseExistingEip
+          - CoPilotExistingIp
+          - CoPilotExistingDrIp
       - Label:
           default: Development Stage Setup
         Parameters:
@@ -73,8 +94,34 @@ Metadata:
         default: New version of the Aviatrix Controller to which you are upgrading
       AwsAccessAccountName:
         default: AWS Access Account Name
-      DataVolSize:
-        default: Data Volume Size
+      CoPilotName:
+        default: CoPilot Instance Name
+      CoPilotType:
+        default: CoPilot Billing Type
+      CoPilotUsername:
+        default: (Optional) CoPilot Service Account Username
+      CoPilotEmail:
+        default: (Optional) CoPilot Service Account Email
+      CoPilotPassword:
+        default: (Optional) CoPilot Service Account Password
+      CoPilotPasswordSsmPath:
+        default: (Optional) SSM Path for the CoPilot Service Account Password
+      CoPilotRootVolType:
+        default: CoPilot Root Disk Volume Type
+      CoPilotRootVolSize:
+        default: CoPilot Root Disk Volume Size
+      CoPilotDefaultDataVolType:
+        default: Default Data Disk Volume Type
+      CoPilotDefaultDataVolSize:
+        default: Default Data Disk Volume Size
+      CoPilotControllerAuthIpType:
+        default: CoPilot - Controller Auth IP
+      CoPilotUseExistingEip:
+        default: Use Existing EIP for CoPilot
+      CoPilotExistingIp:
+        default: Existing EIP for Primary CoPilot
+      CoPilotExistingDrIp:
+        default: Existing EIP for DR CoPilot
       PersonalAccessToken:
         default: Github Personal Access Token
 Parameters:
@@ -157,13 +204,93 @@ Parameters:
     Type: String
     Description: An AWS access account will be created. The Controller can launch gateways and build connectivity on VPCs that belong to this account.
     Default: aws_admin
-  DataVolSize:
+  CoPilotName:
+    Type: String
+    Description: CoPilot Instance Name
+    Default: ""
+  CoPilotType:
+    Type: String
+    Description: CoPilot Billing Type
+    Default: "Copilot"
+    AllowedValues:
+      - Copilot
+      - CopilotARM
+  CoPilotUsername:
+    Type: String
+    Description: CoPilot Service Account Username, if desired.
+    Default: ""
+  CoPilotEmail:
+    Type: String
+    Description: CoPilot Service Account Email, if desired.
+    Default: ""
+  CoPilotPassword:
+    Type: String
+    Description: CoPilot Service Account Password, if desired.
+    Default: ""
+  CoPilotPasswordSsmPath:
+    Type: String
+    Description: SSM Path for the CoPilot Service Account Password
+    Default: ""
+  CoPilotRootVolType:
+    Type: String
+    Description: CoPilot Root Volume Type
+    Default: "gp3"
+    AllowedValues:
+      - standard
+      - gp2
+      - gp3
+      - io1
+      - io2
+      - sc1
+      - st1
+  CoPilotRootVolSize:
     Type: Number
     Description: >-
-      Data volume size for CoPilot. The minimum data volume size is 100GB.
+      Root volume size for the CoPilot instance. The minimum data volume size is 25GB.
+      Default: 25GB.
+    Default: 25
+    MinValue: 25
+  CoPilotDefaultDataVolType:
+    Type: String
+    Description: CoPilot Default Data Volume Type
+    Default: "gp3"
+    AllowedValues:
+      - standard
+      - gp2
+      - gp3
+      - io1
+      - io2
+      - sc1
+      - st1
+  CoPilotDefaultDataVolSize:
+    Type: Number
+    Description: >-
+      Data volume size for the CoPilot default data disk. The minimum data volume size is 100GB.
       Default: 100GB.
     Default: 100
     MinValue: 100
+  CoPilotControllerAuthIpType:
+    Type: String
+    Description: CoPilot - Controller Authentication IP type
+    Default: "public"
+    AllowedValues:
+      - private
+      - public
+  CoPilotUseExistingEip:
+    Type: String
+    Description: Use an existing EIP for CoPilot
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  CoPilotExistingIp:
+    Type: String
+    Description: Existing EIP for Primary CoPilot instance
+    Default: ""
+  CoPilotExistingDrIp:
+    Type: String
+    Description: Existing EIP for DR CoPilot instance
+    Default: ""
   IAMRoleParam:
     Description: >-
       Determine if IAM roles aviatrix-role-ec2 and aviatrix-role-app should be
@@ -587,7 +714,33 @@ Resources:
           - Name: cop_instance_type
             Value: !Ref CoPilotInstanceTypeParam
           - Name: cop_default_data_volume_size
-            Value: !Ref DataVolSize
+            Value: !Ref CoPilotDefaultDataVolSize
+          - Name: copilot_name
+            Value: !Ref CoPilotName
+          - Name: cop_type
+            Value: !Ref CoPilotType
+          - Name: copilot_username
+            Value: !Ref CoPilotUsername
+          - Name: copilot_email
+            Value: !Ref CoPilotEmail
+          - Name: avx_copilot_password
+            Value: !Ref CoPilotPassword
+          - Name: avx_copilot_password_ssm_path
+            Value: !Ref CoPilotPasswordSsmPath
+          - Name: cop_root_volume_size
+            Value: !Ref CoPilotRootVolSize
+          - Name: cop_root_volume_type
+            Value: !Ref CoPilotRootVolType
+          - Name: cop_default_data_volume_type
+            Value: !Ref CoPilotDefaultDataVolType
+          - Name: cop_controller_auth_ip
+            Value: !Ref CoPilotControllerAuthIpType
+          - Name: use_existing_copilot_eip
+            Value: !Ref CoPilotUseExistingEip
+          - Name: existing_copilot_eip
+            Value: !Ref CoPilotExistingIp
+          - Name: existing_copilot_dr_eip
+            Value: !Ref CoPilotExistingDrIp
           - Name: stack_name
             Value: !Ref AWS::StackName
           - Name: destroy
