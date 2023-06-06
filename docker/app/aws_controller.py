@@ -1558,12 +1558,16 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
     # create a basic env dic and log copilot failover status
     try:
-        tmp_env = {"SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
-                   "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
-                   "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG")}
+        tmp_env = {
+            "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
+            "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
+            "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
+        }
         cp_lib.log_failover_status(tmp_env, "copilot")
     except Exception as err:
-        print(f"Logging copilot failover status failed with the error below. The env is: {tmp_env}")
+        print(
+            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
+        )
         print(str(err))
     controller_instanceobj = client.describe_instances(
         Filters=[{"Name": "instance-id", "Values": [asg_inst]}]
@@ -1981,7 +1985,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         # Assign COP_EIP to current region copilot
         if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
             if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
-                print(f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}")
+                print(
+                    f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
+                )
                 raise AvxError("Could not assign EIP to primary region Copilot")
 
         cp_lib.handle_copilot_ha(env)
