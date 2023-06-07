@@ -1,0 +1,926 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Aviatrix Systems - <BYOL> - Creates the necessary IAM policies, roles,
+  security group and launches Aviatrix Controller EC2 instance.
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: General Details
+        Parameters:
+          - Region
+          - DrRegion
+          - S3BackupRegion
+          - HaDistribution
+          - NamePrefix          
+      - Label:
+          default: Network Configuration
+      - Label:
+          default: New Network Details
+        Parameters:
+          - VpcName
+          - DrVpcName
+          - SubnetName
+          - VpcCidr
+          - DrVpcCidr
+      - Label:
+          default: Use Existing Network
+        Parameters:
+          - UseExistingVpc
+          - ExistingVpcName
+          - ExistingDrVpcName
+          - ExistingSubnetNames
+          - ExistingDrSubnetNames
+      - Label:
+          default: IAM roles
+        Parameters:
+          - CreateIamRoles
+          - AppRoleName
+          - Ec2RoleName
+      - Label:
+          default: Aviatrix Controller Instance Details
+        Parameters:
+          - Keypair
+          - DrKeypair
+          - ControllerInstanceType
+          - ControllerRootVolumeType
+          - ControllerRootVolumeSize
+          - ControllerIncomingSslCidr
+          - ControllerTerminationProtection
+      - Label:
+          default: Aviatrix Controller Details
+        Parameters:
+          - LicenseType
+          - AsgNotificationEmail
+          - S3BackupBucketName
+          - AdminEmail
+          - AccessAccountName
+          - ControllerVersion
+          - CustomerId
+          - CustomerIdSsmRegion
+          - CustomerIdSsmPath
+          - AdminPassword
+          - AdminPasswordSsmRegion
+          - AdminPasswordSsmPath
+      - Label:
+          default: Aviatrix Controller Existing EIP Details
+        Parameters:
+          - UseExistingEip
+          - ExistingIp
+          - ExistingDrIp
+      - Label:
+          default: Inter-region HA Details
+        Parameters:
+          - ZoneName
+          - RecordName
+          - InterRegionBackupEnabled
+      - Label:
+          default: Aviatrix CoPilot Setup
+      - Label:
+          default: Aviatrix CoPilot Instance Details
+        Parameters:
+          - CoPilotName
+          - CoPilotInstanceTypeParam
+          - CoPilotRootVolType
+          - CoPilotRootVolSize
+          - CoPilotDefaultDataVolType
+          - CoPilotDefaultDataVolSize
+      - Label:
+          default: Aviatrix CoPilot Details
+        Parameters:
+          - CoPilotType
+          - CoPilotUsername
+          - CoPilotEmail
+          - CoPilotPassword
+          - CoPilotPasswordSsmPath
+          - CoPilotControllerAuthIpType
+      - Label:
+          default: Aviatrix CoPilot Existing EIP Details
+        Parameters:
+          - CoPilotUseExistingEip
+          - CoPilotExistingIp
+          - CoPilotExistingDrIp
+      - Label:
+          default: Development Stage Setup
+        Parameters:
+          - PersonalAccessToken
+    ParameterLabels:
+      # general details
+      Region:
+        default: Primary Region
+      DrRegion:
+        default: DR Region
+      S3BackupRegion:
+        default: S3 Backup Region
+      HaDistribution:
+        default: HA Distribution Type
+      NamePrefix:
+        default: VM Name Prefix
+      # new network details
+      VpcName:
+        default: New Primary VPC Name
+      DrVpcName:
+        default: New DR VPC Name
+      SubnetName:
+        default: New Subnet Name
+      VpcCidr:
+        default: New Primary VPC CIDR
+      DrVpcCidr:
+        default: New DR VPC CIDR
+      # existing network details
+      UseExistingVpc:
+        default: Use Existing VPC?
+      ExistingVpcName:
+        default: Existing Primary VPC Name
+      ExistingDrVpcName:
+        default: Existing DR VPC Name
+      ExistingSubnetNames:
+        default: Existing Subnet Names
+      ExistingDrSubnetNames:
+        default: Existing DR VPC Subnet Names
+      # iam roles
+      CreateIamRoles:
+        default: Create IAM Roles?
+      AppRoleName:
+        default: App Role Name
+      Ec2RoleName:
+        default: EC2 Role Name
+      # controller instance details
+      Keypair:
+        default: Primary Instance SSH Key Name
+      DrKeypair:
+        default: DR Instance SSH Key Name
+      ControllerInstanceType:
+        default: Controller Instance EC2 Type
+      ControllerRootVolumeType:
+        default: Controller Root Volume Type
+      ControllerRootVolumeSize:
+        default: Controller Root Volume Size
+      ControllerIncomingSslCidr:
+        default: Incoming CIDR for HTTPS Access
+      ControllerTerminationProtection:
+        default: Controller Termination Protection
+      # controller details
+      LicenseType:
+        default: Controller License Type
+      AsgNotificationEmail:
+        default: ASG Notification Email
+      S3BackupBucketName:
+        default: S3 Bucket for Controller Backups
+      AdminEmail:
+        default: Access Account Administration Email
+      AccessAccountName:
+        default: CSP Access Account Name
+      ControllerVersion:
+        default: Controller Software Version
+      CustomerId:
+        default: (Optional) Controller Customer ID
+      CustomerIdSsmRegion:
+        default: SSM region for the Controller Customer ID
+      CustomerIdSsmPath:
+        default: SSM Path for the Controller Customer ID
+      AdminPassword:
+        default: (Optional) Admin Account Password
+      AdminPasswordSsmRegion:
+        default: SSM region for the Admin Account Password
+      AdminPasswordSsmPath:
+        default: SSM Path for the Admin Account Password
+      # existing EIP details
+      UseExistingEip:
+        default: Use Existing EIP for the Controller
+      ExistingIp:
+        default: Existing EIP for Primary Controller Instance
+      ExistingDrIp:
+        default: Existing EIP for DR Controller Instance
+      # inter-region HA details
+      ZoneName:
+        default: Exisitng Route53 Zone Name
+      RecordName:
+        default: Record Name to Be Created Under Route53 Zone
+      InterRegionBackupEnabled:
+        default: Enable Controller Backup in Inter-Region HA
+      # copilot instance details
+      CoPilotName:
+        default: CoPilot Instance Name
+      CoPilotInstanceTypeParam:
+        default: CoPilot Instance EC2 Type
+      CoPilotRootVolType:
+        default: CoPilot Root Disk Volume Type
+      CoPilotRootVolSize:
+        default: CoPilot Root Disk Volume Size
+      CoPilotDefaultDataVolType:
+        default: CoPilot Default Data Disk Volume Type
+      CoPilotDefaultDataVolSize:
+        default: CoPilot Default Data Disk Volume Size
+      CoPilotType:
+        default: CoPilot Billing Type
+      CoPilotUsername:
+        default: (Optional) CoPilot Service Account Username
+      CoPilotEmail:
+        default: (Optional) CoPilot Service Account Email
+      CoPilotPassword:
+        default: (Optional) CoPilot Service Account Password
+      CoPilotPasswordSsmPath:
+        default: (Optional) SSM Path for the CoPilot Service Account Password
+      CoPilotControllerAuthIpType:
+        default: CoPilot - Controller Auth IP
+      CoPilotUseExistingEip:
+        default: Use Existing EIP for CoPilot
+      CoPilotExistingIp:
+        default: Existing EIP for Primary CoPilot
+      CoPilotExistingDrIp:
+        default: Existing EIP for DR CoPilot
+      PersonalAccessToken:
+        default: Github Personal Access Token
+Parameters:
+  # general details
+  Region:
+    Type: String
+    Description: Region for Primary Controller
+    Default: AWS::Region
+  DrRegion:
+    Type: String
+    Description: Region for DR Controller
+    Default: AWS::Region
+  S3BackupRegion:
+    Type: String
+    Description: Region for S3 Bucket for Controller Backups
+    Default: AWS::Region
+  HaDistribution:
+    Type: String
+    Description: Desired Controller high availability distribution
+    Default: single-az
+    AllowedValues:
+      - single-az
+      - inter-az
+      - inter-region
+  NamePrefix:
+    Type: String
+    Description: Additional name prefix for your environment resources
+    Default: "avx"
+  # new network details
+  VpcName:
+    Type: String
+    Description: Name of the new primary VPC for the Aviatrix resources
+    Default: "Aviatrix-VPC"
+  DrVpcName:
+    Type: String
+    Description: Name of the new DR VPC for the Aviatrix resources
+    Default: "Aviatrix-DR-VPC"
+  SubnetName:
+    Type: String
+    Description: Name of the subnet in the new VPC for the Aviatrix resources
+    Default: "Aviatrix-Public-Subnet"
+  VpcCidr:
+    Description: CIDR range for the new primary VPC
+    Type: String
+    Default: 10.0.0.0/24
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide valid IPv4 CIDR for the primary VPC CIDR
+  DrVpcCidr:
+    Description: CIDR range for the new DR VPC
+    Type: String
+    Default: 10.0.0.0/24
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide valid IPv4 CIDR for the DR VPC CIDR
+  # existing network details
+  UseExistingVpc:
+    Type: String
+    Description: Use an existing VPC for Aviatrix resources
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  ExistingVpcName:
+    Type: String
+    Description: Name of the existing primary VPC for the Aviatrix resources
+    Default: ""
+  ExistingDrVpcName:
+    Type: String
+    Description: Name of the new DR VPC for the Aviatrix resources
+    Default: ""
+  ExistingSubnetNames:
+    Type: String
+    Description: Comma-separated list of subnets for Aviatrix resources in the existing primary VPC
+    Default: ""
+  ExistingDrSubnetNames:
+    Type: String
+    Description: Comma-separated list of subnets for Aviatrix resources in the existing DR VPC
+    Default: ""
+  # iam roles
+  CreateIamRoles:
+    Type: String
+    Description: Create new IAM roles 
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  AppRoleName:
+    Type: String
+    Description: IAM Role to allow role-based AWS account access
+    Default: "aviatrix-role-app"
+  Ec2RoleName:
+    Type: String
+    Description: IAM Role for the Controller EC2 instance
+    Default: "aviatrix-role-ec2"
+  # controller instance details
+  Keypair:
+    Type: String
+    Description: Key pair used by the primary Controller
+  DrKeypair:
+    Type: String
+    Description: Key pair used by the DR Controller
+    Default: ""
+  ControllerInstanceType:
+    Type: String
+    Description: Select an instance size for the Controller. Default is t3.xlarge
+    Default: t3.xlarge
+    AllowedValues:
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5n.large
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
+  ControllerRootVolumeType:
+    Type: String
+    Description: Controller Root Volume Type
+    Default: "gp3"
+    AllowedValues:
+      - standard
+      - gp2
+      - gp3
+      - io1
+      - io2
+      - sc1
+      - st1
+  ControllerRootVolumeSize:
+    Type: Number
+    Description: >-
+      Controller Root volume size. The minimum data volume size is 64GB.
+      Default: 64GB.
+    Default: 64
+    MinValue: 64
+  ControllerIncomingSslCidr:
+    Type: String
+    Description: >-
+      Enter an IPv4 CIDR(e.g. 1.2.3.4/32) that is allowed to access the Controller via HTTPS
+    MinLength: 1
+    AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    ConstraintDescription: Please provide an non-empty and valid IPv4 CIDR for HTTPS ingress
+  ControllerTerminationProtection:
+    Type: String
+    Description: Enabel Termination Protection on the Controller EC2 VM
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  # controller details
+  LicenseType:
+    Type: String
+    Description: Controller Billing Type
+    Default: "BYOL"
+    AllowedValues:
+      - BYOL
+      - MeteredPlatinum
+      - Custom
+  AsgNotificationEmail:
+    Type: String
+    Description: >-
+      Email address to which the ASG event notifications should be sent
+    AllowedPattern: '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    ConstraintDescription: Must be a valid email address.
+  S3BackupBucketName:
+    Type: String
+    Description: Name of the S3 bucket to store controller backups
+  AdminEmail:
+    Type: String
+    Description: >-
+      Email address to which the ASG event notifications should be sent
+    AllowedPattern: '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    ConstraintDescription: Must be a valid email address.
+  AccessAccountName:
+    Type: String
+    Description: Name of the CSP Access Account
+  ControllerVersion:
+    Type: String
+    Description: >-
+      Specify a release version or use latest for the system to automatically select the latest official released build.
+    Default: 'latest'
+    AllowedPattern: '^latest|(([6-9]|[1-9][0-9])\.[0-9])$'
+    ConstraintDescription: Must be a valid release server version.
+  CustomerId:
+    Type: String
+    Description: >-
+      The Customer ID for the Controller may be provided here. Please note that this is NOT a secure method, and NOT intended for production deployments. For production deployments, please use the next 2 SSM fields for Customer ID. If the Customer ID is provided via this field, it will take precedence over the Customer ID specificed via SSM
+    Default: ""
+  CustomerIdSsmRegion:
+    Type: String
+    Description: Region for the SSM parameter for the Customer ID
+    Default: AWS::Region
+  CustomerIdSsmPath:
+    Type: String
+    Description: SSM path to the Aviatrix Customer ID parameter
+    Default: "/aviatrix/controller/customer_id"
+  AdminPassword:
+    Type: String
+    Description: >-
+      The password for the Admin account on the Controller may be provided here. Please note that this is NOT a secure method, and NOT intended for production deployments. For production deployments, please use the next 2 fields to indicate the SSM parameter for the admin password. If the password is provided via this field, it will take precedence over the password specificed via SSM
+    Default: ""
+  AdminPasswordSsmRegion:
+    Type: String
+    Description: Region for the SSM parameter for the Controller admin account password, and (if specified) the CoPilot service account password
+    Default: AWS::Region
+  AdminPasswordSsmPath:
+    Type: String
+    Description: SSM path to the Controller admin account password parameter
+    Default: "/aviatrix/controller/password"
+  # controller existing EIP
+  UseExistingEip:
+    Type: String
+    Description: Use an existing EIP for the Controller
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  ExistingIp:
+    Type: String
+    Description: Existing EIP for Primary Controller instance
+    Default: ""
+  ExistingDrIp:
+    Type: String
+    Description: Existing EIP for DR Controller instance
+    Default: ""
+  # inter-region HA details
+  ZoneName:
+    Type: String
+    Description: The exisitng route 53 zone name
+    Default: ""
+  RecordName:
+    Type: String
+    Description: The record name to be created under exisitng route 53 zone
+    Default: ""
+  InterRegionBackupEnabled:
+    Type: String
+    Description: Enable backups on the controller in an inter-region deployment
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  # copilot instance details
+  CoPilotName:
+    Type: String
+    Description: CoPilot Instance Name
+    Default: ""
+  CoPilotInstanceTypeParam:
+    Type: String
+    Default: m5.2xlarge
+    AllowedValues:
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5n.large
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.8xlarge
+      - m5.12xlarge
+      - m5.16xlarge
+      - m5.24xlarge
+      - m5n.2xlarge
+      - m5n.4xlarge
+      - m5n.8xlarge
+      - m5n.12xlarge
+      - m5n.16xlarge
+      - m5n.24xlarge
+    Description: Select an instance size for the CoPilot. Default is m5.2xlarge
+  CoPilotRootVolType:
+    Type: String
+    Description: CoPilot Root Volume Type
+    Default: "gp3"
+    AllowedValues:
+      - standard
+      - gp2
+      - gp3
+      - io1
+      - io2
+      - sc1
+      - st1
+  CoPilotRootVolSize:
+    Type: Number
+    Description: >-
+      Root volume size for the CoPilot instance. The minimum data volume size is 25GB.
+      Default: 25GB.
+    Default: 25
+    MinValue: 25
+  CoPilotDefaultDataVolType:
+    Type: String
+    Description: CoPilot Default Data Volume Type
+    Default: "gp3"
+    AllowedValues:
+      - standard
+      - gp2
+      - gp3
+      - io1
+      - io2
+      - sc1
+      - st1
+  CoPilotDefaultDataVolSize:
+    Type: Number
+    Description: >-
+      Data volume size for the CoPilot default data disk. The minimum data volume size is 100GB.
+      Default: 100GB.
+    Default: 100
+    MinValue: 100
+  # copilot details
+  CoPilotType:
+    Type: String
+    Description: CoPilot Billing Type
+    Default: "Copilot"
+    AllowedValues:
+      - Copilot
+      - CopilotARM
+  CoPilotUsername:
+    Type: String
+    Description: CoPilot Service Account Username, if desired.
+    Default: ""
+  CoPilotEmail:
+    Type: String
+    Description: CoPilot Service Account Email, if desired.
+    Default: ""
+  CoPilotPassword:
+    Type: String
+    Description: >-
+      The password for a custom Service Account on the CoPilot may be provided here. Please note that this is NOT a secure method, and NOT intended for production deployments. If you want to provide a password for a Service Account for production deployments, please use the next field to indicate the SSM parameter for the password. If the password is provided via this field, it will take precedence over the password specificed via SSM. The region for the SSM parameter must be same as the controller Admin password SSM region specified above.
+    Default: ""
+  CoPilotPasswordSsmPath:
+    Type: String
+    Description: SSM Path for the CoPilot Service Account Password
+    Default: "/aviatrix/copilot/password"
+  CoPilotControllerAuthIpType:
+    Type: String
+    Description: CoPilot - Controller Authentication IP type
+    Default: "public"
+    AllowedValues:
+      - private
+      - public
+  # copilot existing EIP details
+  CoPilotUseExistingEip:
+    Type: String
+    Description: Use an existing EIP for CoPilot
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
+  CoPilotExistingIp:
+    Type: String
+    Description: Existing EIP for Primary CoPilot instance
+    Default: ""
+  CoPilotExistingDrIp:
+    Type: String
+    Description: Existing EIP for DR CoPilot instance
+    Default: ""
+  # TODO: Remove PersonalAccessToken after https://aviatrix.atlassian.net/browse/AVX-40126 done
+  PersonalAccessToken:
+    Description: Required during development stage. Token that can be used to access the GitHub API.
+    Type: String
+    NoEcho: 'true'
+    MinLength: 1
+Resources:
+  S3StateAndSoftware:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+          - .
+          - - Ref: AWS::StackName
+            - Ref: AWS::AccountId
+            - terraform-state-software
+  Adminrole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+          - .
+          - - Ref: AWS::StackName
+            - Ref: AWS::Region
+            - codebuild
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action: "*"
+                Effect: Allow
+                Resource: "*"
+          PolicyName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Project'
+  AviatrixPlatformInitResource:
+    Type: 'Custom::AviatrixPlatformInitTriggerPoint'
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken: !GetAtt AviatrixPlatformInitTriggerPoint.Arn
+  AviatrixPlatformInitTriggerPoint:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Description: Aviatrix Platform Init - Trigger Point
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Init'
+      Role: !GetAtt Adminrole.Arn
+      Timeout: 900
+      Handler: index.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          codebuild_name: !Ref AviatrixCodeBuild
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import json
+          import requests
+          import traceback
+          import os
+          import urllib3
+          import warnings
+          warnings.filterwarnings("ignore", category=DeprecationWarning)
+          urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+          RELEASE_SERVER = "https://release.aviatrix.com"
+          TRIAL_EMAIL_URL = f"{RELEASE_SERVER}/cloudx-license/trial-email"
+
+          def make_get_api_call(url: str):
+              try:
+                  # 1. Send a GET request to the URL to fetch the content
+                  # whynosemgrep: We use self signed certs on the release server
+                  response = requests.get(url, verify=False) # nosemgrep: python.requests.security.disabled-cert-validation.disabled-cert-validation
+                  # 2. Raise an exception if the response status code is not OK (200)
+                  response.raise_for_status()
+                  # 3. Return the JSON response
+                  document = response.json()
+                  return document
+              except requests.exceptions.HTTPError as e:
+                  print(f"HTTP error occurred: {e}")
+                  raise
+              except requests.exceptions.ConnectionError as e:
+                  print(f"Connection error occurred: {e}")
+                  raise
+              except requests.exceptions.Timeout as e:
+                  print(f"Timeout error occurred: {e}")
+                  raise
+              except requests.exceptions.RequestException as e:
+                  print(f"An error occurred: {e}")
+                  raise
+
+          def trigger_trial_email(email: str):
+              try:
+                  # Trigger trial email in order to validate email and get trial customer ID
+                  print(f"Start to trigger trial email: {email}")
+                  url = f"{TRIAL_EMAIL_URL}?email={email}"
+                  resp = make_get_api_call(url)
+                  if resp.get("Status") != "Success":
+                      raise Exception(resp.get("Description"))
+                  print("Successful to trigger trial email")
+              except Exception as err:
+                  # This is an optional steps, ignore the error
+                  print(f"Failed to trigger trial email: {err}")
+
+          def lambda_handler(event, context):
+              response = {}
+              try:
+                  print(f"starting lambda with codebuild_name: {codebuild_name}")
+                  codebuild_name = os.environ['codebuild_name']
+                  client = boto3.client('codebuild')
+                  client.start_build(projectName=codebuild_name)
+                  print(f"started codebuild project build")
+                  response["result"] = "Aviatrix HA Platform Init Trigger Success"
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
+              except Exception as err:
+                  errmsg = f"Aviatrix platform init trigger failed: {traceback.format_exc()}"
+                  print(errmsg)
+                  response["result"] = errmsg
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response)
+              return response
+  CodeBuildSourceCredential:
+    Type: AWS::CodeBuild::SourceCredential
+    Properties:
+      AuthType: PERSONAL_ACCESS_TOKEN
+      ServerType: GITHUB
+      Token: !Ref PersonalAccessToken
+  AviatrixCodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name:
+        Fn::Join:
+          - _
+          - - Ref: AWS::StackName
+            - Ref: AWS::Region
+            - TF_Apply
+      Description: build the application part for codes using terraform
+      ServiceRole: !Ref Adminrole
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: aws/codebuild/standard:6.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: tf_version
+            Value: 1.4.0
+          - Name: aws_account_id
+            Value: !Ref AWS::AccountId
+          - Name: stack_name
+            Value: !Ref AWS::StackName
+          - Name: destroy
+            Value: "False"
+          # general details
+          - Name: region
+            Value: !Ref Region
+          - Name: dr_region
+            Value: !Ref DrRegion
+          - Name: s3_backup_region
+            Value: !Ref S3BackupRegion
+          - Name: ha_distribution
+            Value: !Ref HaDistribution
+          - Name: name_prefix
+            Value: !Ref NamePrefix
+          # new network details
+          - Name: vpc_name
+            Value: !Ref VpcName
+          - Name: dr_vpc_name
+            Value: !Ref DrVpcName
+          - Name: subnet_name
+            Value: !Ref SubnetName
+          - Name: vpc_cidr
+            Value: !Ref VpcCidr
+          - Name: dr_vpc_cidr
+            Value: !Ref DrVpcCidr
+          - Name: use_existing_vpc
+            Value: !Ref UseExistingVpc
+          # existing network details
+          - Name: vpc
+            Value: !Ref ExistingVpcName
+          - Name: dr_vpc
+            Value: !Ref ExistingDrVpcName
+          - Name: subnet_names
+            Value: !Ref ExistingSubnetNames
+          - Name: dr_subnet_names
+            Value: !Ref ExistingDrSubnetNames
+          # iam roles
+          - Name: create_iam_roles
+            Value: !Ref CreateIamRoles
+          - Name: app_role_name
+            Value: !Ref AppRoleName
+          - Name: ec2_role_name
+            Value: !Ref Ec2RoleName
+          # controller instance details
+          - Name: keypair
+            Value: !Ref Keypair
+          - Name: dr_keypair
+            Value: !Ref DrKeypair
+          - Name: root_volume_type
+            Value: !Ref ControllerRootVolumeType
+          - Name: root_volume_size
+            Value: !Ref ControllerRootVolumeSize
+          - Name: incoming_ssl_cidr
+            Value: !Ref ControllerIncomingSslCidr
+          - Name: termination_protection
+            Value: !Ref ControllerTerminationProtection
+          # controller details
+          - Name: license_type
+            Value: !Ref LicenseType
+          - Name: asg_notif_email
+            Value: !Ref AsgNotificationEmail
+          - Name: s3_backup_bucket
+            Value: !Ref S3BackupBucketName
+          - Name: admin_email
+            Value: !Ref AdminEmail
+          - Name: access_account_name
+            Value: !Ref AccessAccountName
+          - Name: controller_version
+            Value: !Ref ControllerVersion
+          - Name: avx_customer_id
+            Value: !Ref CustomerId
+          - Name: avx_customer_id_ssm_region
+            Value: !Ref CustomerIdSsmRegion
+          - Name: avx_customer_id_ssm_path
+            Value: !Ref CustomerIdSsmPath          
+          - Name: avx_password
+            Value: !Ref AdminPassword
+          - Name: avx_password_ssm_region
+            Value: !Ref AdminPasswordSsmRegion
+          - Name: avx_password_ssm_path
+            Value: !Ref AdminPasswordSsmPath
+          # existing EIP details
+          - Name: use_existing_eip
+            Value: !Ref UseExistingEip
+          - Name: existing_eip
+            Value: !Ref ExistingIp
+          - Name: existing_dr_eip
+            Value: !Ref ExistingDrIp
+          # inter-region HA details
+          - Name: zone_name
+            Value: !Ref ZoneName
+          - Name: record_name
+            Value: !Ref RecordName
+          - Name: inter_region_backup_enabled
+            Value: !Ref InterRegionBackupEnabled
+          # copilot instance details
+          - Name: copilot_name
+            Value: !Ref CoPilotName
+          - Name: cop_instance_type
+            Value: !Ref CoPilotInstanceTypeParam
+          - Name: cop_root_volume_type
+            Value: !Ref CoPilotRootVolType
+          - Name: cop_root_volume_size
+            Value: !Ref CoPilotRootVolSize
+          - Name: cop_default_data_volume_type
+            Value: !Ref CoPilotDefaultDataVolType
+          - Name: cop_default_data_volume_size
+            Value: !Ref CoPilotDefaultDataVolSize
+          # copilot details
+          - Name: cop_type
+            Value: !Ref CoPilotType
+          - Name: copilot_username
+            Value: !Ref CoPilotUsername
+          - Name: copilot_email
+            Value: !Ref CoPilotEmail
+          - Name: avx_copilot_password
+            Value: !Ref CoPilotPassword
+          - Name: avx_copilot_password_ssm_path
+            Value: !Ref CoPilotPasswordSsmPath
+          - Name: cop_controller_auth_ip
+            Value: !Ref CoPilotControllerAuthIpType
+          # copilot existing EIP details
+          - Name: use_existing_copilot_eip
+            Value: !Ref CoPilotUseExistingEip
+          - Name: existing_copilot_eip
+            Value: !Ref CoPilotExistingIp
+          - Name: existing_copilot_dr_eip
+            Value: !Ref CoPilotExistingDrIp
+      Source:
+        Location: https://github.com/aviatrix-automation/Aviatrix_AWS_HA
+        Type: GITHUB
+        Auth:
+          Type: OAUTH
+          Resource: CodeBuildSourceCredential
+      SourceVersion: main
+      TimeoutInMinutes: 60
+      Tags:
+        - Key: Name
+          Value: AviatrixCodebuild
+        - Key: Project
+          Value: Aviatrix
+Outputs:
+  # AviatrixRoleAppARN:
+  #   Description: AviatrixRoleApp ARN
+  #   Condition: AviatrixIAMRoleNotExist
+  #   Value: !GetAtt
+  #     - AviatrixRoleApp
+  #     - Arn
+  # AviatrixRoleEC2ARN:
+  #   Description: AviatrixRoleEC2 ARN
+  #   Condition: AviatrixIAMRoleNotExist
+  #   Value: !GetAtt
+  #     - AviatrixRoleEC2
+  #     - Arn
+  WARNING:
+    Value: Aviatrix Platform is deployed successfully. Please wait for about 20 mins for platform initialization. You can go to AWS CodeBuild to trace the progress.
