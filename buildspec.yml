@@ -3,12 +3,19 @@ version: 0.2
 phases:
   install:
     commands:
+      - echo "getting OS updates and installing packages"
+      - apt-get update
+      - apt-get install -y curl jq
+      - echo "downloading cfn-signal"
+      - curl https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.zip -o aws-cfn-bootstrap-py3-latest.zip
+      - unzip aws-cfn-bootstrap-py3-latest.zip
+      - echo "installing cfn-signal"
+      - python3 aws-cfn-bootstrap-2.0/setup.py install
+      - echo "downloading terraform"
       - wget -nv https://releases.hashicorp.com/terraform/${tf_version}/terraform_${tf_version}_linux_amd64.zip
       - unzip terraform_${tf_version}_linux_amd64.zip
       - sudo mv terraform /usr/local/bin/
       - rm terraform_${tf_version}_linux_amd64.zip
-      - apt-get update
-      - apt-get install -y curl jq
       - curl 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | jq 'to_entries | [ .[] | select(.key | (contains("Expiration") or contains("RoleArn"))  | not) ] |  map(if .key == "AccessKeyId" then . + {"key":"AWS_ACCESS_KEY_ID"} else . end) | map(if .key == "SecretAccessKey" then . + {"key":"AWS_SECRET_ACCESS_KEY"} else . end) | map(if .key == "Token" then . + {"key":"AWS_SESSION_TOKEN"} else . end) | map("export \(.key)=\(.value)") | .[]' -r > /tmp/aws_cred_export.txt # work around https://github.com/hashicorp/terraform/issues/8746
       - echo "Prepare provider-output-backend.tf"
       - |
@@ -84,11 +91,19 @@ phases:
         existing_copilot_eip = "$existing_copilot_eip"
         existing_copilot_dr_eip = "$existing_copilot_dr_eip"
         EOF
+      - pwd
+      - ls ./
       - cat terraform.tfvars
       - . /tmp/aws_cred_export.txt && terraform init
   build:
     commands:
       - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
+      - echo "saving outputs"
+      - terraform output > tf_outputs.txt"
+      - echo "printing outputs"
+      - cat tf_outputs.txt
+      - echo "sending signal to cloudformation"
+      - cfn-signal --stack ${AWS::StackName} --resource AviatrixCodeBuild --success true
       - echo "Post apply build"
   post_build:
     commands:
