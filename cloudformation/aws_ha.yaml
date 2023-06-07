@@ -237,15 +237,15 @@ Parameters:
   Region:
     Type: String
     Description: Region for Primary Controller
-    Default: AWS::Region
+    Default: us-east-1
   DrRegion:
     Type: String
     Description: Region for DR Controller
-    Default: AWS::Region
+    Default: us-east-1
   S3BackupRegion:
     Type: String
     Description: Region for S3 Bucket for Controller Backups
-    Default: AWS::Region
+    Default: us-east-1
   HaDistribution:
     Type: String
     Description: Desired Controller high availability distribution
@@ -433,7 +433,7 @@ Parameters:
   CustomerIdSsmRegion:
     Type: String
     Description: Region for the SSM parameter for the Customer ID
-    Default: AWS::Region
+    Default: us-east-1
   CustomerIdSsmPath:
     Type: String
     Description: SSM path to the Aviatrix Customer ID parameter
@@ -446,7 +446,7 @@ Parameters:
   AdminPasswordSsmRegion:
     Type: String
     Description: Region for the SSM parameter for the Controller admin account password, and (if specified) the CoPilot service account password
-    Default: AWS::Region
+    Default: us-east-1
   AdminPasswordSsmPath:
     Type: String
     Description: SSM path to the Controller admin account password parameter
@@ -683,50 +683,11 @@ Resources:
           warnings.filterwarnings("ignore", category=DeprecationWarning)
           urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-          RELEASE_SERVER = "https://release.aviatrix.com"
-          TRIAL_EMAIL_URL = f"{RELEASE_SERVER}/cloudx-license/trial-email"
-
-          def make_get_api_call(url: str):
-              try:
-                  # 1. Send a GET request to the URL to fetch the content
-                  # whynosemgrep: We use self signed certs on the release server
-                  response = requests.get(url, verify=False) # nosemgrep: python.requests.security.disabled-cert-validation.disabled-cert-validation
-                  # 2. Raise an exception if the response status code is not OK (200)
-                  response.raise_for_status()
-                  # 3. Return the JSON response
-                  document = response.json()
-                  return document
-              except requests.exceptions.HTTPError as e:
-                  print(f"HTTP error occurred: {e}")
-                  raise
-              except requests.exceptions.ConnectionError as e:
-                  print(f"Connection error occurred: {e}")
-                  raise
-              except requests.exceptions.Timeout as e:
-                  print(f"Timeout error occurred: {e}")
-                  raise
-              except requests.exceptions.RequestException as e:
-                  print(f"An error occurred: {e}")
-                  raise
-
-          def trigger_trial_email(email: str):
-              try:
-                  # Trigger trial email in order to validate email and get trial customer ID
-                  print(f"Start to trigger trial email: {email}")
-                  url = f"{TRIAL_EMAIL_URL}?email={email}"
-                  resp = make_get_api_call(url)
-                  if resp.get("Status") != "Success":
-                      raise Exception(resp.get("Description"))
-                  print("Successful to trigger trial email")
-              except Exception as err:
-                  # This is an optional steps, ignore the error
-                  print(f"Failed to trigger trial email: {err}")
-
           def lambda_handler(event, context):
               response = {}
               try:
-                  print(f"starting lambda with codebuild_name: {codebuild_name}")
                   codebuild_name = os.environ['codebuild_name']
+                  print(f"starting lambda with codebuild_name: {codebuild_name}")
                   client = boto3.client('codebuild')
                   client.start_build(projectName=codebuild_name)
                   print(f"started codebuild project build")
@@ -902,7 +863,7 @@ Resources:
         Auth:
           Type: OAUTH
           Resource: CodeBuildSourceCredential
-      SourceVersion: main
+      SourceVersion: cf_dev_update
       TimeoutInMinutes: 60
       Tags:
         - Key: Name
