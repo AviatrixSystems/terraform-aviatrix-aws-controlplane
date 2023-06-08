@@ -109,7 +109,7 @@ phases:
           "Data" :
         EOF
       - echo "adding terraform output to signal file"
-      - echo "$(terraform output -json)\n}" >> success_response.json
+      - echo "$(terraform output -json | jq -r)}" >> success_response.json
       - echo "printing signal file"
       - cat success_response.json
       - echo "sending signal to cloudformation"
