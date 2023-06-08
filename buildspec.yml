@@ -95,7 +95,7 @@ phases:
     commands:
       - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
       - echo "saving outputs"
-      - terraform output > tf_outputs.txt"
+      - terraform output > tf_outputs.txt
       - echo "Prepare provider-output-backend.tf"
       - echo "printing outputs"
       - cat tf_outputs.txt
