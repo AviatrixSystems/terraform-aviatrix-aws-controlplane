@@ -621,7 +621,7 @@ Resources:
     Properties:
       Name: /aviatrix/controller/loadbalancer
       Type: String
-      Value: ""
+      Value: "Loadbalancer Details"
 
   S3StateAndSoftware:
     Type: AWS::S3::Bucket
@@ -890,7 +890,7 @@ Resources:
         - Key: Project
           Value: Aviatrix
 Outputs:
-    ControllerLoadbalancer:
+  ControllerLoadbalancer:
     Description: Controller Loadbalancer Details
     Value:
       Fn::GetAtt:

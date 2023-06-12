@@ -95,9 +95,9 @@ phases:
     commands:
       - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
       - echo "saving outputs"
-      - terraform output loadbalancer > loadbalancer.txt"
-      - cat loadbalancer.txt
-      - cat loadbalancer.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/loadbalancer" --value "{}" --overwrite
+      - terraform output lb_dns_name > lb_dns_name.txt
+      - cat lb_dns_name.txt
+      - cat lb_dns_name.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/loadbalancer" --value "{}" --overwrite
       - echo "preparing cft singal file"
       - |
         cat >> success_response.json << EOF
