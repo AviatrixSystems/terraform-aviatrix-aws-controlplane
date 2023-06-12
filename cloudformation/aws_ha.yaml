@@ -616,6 +616,13 @@ Parameters:
     NoEcho: 'true'
     MinLength: 1
 Resources:
+  ControllerLoadbalancerSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/loadbalancer
+      Type: String
+      Value: ""
+
   S3StateAndSoftware:
     Type: AWS::S3::Bucket
     Properties:
@@ -883,12 +890,12 @@ Resources:
         - Key: Project
           Value: Aviatrix
 Outputs:
-  # AviatrixRoleAppARN:
-  #   Description: AviatrixRoleApp ARN
-  #   Condition: AviatrixIAMRoleNotExist
-  #   Value: !GetAtt
-  #     - AviatrixRoleApp
-  #     - Arn
+    ControllerLoadbalancer:
+    Description: Controller Loadbalancer Details
+    Value:
+      Fn::GetAtt:
+        - ControllerLoadbalancerSSM
+        - Value
   # AviatrixRoleEC2ARN:
   #   Description: AviatrixRoleEC2 ARN
   #   Condition: AviatrixIAMRoleNotExist

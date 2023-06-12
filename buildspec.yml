@@ -95,10 +95,9 @@ phases:
     commands:
       - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
       - echo "saving outputs"
-      - terraform output > tf_outputs.txt
-      - echo "Prepare provider-output-backend.tf"
-      - echo "printing outputs"
-      - cat tf_outputs.txt
+      - terraform output loadbalancer > loadbalancer.txt"
+      - cat loadbalancer.txt
+      - cat loadbalancer.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/loadbalancer" --value "{}" --overwrite
       - echo "preparing cft singal file"
       - |
         cat >> success_response.json << EOF
@@ -106,11 +105,8 @@ phases:
           "Status" : "SUCCESS",
           "Reason" : "Configuration Complete",
           "UniqueId" : "ID1234",
-          "Data" :
+          "Data" : "Terraform apply complete"
         EOF
-      - echo "adding terraform output to signal file"
-      - echo "$(terraform output -json | jq -r)}" >> success_response.json
-      - echo "printing signal file"
       - cat success_response.json
       - echo "sending signal to cloudformation"
       - curl -T success_response.json $cfn_url
