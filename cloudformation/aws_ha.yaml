@@ -877,12 +877,12 @@ Resources:
           - Name: existing_copilot_dr_eip
             Value: !Ref CoPilotExistingDrIp
       Source:
-        Location: https://github.com/sshussai/Aviatrix_AWS_HA
+        Location: https://github.com/aviatrix-automation/Aviatrix_AWS_HA.git
         Type: GITHUB
         Auth:
           Type: OAUTH
           Resource: CodeBuildSourceCredential
-      SourceVersion: main
+      SourceVersion: cf_dev_update
       TimeoutInMinutes: 60
       Tags:
         - Key: Name
