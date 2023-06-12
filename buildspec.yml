@@ -106,6 +106,7 @@ phases:
           "Reason" : "Configuration Complete",
           "UniqueId" : "ID1234",
           "Data" : "Terraform apply complete"
+        }
         EOF
       - cat success_response.json
       - echo "sending signal to cloudformation"
