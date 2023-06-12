@@ -309,11 +309,6 @@ resource "aws_ecs_task_definition" "task_def" {
       error_message = "To add a user for copilot, please provide both the username and the email. Otherwise, they both should be empty."
     }
   }
-
-  depends_on = [
-    aws_autoscaling_group.avtx_ctrl,
-    aws_autoscaling_group.avtx_copilot
-  ]
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
