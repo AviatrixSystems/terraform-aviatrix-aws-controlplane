@@ -155,7 +155,7 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
 }
 
 resource "aws_eip" "copilot_eip" {
-  count = var.use_existing_copilot_eip ? 0 : 1
-  vpc   = true
-  tags  = local.common_tags
+  count  = var.use_existing_copilot_eip ? 0 : 1
+  domain = "vpc"
+  tags   = local.common_tags
 }

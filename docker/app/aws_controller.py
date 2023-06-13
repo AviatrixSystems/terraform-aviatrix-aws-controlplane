@@ -22,6 +22,8 @@ import copilot_main as cp_lib
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
+VERSION = "0.01"
+
 HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
 WAIT_DELAY = 30
@@ -46,6 +48,7 @@ class AvxError(Exception):
 
 def main():
     """Entry point for the docker container."""
+    print("Aviatrix Platform HA Version " + VERSION)
     try:
         ecs_handler()
     except AvxError as err:
@@ -265,6 +268,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
+        "VERSION": VERSION,
         "VPC_ID": os.environ.get("VPC_ID"),
         "PRIMARY_ACC_NAME": os.environ.get("PRIMARY_ACC_NAME"),
     }
@@ -526,6 +530,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
+        "VERSION": VERSION,
     }
     if os.environ.get("INTER_REGION") == "True":
         env_dict["DR_REGION"] = os.environ.get("DR_REGION")
@@ -1558,12 +1563,16 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
     # create a basic env dic and log copilot failover status
     try:
-        tmp_env = {"SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
-                   "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
-                   "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG")}
+        tmp_env = {
+            "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
+            "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
+            "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
+        }
         cp_lib.log_failover_status(tmp_env, "copilot")
     except Exception as err:
-        print(f"Logging copilot failover status failed with the error below. The env is: {tmp_env}")
+        print(
+            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
+        )
         print(str(err))
     controller_instanceobj = client.describe_instances(
         Filters=[{"Name": "instance-id", "Values": [asg_inst]}]
@@ -1981,7 +1990,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         # Assign COP_EIP to current region copilot
         if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
             if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
-                print(f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}")
+                print(
+                    f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
+                )
                 raise AvxError("Could not assign EIP to primary region Copilot")
 
         cp_lib.handle_copilot_ha(env)

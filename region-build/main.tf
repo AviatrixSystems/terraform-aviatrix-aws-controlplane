@@ -336,9 +336,9 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
 
 
 resource "aws_eip" "controller_eip" {
-  count = var.use_existing_eip ? 0 : 1
-  vpc   = true
-  tags  = merge(local.common_tags, tomap({ "Name" = "Avx-Controller" }))
+  count  = var.use_existing_eip ? 0 : 1
+  domain = "vpc"
+  tags   = merge(local.common_tags, tomap({ "Name" = "Avx-Controller" }))
 }
 
 resource "aws_security_group" "AviatrixSecurityGroup" {
