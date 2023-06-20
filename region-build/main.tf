@@ -612,6 +612,10 @@ module "ecs_cluster" {
   source = "./modules/terraform-aws-ecs"
 
   cluster_name = "avx_platform_ha"
+  cluster_settings = {
+    "name" : "containerInsights",
+    "value" : "disabled"
+  }
 
   cluster_configuration = {
     execute_command_configuration = {
@@ -645,7 +649,7 @@ module "ecs_cluster" {
 
 resource "aws_cloudwatch_log_group" "log_group" {
   name              = "/aws/ecs/avx_platform_ha"
-  retention_in_days = 7
+  retention_in_days = 0
 
   tags = local.common_tags
 }
