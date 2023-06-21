@@ -57,6 +57,30 @@ variable "instance_type" {
   default     = "t3.large"
 }
 
+variable "copilot_deployment" {
+  type        = string
+  description = "Desired CoPilot deployment type"
+  default     = "simple"
+
+  validation {
+    condition     = contains(["simple", "fault-tolerant"], var.copilot_deployment)
+    error_message = "Valid values for var:copilot_deployment are (simple, fault-tolerant)."
+  }
+}
+
+variable "copilot_data_node_count" {
+  type        = number
+  description = "Desired number of CoPilot data nodes in a Fault-Tolerant deployment"
+  default     = 3
+
+  validation {
+    condition = (
+      var.copilot_data_node_count >= 3 && var.copilot_data_node_count <= 9
+    )
+    error_message = "CoPilot data node count must be between 3 and 9, inclusive."
+  }
+}
+
 variable "cop_instance_type" {
   type        = string
   description = "CoPilot instance size"
@@ -242,6 +266,8 @@ locals {
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
 
+  cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
+
   common_tags = merge(
     var.tags, {
       module    = "aviatrix-controller-build"
@@ -385,4 +411,10 @@ variable "existing_copilot_eip" {
   type        = string
   description = "Existing EIP to associate with the Aviatrix CoPilot"
   default     = ""
+}
+
+variable "existing_data_nodes_eips" {
+  type        = list(string)
+  description = "Existing EIP to associate with the Aviatrix CoPilot (Main Node, in a Fault-Tolerant deployment)"
+  default     = [""]
 }

@@ -18,6 +18,8 @@ module "region1" {
   vpc_name                      = var.vpc_name
   subnet_name                   = var.subnet_name
   instance_type                 = var.instance_type
+  copilot_deployment            = var.copilot_deployment
+  copilot_data_node_count       = var.copilot_data_node_count
   cop_instance_type             = var.cop_instance_type
   root_volume_type              = var.root_volume_type
   root_volume_size              = var.root_volume_size
@@ -57,6 +59,7 @@ module "region1" {
   existing_eip                  = var.existing_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_eip
+  existing_data_nodes_eips      = var.existing_data_nodes_eips
   ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -85,6 +88,8 @@ module "region2" {
   vpc_name                      = var.dr_vpc_name
   subnet_name                   = var.subnet_name
   instance_type                 = var.instance_type
+  copilot_deployment            = var.copilot_deployment
+  copilot_data_node_count       = var.copilot_data_node_count
   cop_instance_type             = var.cop_instance_type
   root_volume_type              = var.root_volume_type
   root_volume_size              = var.root_volume_size
@@ -124,6 +129,7 @@ module "region2" {
   existing_eip                  = var.existing_dr_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_dr_eip
+  existing_data_nodes_eips      = var.existing_data_nodes_eips
   ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }

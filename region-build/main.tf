@@ -33,7 +33,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "AVIATRIX_COP_TAG",
-          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+          value = local.cop_tag
         },
         {
           name  = "AWS_ROLE_APP_NAME",
@@ -58,6 +58,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EIP",
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
+        },
+        {
+          name  = "COP_DATA_NODES_EIPS",
+          value = var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip)
+        },
+        {
+          name  = "COP_DEPLOYMENT",
+          value = var.copilot_deployment
         },
         {
           name  = "COP_USERNAME",
@@ -179,7 +187,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "AVIATRIX_COP_TAG",
-          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+          value = local.cop_tag
         },
         {
           name  = "AWS_ROLE_APP_NAME",
@@ -204,6 +212,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EIP",
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
+        },
+        {
+          name  = "COP_DATA_NODES_EIPS",
+          value = var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip)
+        },
+        {
+          name  = "COP_DEPLOYMENT",
+          value = var.copilot_deployment
         },
         {
           name  = "COP_USERNAME",
