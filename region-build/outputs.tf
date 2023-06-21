@@ -1,8 +1,8 @@
 locals {
   controller_tags = [for item in aws_launch_template.avtx-controller.tag_specifications : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
   controller_name = [for item in local.controller_tags : item if item != null]
-  copilot_tags = [for item in aws_launch_template.avtx-copilot.tag_specifications : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
-  copilot_name = [for item in local.copilot_tags : item if item != null]
+  copilot_tags    = [for item in aws_launch_template.avtx-copilot.tag_specifications : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
+  copilot_name    = [for item in local.copilot_tags : item if item != null]
 
   # To avoid possible issues when running terraform destroy
   controller_public_ip = length(aws_eip.controller_eip) > 0 ? aws_eip.controller_eip[0].public_ip : ""
