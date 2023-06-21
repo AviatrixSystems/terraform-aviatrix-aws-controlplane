@@ -207,6 +207,7 @@ def handle_copilot_ha(env):
   # get env information
   inter_region = get_copilot_inter_region(env)
   copilot_init = get_copilot_init(env)
+  cop_deployment = env["COP_DEPLOYMENT"]
 
   # return if inter-region init in current region is standby_region
   if inter_region and copilot_init and get_current_region(env) == get_standby_region(env):
@@ -229,14 +230,27 @@ def handle_copilot_ha(env):
   controller_username = "admin"
   controller_creds = get_vm_password(env, "controller")
 
-  # get copilot instance and auth info
-  instance_name = env["AVIATRIX_COP_TAG"]
-  copilot_user_info = get_copilot_user_info(env)
-
   restore_region = get_restore_region(env)
   restore_client = boto3.client("ec2", restore_region)
+  copilot_user_info = get_copilot_user_info(env)
 
-  # get restore_region copilot to be created/restored
+  # get copilot instance and auth info
+  env["copilot_data_node_regions"] = []
+  env["copilot_data_node_usernames"] = []
+  env["copilot_data_node_passwords"] = []
+  env["copilot_data_node_volumes"] = []
+  if cop_deployment == "fault-tolerant":
+    instance_name = f"{env["AVIATRIX_COP_TAG"]}-Main"
+    for node_name in env[copilot_data_node_instance_names]:
+      env[copilot_data_node_regions].append(restore_region)
+      env[copilot_data_node_usernames].append(copilot_user_info['username'])
+      env[copilot_data_node_passwords].append(copilot_user_info['password'])
+      env[copilot_data_node_volumes].append('/dev/sda2')
+  else:
+    instance_name = env["AVIATRIX_COP_TAG"]
+
+
+  # get restore_region (main) copilot to be created/restored
   copilot_instanceobj = restore_client.describe_instances(
     Filters=[
       {"Name": "instance-state-name", "Values": ["running"]},
@@ -260,18 +274,19 @@ def handle_copilot_ha(env):
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
+    "cluster_ha_main_node": True,
     "primary_account_name": env["PRIMARY_ACC_NAME"],
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
-    "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
+    "copilot_type": env['COP_DEPLOYMENT'],  # values should be "singleNode" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
-    "copilot_data_node_public_ips": ["", "", ""],  # cluster data nodes public IPs
-    "copilot_data_node_private_ips": ["", "", ""],  # cluster data nodes private IPs
-    "copilot_data_node_regions": ["", "", ""],  # cluster data nodes regions (should be the same)
-    "copilot_data_node_names": ["", "", ""],  # names to be displayed in copilot cluster info
-    "copilot_data_node_usernames": ["", "", ""], # cluster data nodes auth info
-    "copilot_data_node_passwords": ["", "", ""], # cluster data nodes auth info
-    "copilot_data_node_volumes": ["", "", ""],  # linux volume names (eg "/dev/sdf") - can be the same
-    "copilot_data_node_sg_names": ["", "", ""],  # cluster data nodes security group names
+    "copilot_data_node_public_ips": env[copilot_data_node_public_ips],  # cluster data nodes public IPs
+    "copilot_data_node_private_ips": env[copilot_data_node_private_ips],  # cluster data nodes private IPs
+    "copilot_data_node_regions": env[copilot_data_node_regions],  # cluster data nodes regions (should be the same)
+    "copilot_data_node_names": env[copilot_data_node_names],  # names to be displayed in copilot cluster info
+    "copilot_data_node_usernames": env[copilot_data_node_volumes], # cluster data nodes auth info
+    "copilot_data_node_passwords": env[copilot_data_node_volumes], # cluster data nodes auth info
+    "copilot_data_node_volumes": env[copilot_data_node_volumes],  # linux volume names (eg "/dev/sdf") - can be the same
+    "copilot_data_node_sg_names": env[copilot_data_node_sg_names],  # cluster data nodes security group names
     "controller_info": {
         "public_ip": instance_public_ips["controller_public_ip"],
         "private_ip": controller_instanceobj["PrivateIpAddress"],
@@ -326,7 +341,7 @@ def handle_event(event):
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding Controller auth IP to CoPilot SG failed due to " + str(err))
-  elif event['copilot_type'] == "clustered":
+  elif event['copilot_type'] == "fault-tolerant":
     cluster_cplt.manage_sg_rules(ec2_client,
                                  controller_sg_name=event['controller_info']['sg_name'],
                                  main_copilot_sg_name=event['copilot_info']['sg_name'],
@@ -339,6 +354,7 @@ def handle_event(event):
                                  cluster_init=event['copilot_init'],
                                  private_mode=False,
                                  add=True)
+
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
   # make sure controller sg is open
   api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
@@ -349,10 +365,13 @@ def handle_event(event):
     add_user_resp = api.add_account_user(event['copilot_info']['user_info'])
     print(f"Sleep for 20 seconds after adding user. add_user_resp: {add_user_resp}")
     time.sleep(20)
+
   # login with copilot user
   api.retry_login(username=event['copilot_info']['user_info']['username'],
                   password=event['copilot_info']['user_info']['password'])
+
   copilot_api = single_cplt.CoPilotAPI(copilot_ip=event['copilot_info']['public_ip'], cid=api._cid)
+  
   # set the new copilot to use the controller to verify logins
   print(f"Set controller auth IP '{event['auth_ip']}' on CoPilot")
   set_controller_ip_resp = copilot_api.retry_set_controller_ip(event["auth_ip"],
@@ -362,6 +381,7 @@ def handle_event(event):
 
   # make sure controller sg is open
   api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
+
   if event['copilot_init']:
     # copilot init use case - not HA
     if event['copilot_type'] == "singleNode":
@@ -372,8 +392,8 @@ def handle_event(event):
       print(f"singlenode_copilot_init: {response}")
       copilot_api.wait_copilot_init_complete(event['copilot_type'])
     else:
-      # clustered copilot init
-      print("Clustered CoPilot Initialization begin ...")
+      # Fault Tolerant copilot init
+      print("Fault Tolerant CoPilot Initialization begin ...")
       cluster_event = {
         "ec2_client": ec2_client,
         "controller_public_ip": event['controller_info']['public_ip'],
@@ -422,13 +442,8 @@ def handle_event(event):
       copilot_api.wait_copilot_restore_complete(event['copilot_type'])
       print("CoPilot restore end")
     else:
-      # clustered copilot HA - either main node or data node
-      if event['cluster_ha_main_node']:
-        # clustered copilot main node HA
-        print(f"Clustered CoPilot main node HA begin ...")
-      else:
-        # clustered copilot data node HA
-        print(f"Clustered CoPilot data node HA begin ...")
+      # clustered copilot data node HA
+      print(f"Clustered CoPilot data node HA use case ...")
   
   # Post init or HA actions
   # 1. enable copilot config backup on new copilot instances
@@ -449,7 +464,7 @@ if __name__ == "__main__":
   copilot_event = {
     "region": "",
     "copilot_init": True,
-    "copilot_type": "singleNode", # values should be "singleNode" or "clustered"
+    "copilot_type": "singleNode", # values should be "singleNode" or "fault-tolerant"
     "cluster_ha_main_node": True, # if clustered copilot HA case, set to True if HA for main node
     "copilot_data_node_public_ips": ["",
                                       ""], # cluster data nodes public IPs
