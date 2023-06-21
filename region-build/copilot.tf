@@ -1,3 +1,42 @@
+resource "aws_launch_template" "avtx-copilot-cluster-main" {
+  count       = var.copilot_deployment == "fault-tolerant" ? 1 : 0
+  name        = "avtx-copilot-cluster-main"
+  description = "Launch template for Aviatrix Copilot Cluster Main Node"
+
+  block_device_mappings {
+    device_name = "/dev/sda1"
+
+    ebs {
+      volume_size           = var.cop_root_volume_size
+      volume_type           = var.cop_root_volume_type
+      delete_on_termination = false
+    }
+  }
+
+  disable_api_termination = var.termination_protection
+
+  ebs_optimized = true
+
+  image_id                             = local.cop_ami_id
+  instance_initiated_shutdown_behavior = "terminate"
+  instance_type                        = var.cop_instance_type
+  key_name                             = var.keypair
+
+  network_interfaces {
+    device_index                = 0
+    associate_public_ip_address = false
+    security_groups             = [aws_security_group.AviatrixCopilotSecurityGroup.id]
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(local.common_tags, {
+      Name = "${local.cop_tag}-Main"
+    })
+  }
+}
+
 resource "aws_launch_template" "avtx-copilot" {
   name        = "avtx-copilot"
   description = "Launch template for Aviatrix Copilot"
@@ -48,18 +87,57 @@ resource "aws_launch_template" "avtx-copilot" {
     resource_type = "instance"
 
     tags = merge(local.common_tags, {
-      Name = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
+      Name = var.copilot_deployment == "fault-tolerant" ? "${local.cop_tag}-Data" : local.cop_tag
     })
   }
 }
 
-resource "aws_autoscaling_group" "avtx_copilot" {
-  name                      = "avtx_copilot"
+resource "aws_autoscaling_group" "avtx_copilot_cluster_main" {
+  count                     = var.copilot_deployment == "fault-tolerant" ? 1 : 0
+  name                      = "avtx_copilot_cluster_main"
   max_size                  = 1
   min_size                  = 0
   health_check_grace_period = 300
   health_check_type         = "ELB"
   desired_capacity          = 1
+  force_delete              = true
+
+  launch_template {
+    id      = aws_launch_template.avtx-copilot-cluster-main[0].id
+    version = "$Latest"
+  }
+
+  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
+  target_group_arns   = [aws_lb_target_group.avtx-copilot.arn]
+
+  initial_lifecycle_hook {
+    name                 = "init"
+    default_result       = "CONTINUE"
+    heartbeat_timeout    = 1200
+    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
+
+    notification_target_arn = aws_sns_topic.controller_updates.arn
+    role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+  }
+
+  tag {
+    key                 = "app"
+    value               = "copilot-cluster_main"
+    propagate_at_launch = true
+  }
+  wait_for_capacity_timeout = "30m"
+  timeouts {
+    delete = "15m"
+  }
+}
+
+resource "aws_autoscaling_group" "avtx_copilot" {
+  name                      = "avtx_copilot"
+  max_size                  = var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 1
+  min_size                  = 0
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 1
   force_delete              = true
 
   launch_template {
@@ -90,6 +168,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     delete = "15m"
   }
 }
+
 
 # Define a listener
 resource "aws_lb_listener" "avtx-copilot" {
@@ -156,6 +235,12 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
 
 resource "aws_eip" "copilot_eip" {
   count  = var.use_existing_copilot_eip ? 0 : 1
+  domain = "vpc"
+  tags   = local.common_tags
+}
+
+resource "aws_eip" "copilot_data_nodes_eips" {
+  count  = var.use_existing_copilot_eip ? 0 : var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 1
   domain = "vpc"
   tags   = local.common_tags
 }
