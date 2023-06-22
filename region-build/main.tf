@@ -651,7 +651,8 @@ resource "aws_cloudwatch_log_group" "log_group" {
 }
 
 locals {
-  argument_destroy = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, aws_eip.controller_eip[0].public_ip)
+  controller_eip   = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
+  argument_destroy = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, local.controller_eip)
 }
 
 resource "null_resource" "disable_sg_mgmt_script" {
