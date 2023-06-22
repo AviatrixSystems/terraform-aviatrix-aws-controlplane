@@ -1,9 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-# resource "time_sleep" "wait_for_zip" {
-#   create_duration = "60s"
-# }
-
 resource "aws_ecs_task_definition" "task_def" {
   family                   = "AVX_PLATFORM_HA"
   requires_compatibilities = ["FARGATE"]
@@ -652,4 +648,30 @@ resource "aws_cloudwatch_log_group" "log_group" {
   retention_in_days = 0
 
   tags = local.common_tags
+}
+
+locals {
+  argument_destroy = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, aws_eip.controller_eip[0].public_ip)
+}
+
+resource "null_resource" "disable_sg_mgmt_script" {
+  triggers = {
+    argument_destroy = local.argument_destroy
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/disable_controller_sg_mgmt.py ${self.triggers.argument_destroy}"
+    on_failure = continue
+  }
+  depends_on = [
+    aws_autoscaling_group.avtx_ctrl,
+    aws_lb_listener.avtx-ctrl,
+    aws_route_table_association.rtb_association,
+    aws_route_table_association.rtb_association_ha,
+    aws_internet_gateway.igw,
+    aws_security_group_rule.ingress_rule,
+    aws_security_group_rule.egress_rule,
+    aws_eip.controller_eip
+  ]
 }
