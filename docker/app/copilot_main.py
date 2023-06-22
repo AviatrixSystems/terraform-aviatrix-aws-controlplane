@@ -240,7 +240,7 @@ def handle_copilot_ha(env):
   env["copilot_data_node_passwords"] = []
   env["copilot_data_node_volumes"] = []
   if cop_deployment == "fault-tolerant":
-    instance_name = f"{env["AVIATRIX_COP_TAG"]}-Main"
+    instance_name = f"{env['AVIATRIX_COP_TAG']}-Main"
     for node_name in env[copilot_data_node_instance_names]:
       env[copilot_data_node_regions].append(restore_region)
       env[copilot_data_node_usernames].append(copilot_user_info['username'])

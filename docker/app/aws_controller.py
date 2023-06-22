@@ -176,7 +176,6 @@ def ecs_handler():
                 msg_dest,
             )
         elif msg_asg == os.environ.get("COP_ASG"):
-            print("0.0.0.1 - shaheer")
             handle_cop_ha_event(
                 ec2_client,
                 ecs_client,
@@ -1971,28 +1970,19 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
-    print(f"0.1.1 - handle_cop_ha_event")
     env = dict(os.environ.items())
-    for name in env:
-        print(f"{name}: {env[name]}")
     print(f"0.1: {env}")
     try:
         # get current region copilot info
-        print(f"0: {env}")
         current_region = env["SQS_QUEUE_REGION"]
         instance_name = env["AVIATRIX_COP_TAG"]
         curr_cop_eip = env["COP_EIP"]
         cop_deployment = env["COP_DEPLOYMENT"]
-        print(f"1: {env}")
         env["copilot_data_node_public_ips"] = []
-        print(f"2: {env}")
         env["copilot_data_node_private_ips"] = []
-        print(f"3: {env}")
         env["copilot_data_node_instance_names"] = []
-        print(f"4: {env}")
         env["copilot_data_node_names"] = []
         env["copilot_data_node_sg_names"] = []
-        print(f"4: {env}")
 
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
@@ -2003,6 +1993,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
                 ]
             )["Reservations"][0]["Instances"][0]
+
+            if asg_inst != curr_region_main_cop_instanceobj['InstanceId']:
+                print(f"Not processing Init/HA event for instance {asg_inst} -- fault-tolerant deployment data node")
+                return
+            else:
+                print(f"Processing Init/HA event for instance {curr_region_main_cop_instanceobj['InstanceId']} -- fault-tolerant deployment Main node")
 
             # Assign COP_EIP to current region copilot
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
@@ -2032,7 +2028,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                                 'Value': f"{instance_name}-Data-{len(cop_data_node_eips)}"}
                             ]
                         )
-                        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                        if name_update_resp['ResponseMetadata']['HTTPStatusCode'] == 200:
                             print(f"Instance name for data node {instance_name}-Data-{len(cop_data_node_eips)} updated successfully.")
                         else:
                             print(f"Failed to update instance name for data node {instance_name}-Data-{len(cop_data_node_eips)}.")
@@ -2043,7 +2039,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                             )
                             raise AvxError("Could not assign EIP to primary region Data Node Copilot")
                         env["copilot_data_node_public_ips"].append(curr_data_node_eip)
-                        env["copilot_data_node_private_ips"].append(copilot_instanceobj["PrivateIpAddress"])
+                        env["copilot_data_node_private_ips"].append(inst["PrivateIpAddress"])
                         env["copilot_data_node_names"].append(inst['InstanceId'])
                         env["copilot_data_node_instance_names"].append(f"{instance_name}-Data-{len(cop_data_node_eips)}")
                         env["copilot_data_node_sg_names"].append(inst["SecurityGroups"][0]["GroupName"])
