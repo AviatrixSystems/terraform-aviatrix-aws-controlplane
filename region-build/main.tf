@@ -651,8 +651,9 @@ resource "aws_cloudwatch_log_group" "log_group" {
 }
 
 locals {
-  controller_eip   = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
-  argument_destroy = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, local.controller_eip)
+  controller_eip     = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
+  argument_destroy   = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, local.controller_eip)
+  argument_stop_task = format("--region %s --cluster %s", var.region, "avx_platform_ha")
 }
 
 resource "null_resource" "disable_sg_mgmt_script" {
@@ -665,6 +666,7 @@ resource "null_resource" "disable_sg_mgmt_script" {
     command    = "python3 -W ignore ${path.module}/disable_controller_sg_mgmt.py ${self.triggers.argument_destroy}"
     on_failure = continue
   }
+
   depends_on = [
     aws_autoscaling_group.avtx_ctrl,
     aws_lb_listener.avtx-ctrl,
@@ -674,5 +676,21 @@ resource "null_resource" "disable_sg_mgmt_script" {
     aws_security_group_rule.ingress_rule,
     aws_security_group_rule.egress_rule,
     aws_eip.controller_eip
+  ]
+}
+
+resource "null_resource" "stop_ecs_tasks_script" {
+  triggers = {
+    argument_stop_task = local.argument_stop_task
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/stop_ecs_tasks.py ${self.triggers.argument_stop_task}"
+    on_failure = continue
+  }
+
+  depends_on = [
+    module.ecs_cluster
   ]
 }
