@@ -9,6 +9,10 @@ resource "aws_lb" "avtx-controller" {
   tags = {
     Name = "${local.name_prefix}AviatrixControllerLB"
   }
+
+  depends_on = [
+    aws_internet_gateway.igw
+  ]
 }
 
 # Define a listener
