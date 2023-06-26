@@ -2,6 +2,7 @@ import boto3
 import time
 import datetime
 import traceback
+import os
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
