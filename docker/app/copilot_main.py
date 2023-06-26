@@ -41,34 +41,34 @@ def controller_copilot_setup(api, event):
   response = api.wait_and_get_copilot_sg_status()
   print(f"get_copilot_sg_status: {response}")
 
-def get_vm_password(env, pass_type="copilot"):
-  if pass_type == "copilot" and env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
-    if env["AVX_COP_PASSWORD"] == "":
+def get_vm_password(pass_type="copilot"):
+  if pass_type == "copilot" and os.environ.get("COP_EMAIL", "") != "" and os.environ.get("COP_USERNAME", "") != "":
+    if os.environ.get("AVX_COP_PASSWORD", "") == "":
         # Fetch Aviatrix CoPilot credentials from encrypted SSM parameter store
         password = get_ssm_parameter_value(
-          env["AVX_COPILOT_PASSWORD_SSM_PATH"],
-          env["AVX_PASSWORD_SSM_REGION"],
+          os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
+          os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         )
     else:
-        password = env["AVX_COP_PASSWORD"]
+        password = os.environ.get("AVX_COP_PASSWORD", "")
   else:
-    if env["AVX_PASSWORD"] == "":
+    if os.environ.get("AVX_PASSWORD", "") == "":
         # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
         password =get_ssm_parameter_value(
-          env["AVX_PASSWORD_SSM_PATH"],
-          env["AVX_PASSWORD_SSM_REGION"],
+          os.environ.get("AVX_PASSWORD_SSM_PATH", ""),
+          os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         )
     else:
-        password = env["AVX_PASSWORD"]
+        password = os.environ.get("AVX_PASSWORD", "")
   return password
 
-def get_copilot_user_info(env):
+def get_copilot_user_info():
   # get copilot user info
   user_info = {}
-  user_info["password"] = get_vm_password(env)
-  if env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
-    user_info["username"] = env["COP_USERNAME"]
-    user_info["email"] = env["COP_EMAIL"]
+  user_info["password"] = get_vm_password()
+  if os.environ.get("COP_EMAIL", "") != "" and os.environ.get("COP_USERNAME", "") != "":
+    user_info["username"] = os.environ.get("COP_USERNAME", "")
+    user_info["email"] = os.environ.get("COP_EMAIL", "")
     user_info["user_groups"] = ["admin"]  # hardcode copilot user group
     user_info["custom_user"] = True
   else:
@@ -78,80 +78,59 @@ def get_copilot_user_info(env):
     user_info["custom_user"] = False
   return user_info
 
-def get_restore_region(env):
+def get_restore_region():
   # determine restore region based on event type
-  if get_copilot_inter_region(env) and not get_copilot_init(env):
-    print(f"inter-region HA in current region '{get_current_region(env)}'")
-    if get_instance_recent_restart(env, "controller"):
-      restore_region = get_dr_region(env)
+  if os.environ.get("INTER_REGION", "") == "True" and os.environ.get("PRIV_IP", ""):
+    print(f"inter-region HA in current region '{os.environ.get("SQS_QUEUE_REGION", "")}'")
+    if get_instance_recent_restart("controller"):
+      restore_region = os.environ.get("DR_REGION", "")
       print(f"Controller was also restarted recently, so we will assume regional failure")
       print(f"restore controller and copilot to dr region'{restore_region}'")
     else:
-      restore_region = get_current_region(env)
+      restore_region = os.environ.get("SQS_QUEUE_REGION", "")
       print(f"HA event in an inter-region deployment, but the controller was not restarted recently. We will assume that only the CoPilot VM failed")
       print(f"restore copilot in current region because assuming controller did not fail in inter-region HA: '{restore_region}'")
   else:
-    restore_region = get_current_region(env)
-    if get_copilot_inter_region(env):
+    restore_region = os.environ.get("SQS_QUEUE_REGION", "")
+    if os.environ.get("INTER_REGION", "") == "True":
       print(f"inter-region init - create in current region: '{restore_region}'")
-      print(f"current region '{get_current_region(env)}' is inter-region primary '{get_active_region(env)}'")
+      print(f"current region '{os.environ.get("SQS_QUEUE_REGION", "")}' is inter-region primary '{os.environ.get("ACTIVE_REGION", "")}'")
     else:
       print(f"intra-region init/HA - create/restore in current region: '{restore_region}'")
   return restore_region
 
-def get_copilot_init(env):
-  return False if "PRIV_IP" in env else True
-
-def get_active_region(env):
-  if get_copilot_inter_region(env):
-    if "ACTIVE_REGION" in env:
-      return env["ACTIVE_REGION"]
-    else:
-      print(f"Inter-region deployment, but unable to find ACTIVE_REGION key: {env}")
-  else:
-    print(f"Not inter-region deployment - no ACTIVE_REGION in intra-region")
-
-def get_copilot_inter_region(env):
-  if "INTER_REGION" in env and env["INTER_REGION"] == "True":
-    return True
-  else:
+def get_copilot_init():
+  if os.environ.get("PRIV_IP", "") == "":
     return False
+  else:
+    return True
 
-def get_current_region(env):
-  return env["SQS_QUEUE_REGION"]
-
-def get_standby_region(env):
-  return env["STANDBY_REGION"]
-
-def get_dr_region(env):
-  return env["DR_REGION"]
-
-def get_controller_copilot_public_ips(env, controller, copilot):
+def get_controller_copilot_public_ips(controller, copilot):
   public_ips = {}
   # determine correct controller/copilot IPs based on event
-  if get_copilot_inter_region(env) and not get_copilot_init(env):
+  if os.environ.get("INTER_REGION", "") == "True" and os.environ.get("PRIV_IP", ""):
     public_ips["copilot_public_ip"] = copilot["PublicIpAddress"]
     public_ips["controller_public_ip"] = controller["PublicIpAddress"]
   else:
-    public_ips["copilot_public_ip"] = env["COP_EIP"]
-    public_ips["controller_public_ip"] = env["EIP"]
+    public_ips["copilot_public_ip"] = os.environ.get("COP_EIP", "")
+    public_ips["controller_public_ip"] = os.environ.get("EIP", "")
   return public_ips
 
-def get_copilot_auth_ip(env, public_ips, controller):
+def get_copilot_auth_ip(public_ips, controller):
   # get the auth IP that will be used by copilot
-  if "COP_AUTH_IP" in env and env["COP_AUTH_IP"] == "private":
+  if os.environ.get("COP_AUTH_IP", "") == "private":
     copilot_auth_ip = controller["PrivateIpAddress"]
   else:
     copilot_auth_ip = public_ips["controller_public_ip"]
 
   return copilot_auth_ip
 
-def get_instance_recent_restart(env, type):
-    curr_region = get_current_region(env)
+def get_instance_recent_restart(type):
+    curr_region = os.environ.get("SQS_QUEUE_REGION", "")
     if type == "controller":
-        instance_name = env["AVIATRIX_TAG"]
+        instance_name = os.environ.get("AVIATRIX_TAG", "")
     else:
-        instance_name = env["AVIATRIX_COP_TAG"]
+        instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
@@ -170,20 +149,20 @@ def get_instance_recent_restart(env, type):
     else:
         return False
 
-def log_failover_status(env, type):
+def log_failover_status(type):
     if type == "controller":
         recent_reboot_log = "The Controller instance was recently restarted."
         no_recent_reboot_log = "The Controller instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
     else:
         recent_reboot_log = "The CoPilot instance was recently restarted."
         no_recent_reboot_log = "The CoPilot instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
-    if get_instance_recent_restart(env, type):
+    if get_instance_recent_restart(type):
         print(recent_reboot_log)
     else:
         print(no_recent_reboot_log)
 
 
-def handle_copilot_ha(env):
+def handle_copilot_ha():
   # use cases:
   # intra-region init
   #   assign pri copilot eip
@@ -204,18 +183,18 @@ def handle_copilot_ha(env):
   #   assign pri copilot eip
   #   restore to pri region copilot with pri controller
 
-  # get env information
-  inter_region = get_copilot_inter_region(env)
-  copilot_init = get_copilot_init(env)
+  # get deployment information
+  inter_region = os.environ.get("INTER_REGION", "") == "True"
+  copilot_init = get_copilot_init()
 
   # return if inter-region init in current region is standby_region
-  if inter_region and copilot_init and get_current_region(env) == get_standby_region(env):
-    print(f"Not initializing copilot in the standby region '{get_current_region(env)}' in inter-region init")
+  if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
+    print(f"Not initializing copilot in the standby region '{os.environ.get("SQS_QUEUE_REGION", "")}' in inter-region init")
     return
 
   # log controller failover status
   try:
-    log_failover_status(env, "controller")
+    log_failover_status("controller")
   except Exception as err:
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
@@ -225,15 +204,15 @@ def handle_copilot_ha(env):
   time.sleep(900)
 
   # get controller instance and auth info
-  controller_instance_name = env["AVIATRIX_TAG"]
+  controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
   controller_username = "admin"
-  controller_creds = get_vm_password(env, "controller")
+  controller_creds = get_vm_password("controller")
 
   # get copilot instance and auth info
-  instance_name = env["AVIATRIX_COP_TAG"]
-  copilot_user_info = get_copilot_user_info(env)
+  instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+  copilot_user_info = get_copilot_user_info()
 
-  restore_region = get_restore_region(env)
+  restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
 
   # get restore_region copilot to be created/restored
@@ -254,13 +233,13 @@ def handle_copilot_ha(env):
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
 
-  instance_public_ips = get_controller_copilot_public_ips(env, controller_instanceobj, copilot_instanceobj)
-  copilot_auth_ip = get_copilot_auth_ip(env, instance_public_ips, controller_instanceobj)
+  instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
+  copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
 
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
-    "primary_account_name": env["PRIMARY_ACC_NAME"],
+    "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
     "copilot_type": "singleNode",  # values should be "singleNode" or "clustered"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
