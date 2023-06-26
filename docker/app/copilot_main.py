@@ -102,9 +102,9 @@ def get_restore_region():
 
 def get_copilot_init():
   if os.environ.get("PRIV_IP", "") == "":
-    return False
-  else:
     return True
+  else:
+    return False
 
 def get_controller_copilot_public_ips(controller, copilot):
   public_ips = {}
