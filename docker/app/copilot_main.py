@@ -81,7 +81,7 @@ def get_copilot_user_info():
 def get_restore_region():
   # determine restore region based on event type
   if os.environ.get("INTER_REGION", "") == "True" and os.environ.get("PRIV_IP", ""):
-    print(f"inter-region HA in current region '{os.environ.get("SQS_QUEUE_REGION", "")}'")
+    print(f"inter-region HA in current region '{os.environ.get('SQS_QUEUE_REGION', '')}'")
     if get_instance_recent_restart("controller"):
       restore_region = os.environ.get("DR_REGION", "")
       print(f"Controller was also restarted recently, so we will assume regional failure")
@@ -94,7 +94,7 @@ def get_restore_region():
     restore_region = os.environ.get("SQS_QUEUE_REGION", "")
     if os.environ.get("INTER_REGION", "") == "True":
       print(f"inter-region init - create in current region: '{restore_region}'")
-      print(f"current region '{os.environ.get("SQS_QUEUE_REGION", "")}' is inter-region primary '{os.environ.get("ACTIVE_REGION", "")}'")
+      print(f"current region '{os.environ.get('SQS_QUEUE_REGION', '')}' is inter-region primary '{os.environ.get('ACTIVE_REGION', '')}'")
     else:
       print(f"intra-region init/HA - create/restore in current region: '{restore_region}'")
   return restore_region
@@ -189,7 +189,7 @@ def handle_copilot_ha():
 
   # return if inter-region init in current region is standby_region
   if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
-    print(f"Not initializing copilot in the standby region '{os.environ.get("SQS_QUEUE_REGION", "")}' in inter-region init")
+    print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
 
   # log controller failover status
