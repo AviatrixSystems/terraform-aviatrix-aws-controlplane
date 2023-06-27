@@ -306,48 +306,48 @@ locals {
   image_tag  = "latest"
 }
 
-# resource "aws_ecr_repository" "repo" {
-#   name         = "avx_platform_ha"
-#   force_delete = true
-#   tags         = local.common_tags
-# }
+resource "aws_ecr_repository" "repo" {
+  name         = "avx_platform_ha"
+  force_delete = true
+  tags         = local.common_tags
+}
 
-# resource "docker_image" "ecr_image" {
-#   name = local.image_name
+resource "docker_image" "ecr_image" {
+  name = local.image_name
 
-#   build {
-#     context    = local.image_path
-#     dockerfile = "Dockerfile.aws"
-#     no_cache   = true
-#     tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
-#   }
-#   triggers = {
-#     source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
-#   }
-#   depends_on = [
-#     aws_ecr_repository.repo
-#   ]
-# }
+  build {
+    context    = local.image_path
+    dockerfile = "Dockerfile.aws"
+    no_cache   = true
+    tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
+  }
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+  }
+  depends_on = [
+    aws_ecr_repository.repo
+  ]
+}
 
-# resource "null_resource" "push_ecr_image" {
-#   triggers = {
-#     source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
-#   }
+resource "null_resource" "push_ecr_image" {
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+  }
 
-#   provisioner "local-exec" {
-#     command = <<-EOF
-#     aws ecr get-login-password \
-#       --region ${var.region} \
-#       | docker login \
-#       --username AWS \
-#       --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com
-#     docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
-#     EOF
-#   }
-#   depends_on = [
-#     docker_image.ecr_image
-#   ]
-# }
+  provisioner "local-exec" {
+    command = <<-EOF
+    aws ecr get-login-password \
+      --region ${var.region} \
+      | docker login \
+      --username AWS \
+      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com
+    docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
+    EOF
+  }
+  depends_on = [
+    docker_image.ecr_image
+  ]
+}
 
 data "aws_caller_identity" "current" {}
 
