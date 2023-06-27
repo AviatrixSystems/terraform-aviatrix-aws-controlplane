@@ -374,8 +374,9 @@ resource "aws_launch_template" "avtx-controller" {
     device_name = "/dev/sda1"
 
     ebs {
-      volume_size = var.root_volume_size
-      volume_type = var.root_volume_type
+      volume_size           = var.root_volume_size
+      volume_type           = var.root_volume_type
+      delete_on_termination = true
     }
   }
 
