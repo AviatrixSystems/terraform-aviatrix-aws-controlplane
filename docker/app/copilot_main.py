@@ -101,6 +101,7 @@ def get_restore_region():
   return restore_region
 
 def get_copilot_init():
+  print(f"Private IP check for init: {os.environ.get('PRIV_IP', '')}")
   if os.environ.get("PRIV_IP", "") == "":
     return True
   else:
