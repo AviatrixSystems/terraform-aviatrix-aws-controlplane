@@ -89,6 +89,10 @@ resource "aws_autoscaling_group" "avtx_copilot" {
   timeouts {
     delete = "15m"
   }
+
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 # Define a listener

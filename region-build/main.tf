@@ -454,6 +454,10 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   timeouts {
     delete = "15m"
   }
+
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 resource "aws_sqs_queue" "controller_updates_queue" {
@@ -653,31 +657,8 @@ resource "aws_cloudwatch_log_group" "log_group" {
 
 locals {
   controller_eip     = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
-  argument_destroy   = format("--avx_password %s --avx_password_ssm_path %s --avx_password_ssm_region %s --controller_ip %s", var.avx_password, var.avx_password_ssm_path, var.avx_password_ssm_region, local.controller_eip)
   argument_stop_task = format("--region %s --cluster %s", var.region, "avx_platform_ha")
-}
-
-resource "null_resource" "disable_sg_mgmt_script" {
-  triggers = {
-    argument_destroy = local.argument_destroy
-  }
-
-  provisioner "local-exec" {
-    when       = destroy
-    command    = "python3 -W ignore ${path.module}/disable_controller_sg_mgmt.py ${self.triggers.argument_destroy}"
-    on_failure = continue
-  }
-
-  depends_on = [
-    aws_autoscaling_group.avtx_ctrl,
-    aws_lb_listener.avtx-ctrl,
-    aws_route_table_association.rtb_association,
-    aws_route_table_association.rtb_association_ha,
-    aws_internet_gateway.igw,
-    aws_security_group_rule.ingress_rule,
-    aws_security_group_rule.egress_rule,
-    aws_eip.controller_eip
-  ]
+  argument_delete_sg = var.use_existing_vpc ? null : format("--region %s --vpc %s", var.region, aws_vpc.vpc[0].id)
 }
 
 resource "null_resource" "stop_ecs_tasks_script" {
@@ -693,5 +674,22 @@ resource "null_resource" "stop_ecs_tasks_script" {
 
   depends_on = [
     module.ecs_cluster
+  ]
+}
+
+resource "null_resource" "delete_sg_script" {
+  count = var.use_existing_vpc ? 0 : 1
+  triggers = {
+    argument_delete_sg = local.argument_delete_sg
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/delete_sg.py ${self.triggers.argument_delete_sg}"
+    on_failure = continue
+  }
+
+  depends_on = [
+    aws_vpc.vpc[0]
   ]
 }
