@@ -27,6 +27,11 @@ resource "aws_subnet" "subnet" {
   tags = {
     Name = "${var.subnet_name}-1"
   }
+
+  # Force delete SG script to run at the end when only the VPC is left
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 resource "aws_subnet" "subnet_ha" {
@@ -37,6 +42,11 @@ resource "aws_subnet" "subnet_ha" {
   tags = {
     Name = "${var.subnet_name}-2"
   }
+
+  # Force delete SG script to run at the end when only the VPC is left
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -45,6 +55,11 @@ resource "aws_internet_gateway" "igw" {
   tags = {
     Name = "${var.vpc_name}-igw"
   }
+
+  # Force delete SG script to run at the end when only the VPC is left
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 resource "aws_route_table" "rtb" {
