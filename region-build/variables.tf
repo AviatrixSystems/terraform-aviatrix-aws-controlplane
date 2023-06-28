@@ -160,6 +160,23 @@ variable "cop_allowed_cidrs" {
   }
 }
 
+variable "cop_incoming_https_cidr" {
+  type        = list(string)
+  description = "Incoming CIDR for HTTPS access to the CoPilot"
+}
+
+variable "cop_incoming_syslog_cidr" {
+  type        = list(string)
+  description = "Incoming CIDR for Syslog sources to the CoPilot"
+  default     = "0.0.0.0/0"
+}
+
+variable "cop_incoming_netflow_cidr" {
+  type        = list(string)
+  description = "Incoming CIDR for Netflow sources to the CoPilot"
+  default     = "0.0.0.0/0"
+}
+
 variable "s3_backup_bucket" {
   type        = string
   description = "S3 bucket for Controller DB backup"

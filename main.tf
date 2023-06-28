@@ -31,6 +31,9 @@ module "region1" {
   cop_default_data_volume_size  = var.cop_default_data_volume_size
   cop_default_data_volume_type  = var.cop_default_data_volume_type
   cop_allowed_cidrs             = var.cop_allowed_cidrs
+  cop_incoming_https_cidr       = var.cop_incoming_https_cidr
+  cop_incoming_netflow_cidr     = var.cop_incoming_netflow_cidr
+  cop_incoming_syslog_cidr      = var.cop_incoming_syslog_cidr
   tags                          = var.tags
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
@@ -98,6 +101,9 @@ module "region2" {
   cop_default_data_volume_size  = var.cop_default_data_volume_size
   cop_default_data_volume_type  = var.cop_default_data_volume_type
   cop_allowed_cidrs             = var.cop_allowed_cidrs
+  cop_incoming_https_cidr       = var.cop_incoming_https_cidr
+  cop_incoming_netflow_cidr     = var.cop_incoming_netflow_cidr
+  cop_incoming_syslog_cidr      = var.cop_incoming_syslog_cidr
   tags                          = var.tags
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
