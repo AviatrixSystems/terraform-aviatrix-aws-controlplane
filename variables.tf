@@ -136,31 +136,6 @@ variable "incoming_ssl_cidr" {
   description = "Incoming cidr for security group used by controller"
 }
 
-variable "cop_allowed_cidrs" {
-  type = map(object({
-    protocol = string,
-    port     = number
-    cidrs    = set(string),
-  }))
-  default = {
-    "tcp_cidrs" = {
-      protocol = "tcp"
-      port     = "443"
-      cidrs    = ["0.0.0.0/0"]
-    }
-    "udp_cidrs_1" = {
-      protocol = "udp"
-      port     = "5000"
-      cidrs    = ["0.0.0.0/0"]
-    }
-    "udp_cidrs_2" = {
-      protocol = "udp"
-      port     = "31283"
-      cidrs    = ["0.0.0.0/0"]
-    }
-  }
-}
-
 variable "cop_incoming_https_cidr" {
   type        = list(string)
   description = "Incoming CIDR for HTTPS access to the CoPilot"
