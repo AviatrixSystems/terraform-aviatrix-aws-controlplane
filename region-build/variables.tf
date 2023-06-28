@@ -143,13 +143,13 @@ variable "cop_incoming_https_cidr" {
 variable "cop_incoming_syslog_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Syslog sources to the CoPilot"
-  default     = "0.0.0.0/0"
+  default     = ["0.0.0.0/0"]
 }
 
 variable "cop_incoming_netflow_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Netflow sources to the CoPilot"
-  default     = "0.0.0.0/0"
+  default     = ["0.0.0.0/0"]
 }
 
 variable "s3_backup_bucket" {
