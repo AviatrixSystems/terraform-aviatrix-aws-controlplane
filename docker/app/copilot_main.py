@@ -236,8 +236,16 @@ def handle_copilot_ha():
   print(f"controller_instanceobj: {controller_instanceobj}")
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
+  print(f"got instance public IPs: {instance_public_ips}")
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
+  print(f"got copilot auth ip: {copilot_auth_ip}")
 
+  print("creating copilot_event")
+  print(f"restore_region: {restore_region}")
+  print(f"copilot_init: {copilot_init}")
+  print(f"primary_account_name: {os.environ.get('PRIMARY_ACC_NAME', '')}")
+  print(f"copilot_custom_user: {copilot_user_info}")
+  print(f"creds: {controller_username} -- {controller_creds}")
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
