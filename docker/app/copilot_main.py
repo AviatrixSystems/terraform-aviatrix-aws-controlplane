@@ -163,6 +163,116 @@ def log_failover_status(type):
     else:
         print(no_recent_reboot_log)
 
+def create_sg(ec2_client, vpc_id: str, sg_name: str = "TMP_ACCESS", sg_desc: str = "TMP_ACCESS"):
+    print(f"Creating {sg_name} SG in VPC {vpc_id}")
+    try:
+        response = ec2_client.create_security_group(GroupName=sg_name, Description=sg_desc, VpcId=vpc_id)
+        security_group_id = response['GroupId']
+        print(f"Created SG {security_group_id} in VPC {vpc_id}")
+        return security_group_id
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Creating {sg_name} SG error: {err}")
+
+def modify_sg_rules(
+    ec2_client,
+    operation: str,
+    security_group_id: str,
+    from_port: int,
+    to_port: int,
+    protocol: str = "tcp",
+    cidr_list = [],
+) -> None:
+    try:
+        if operation == "add_rule":
+            fn = ec2_client.authorize_security_group_ingress
+        elif operation == "del_rule":
+            fn = ec2_client.revoke_security_group_ingress
+        data = fn(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    "FromPort": from_port,
+                    "ToPort": to_port,
+                    "IpProtocol": protocol,
+                    "IpRanges": [
+                        {
+                            "CidrIp": cidr,
+                            "Description": "Added by copilot ha script"
+                        } for cidr in cidr_list
+                    ]
+                }
+            ]
+        )
+        print(f"Rules successfully modified: {data}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Modifying SG rules error: {err}")
+
+def add_sg_to_instance(ec2_client, instanceobj, security_group_id: str):
+    try:
+        sg_ids = [sg.get('GroupId', None) for sg in instanceobj['SecurityGroups']]
+        sg_ids.append(security_group_id)
+        response = ec2_client.modify_instance_attribute(
+            InstanceId=instanceobj['InstanceId'],
+            Groups=sg_ids
+        )
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print(f"SG {security_group_id} associated successfully to instance {instanceobj['InstanceId']}.")
+        else:
+            print(f"Failed to associate security group: {response['ResponseMetadata']}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Adding SG {security_group_id} to instance {instanceobj['InstanceId']} error: {err}")
+
+def remove_sg_from_instance(ec2_client, instanceobj, security_group_id: str):
+    try:
+        sg_ids = [sg.get('GroupId', None) for sg in instanceobj['SecurityGroups']]
+        if security_group_id in sg_ids:
+            sg_ids.remove(security_group_id)
+            response = ec2_client.modify_instance_attribute(
+                InstanceId=instanceobj["InstanceId"],
+                Groups=sg_ids
+            )
+            if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                print(f"Successfully updated instance {instanceobj['InstanceId']} SGs: {sg_ids}.")
+            else:
+                print(f"Failed to remove SG {security_group_id} from instance {instanceobj['InstanceId']}: {response['ResponseMetadata']}")
+        else:
+            print(f"SG {security_group_id} not in instance {instanceobj['InstanceId']} SG list: {sg_ids}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Removing SG {security_group_id} from instance {instanceobj['InstanceId']} error: {err}")
+
+def manage_tmp_access(ec2_client, instance_name: str, operation: str, sg_id: str = "") -> None:
+    instanceobj = restore_client.describe_instances(
+      Filters=[
+        {"Name": "instance-state-name", "Values": ["running"]},
+        {"Name": "tag:Name", "Values": [instance_name]},
+      ]
+    )["Reservations"][0]["Instances"][0]
+    if operation == "add_rule":
+        try:
+            print("Enabling access - Creating tmp SG & rules")
+            security_group_id = create_sg(ec2_client, instanceobj['VpcId'], "TMP_ACCESS", "TMP_ACCESS")
+            data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+            print(f"Enabling tmp access on instance: {instanceobj['InstanceId']}")
+            add_sg_to_instance(ec2_client, instanceobj, security_group_id)
+            return security_group_id
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Enabling access error: {err}")
+    elif operation == "del_rule" and sg_id:
+        # Remove SG from instances, and Delete
+        try:
+            print(f"Removing tmp access from instance: {instanceobj['InstanceId']}")
+            remove_sg_from_instance(ec2_client, instanceobj, sg_id)
+            print(f"Deleting tmp SG: {sg_id}")
+            response = ec2_client.delete_security_group(GroupId=sg_id)
+            print('Successfully disabled temporary access')
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Disabling access error: {err}")
 
 def handle_copilot_ha():
   # use cases:
@@ -211,7 +321,7 @@ def handle_copilot_ha():
   controller_creds = get_vm_password("controller")
 
   # get copilot instance and auth info
-  instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+  copilot_instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
   copilot_user_info = get_copilot_user_info()
 
   restore_region = get_restore_region()
@@ -221,7 +331,7 @@ def handle_copilot_ha():
   copilot_instanceobj = restore_client.describe_instances(
     Filters=[
       {"Name": "instance-state-name", "Values": ["running"]},
-      {"Name": "tag:Name", "Values": [instance_name]},
+      {"Name": "tag:Name", "Values": [copilot_instance_name]},
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"copilot_instanceobj: {copilot_instanceobj}")
@@ -234,18 +344,16 @@ def handle_copilot_ha():
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
+  # enable tmp access on the controller
+  controller_tmp_sg = manage_tmp_access(restore_client, controller_instance_name, "add_rule")
+  # enable tmp access on the copilot
+  copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instance_name, "add_rule")
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
   print(f"got instance public IPs: {instance_public_ips}")
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
   print(f"got copilot auth ip: {copilot_auth_ip}")
 
-  print("creating copilot_event")
-  print(f"restore_region: {restore_region}")
-  print(f"copilot_init: {copilot_init}")
-  print(f"primary_account_name: {os.environ.get('PRIMARY_ACC_NAME', '')}")
-  print(f"copilot_custom_user: {copilot_user_info}")
-  print(f"creds: {controller_username} -- {controller_creds}")
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
@@ -282,9 +390,13 @@ def handle_copilot_ha():
     },
   }
   print(f"copilot_event: {copilot_event}")
-  
+
   handle_event(copilot_event)
 
+  # enable tmp access on the controller
+  manage_tmp_access(restore_client, controller_instance_name, "del_rule", controller_tmp_sg)
+  # enable tmp access on the copilot
+  manage_tmp_access(restore_client, copilot_instance_name, "del_rule", copilot_tmp_sg)
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
@@ -433,6 +545,10 @@ def handle_event(event):
   controller_copilot_setup(api, event)
   # close controller sg
   api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
+  # close copilot sg
+  api.manage_sg_access(ec2_client, event['copilot_info']['sg_id'], False)
+  # add https ingress rule for copilot
+  api.manage_sg_access(ec2_client, event['copilot_info']['sg_id'], False)
 
 if __name__ == "__main__":
   copilot_event = {
