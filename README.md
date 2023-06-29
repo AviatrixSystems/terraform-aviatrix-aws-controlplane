@@ -94,7 +94,7 @@ module "aws_controller_ha" {
   asg_notif_email             = "asg@example.com"
   s3_backup_bucket            = "backup-bucket"
   s3_backup_region            = "us-east-1"
-  ha_distribution             = "inter-az"
+  ha_distribution             = "inter-region"
   zone_name                   = "example.com"
   record_name                 = "controller.example.com"
   inter_region_backup_enabled = true
