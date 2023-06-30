@@ -176,34 +176,6 @@ class ControllerAPI:
             print(f"Failed to get API token, {err}")
         return resp
 
-    def manage_sg_access(self, ec2_client, sg_id, open=True):
-        try:
-            if open:
-                print(f"Adding 0.0.0.0/0 to SG {sg_id}")
-                authorize_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
-            else:
-                print(f"Removing 0.0.0.0/0 from SG {sg_id}")
-                revoke_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
-        except botocore.exceptions.ClientError as err:
-            if err.response['Error']['Code'] == "InvalidPermission.Duplicate":
-                open and print(f"SG {sg_id} is already open to 0.0.0.0/0")
-            elif err.response['Error']['Code'] == "InvalidPermission.NotFound":
-                not open and print(f"SG {sg_id} is already closed to 0.0.0.0/0")
-            else:
-                print(str(traceback.format_exc()))
-                if open:
-                    print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
-                else:
-                    print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
-                print(f"Error message: {err.response['Error']['Message']}")
-        except Exception as err:  # pylint: disable=broad-except
-            print(str(traceback.format_exc()))
-            if open:
-                print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
-            else:
-                print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
-            print(f"Error message: {err.response['Error']['Message']}")
-
     def retry_login(self, username: str, password: str) -> bool:
         attempts = 0
         retries = 5

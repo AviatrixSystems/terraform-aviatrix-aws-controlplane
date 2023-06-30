@@ -245,7 +245,7 @@ def delete_sg_ingress_rule(ec2_client, security_group_id, rule):
 def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
     if operation == "add_rule":
         try:
-            print("Enabling access - Creating tmp rules")
+            print(f"Enabling access - Creating tmp rules for SG: {security_group_id}")
             add_rule = check_if_rule_exists(ec2_client, security_group_id, {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'})
             if add_rule:
                 print(f"Enabling tmp access on SG: {security_group_id}")
@@ -451,8 +451,6 @@ def handle_event(event):
                                  private_mode=False,
                                  add=True)
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   # if custom copilot user is needed, login with the controller user,
   # and then create the copilot user
   if event["copilot_custom_user"]:
@@ -471,8 +469,6 @@ def handle_event(event):
                                                                event["copilot_info"]['user_info']["password"])
   print(f"set_controller_ip: {set_controller_ip_resp}")
 
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   if event['copilot_init']:
     # copilot init use case - not HA
     if event['copilot_type'] == "singleNode":
@@ -550,15 +546,7 @@ def handle_event(event):
   print(f"get_copilot_backup: {response}")
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   controller_copilot_setup(api, event)
-  # close controller sg
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
-  # close copilot sg
-  api.manage_sg_access(ec2_client, event['copilot_info']['sg_id'], False)
-  # add https ingress rule for copilot
-  api.manage_sg_access(ec2_client, event['copilot_info']['sg_id'], False)
 
 if __name__ == "__main__":
   copilot_event = {
