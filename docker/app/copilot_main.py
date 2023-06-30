@@ -163,10 +163,16 @@ def log_failover_status(type):
     else:
         print(no_recent_reboot_log)
 
-def create_sg(ec2_client, vpc_id: str, sg_name: str = "TMP_ACCESS", sg_desc: str = "TMP_ACCESS"):
-    print(f"Creating {sg_name} SG in VPC {vpc_id}")
+def create_sg(
+    ec2_client,
+    vpc_id: str,
+    random_id: str,
+    sg_name: str = "TMP_ACCESS",
+    sg_desc: str = "TMP_ACCESS"
+) -> str:
+    print(f"Creating {sg_name}-{random_id} SG in VPC {vpc_id}")
     try:
-        response = ec2_client.create_security_group(GroupName=sg_name, Description=sg_desc, VpcId=vpc_id)
+        response = ec2_client.create_security_group(GroupName=f"{sg_name}-{random_id}", Description=sg_desc, VpcId=vpc_id, )
         security_group_id = response['GroupId']
         print(f"Created SG {security_group_id} in VPC {vpc_id}")
         return security_group_id
@@ -254,7 +260,7 @@ def manage_tmp_access(ec2_client, instance_name: str, operation: str, sg_id: str
     if operation == "add_rule":
         try:
             print("Enabling access - Creating tmp SG & rules")
-            security_group_id = create_sg(ec2_client, instanceobj['VpcId'], "TMP_ACCESS", "TMP_ACCESS")
+            security_group_id = create_sg(ec2_client, instanceobj['VpcId'], instanceobj['InstanceId'], "TMP_ACCESS", "TMP_ACCESS")
             data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
             print(f"Enabling tmp access on instance: {instanceobj['InstanceId']}")
             add_sg_to_instance(ec2_client, instanceobj, security_group_id)
@@ -312,6 +318,10 @@ def handle_copilot_ha():
   except Exception as err:
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
+
+  # sleep
+  print("sleeping for 120 seconds")
+  time.sleep(120)
 
   # get controller instance and auth info
   controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
@@ -400,8 +410,8 @@ def handle_copilot_ha():
 
   print("shaheer7")
   # sleep
-  print("sleeping for 900 seconds")
-  time.sleep(900)
+  print("sleeping for 800 seconds")
+  time.sleep(800)
 
   print("shaheer8")
   handle_event(copilot_event)
