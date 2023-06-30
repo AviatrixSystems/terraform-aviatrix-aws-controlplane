@@ -59,8 +59,8 @@ module "region1" {
   existing_eip                  = var.existing_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_eip
-  ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
-  # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  # ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
+  ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
 module "region2" {
@@ -128,8 +128,8 @@ module "region2" {
   existing_eip                  = var.existing_dr_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_dr_eip
-  ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
-  # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  # ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
+  ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
 module "aviatrix-iam-roles" {
