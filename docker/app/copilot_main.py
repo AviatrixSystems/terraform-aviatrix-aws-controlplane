@@ -245,7 +245,7 @@ def remove_sg_from_instance(ec2_client, instanceobj, security_group_id: str):
         print(f"Removing SG {security_group_id} from instance {instanceobj['InstanceId']} error: {err}")
 
 def manage_tmp_access(ec2_client, instance_name: str, operation: str, sg_id: str = "") -> None:
-    instanceobj = restore_client.describe_instances(
+    instanceobj = ec2_client.describe_instances(
       Filters=[
         {"Name": "instance-state-name", "Values": ["running"]},
         {"Name": "tag:Name", "Values": [instance_name]},
