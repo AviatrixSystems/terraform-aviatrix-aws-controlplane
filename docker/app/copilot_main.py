@@ -341,13 +341,13 @@ def handle_copilot_ha():
   # enable tmp access on the controller
   controller_tmp_sg = manage_tmp_access(
       restore_client,
-      controller_instance_name['SecurityGroups'][0]['GroupId'],
+      controller_instanceobj['SecurityGroups'][0]['GroupId'],
       "add_rule"
   )
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(
       restore_client,
-      copilot_instance_name,
+      copilot_instanceobj['SecurityGroups'][0]['GroupId'],
       "add_rule"
   )
 
