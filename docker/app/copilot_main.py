@@ -250,35 +250,107 @@ def remove_sg_from_instance(ec2_client, instanceobj, security_group_id: str):
         print(str(traceback.format_exc()))
         print(f"Removing SG {security_group_id} from instance {instanceobj['InstanceId']} error: {err}")
 
-def manage_tmp_access(ec2_client, instance_name: str, operation: str, sg_id: str = "") -> None:
-    instanceobj = ec2_client.describe_instances(
-      Filters=[
-        {"Name": "instance-state-name", "Values": ["running"]},
-        {"Name": "tag:Name", "Values": [instance_name]},
-      ]
-    )["Reservations"][0]["Instances"][0]
+def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
+    try:
+        response = ec2_client.describe_security_groups(
+            GroupIds=[security_group_id]
+        )
+        print(f"found security group rules: {response}")
+        add_rule = True
+        if 'SecurityGroups' in response:
+            security_group = response['SecurityGroups'][0]
+            all_rules = security_group['IpPermissions']
+            print(f"all sg rules: {all_rules}")
+            for each_rule in all_rules:
+                if each_rule['IpProtocol'] == check_rule['IpProtocol'] and each_rule['FromPort'] == check_rule['FromPort']:
+                    print(f"found https rule: {each_rule}")
+                    for ip_range in each_rule['IpRanges']:
+                        if ip_range['CidrIp'] == check_rule['CidrIp']:
+                            print(f"found https quad 0 rule: {each_rule}")
+                            add_rule = False
+                            break
+        else:
+            print("Failed to retrieve security group rules.")
+        return add_rule
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Retrieving rules from SG {security_group_id} error: {err}")
+
+# def manage_tmp_access(ec2_client, instance_name: str, operation: str, sg_id: str = "") -> None:
+#     instanceobj = ec2_client.describe_instances(
+#       Filters=[
+#         {"Name": "instance-state-name", "Values": ["running"]},
+#         {"Name": "tag:Name", "Values": [instance_name]},
+#       ]
+#     )["Reservations"][0]["Instances"][0]
+#     if operation == "add_rule":
+#         try:
+#             print("Enabling access - Creating tmp SG & rules")
+#             security_group_id = instanceobj['SecurityGroups'][0]['GroupId']
+#             add_rule = check_if_rule_exists(ec2_client, security_group_id, 'tcp', 443, '0.0.0.0/0')
+#             if add_rule:
+#                 print(f"Enabling tmp access on instance: {instanceobj['InstanceId']}")
+#                 data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+#                 return security_group_id
+#             else:
+#                 print(f"Access already enabled on SG {security_group_id}")
+#         except Exception as err:  # pylint: disable=broad-except
+#             print(str(traceback.format_exc()))
+#             print(f"Enabling access error: {err}")
+#     elif operation == "del_rule" and sg_id:
+#         # Remove SG from instances, and Delete
+#         try:
+#             print(f"Removing tmp access from instance: {instanceobj['InstanceId']}")
+#             remove_sg_from_instance(ec2_client, instanceobj, sg_id)
+#             print(f"Deleting tmp SG: {sg_id}")
+#             response = ec2_client.delete_security_group(GroupId=sg_id)
+#             print('Successfully disabled temporary access')
+#         except Exception as err:  # pylint: disable=broad-except
+#             print(str(traceback.format_exc()))
+#             print(f"Disabling access error: {err}")
+
+# rule = {'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+def delete_sg_ingress_rule(ec2_client, security_group_id, rule):
+    try:
+        response = ec2_client.revoke_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[rule]
+        )
+
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print("Security group ingress rule deleted successfully.")
+        else:
+            print("Failed to delete security group ingress rule.")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Removing SG rule from SG {security_group_id} access error: {err}")
+
+
+def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
     if operation == "add_rule":
         try:
-            print("Enabling access - Creating tmp SG & rules")
-            security_group_id = create_sg(ec2_client, instanceobj['VpcId'], instanceobj['InstanceId'], "TMP_ACCESS", "TMP_ACCESS")
-            data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
-            print(f"Enabling tmp access on instance: {instanceobj['InstanceId']}")
-            add_sg_to_instance(ec2_client, instanceobj, security_group_id)
-            return security_group_id
+            print("Enabling access - Creating tmp rules")
+            add_rule = check_if_rule_exists(ec2_client, security_group_id, {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'})
+            if add_rule:
+                print(f"Enabling tmp access on SG: {security_group_id}")
+                data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+                return security_group_id
+            else:
+                print(f"Access already enabled on SG {security_group_id}")
         except Exception as err:  # pylint: disable=broad-except
             print(str(traceback.format_exc()))
             print(f"Enabling access error: {err}")
-    elif operation == "del_rule" and sg_id:
+    elif operation == "del_rule":
         # Remove SG from instances, and Delete
         try:
-            print(f"Removing tmp access from instance: {instanceobj['InstanceId']}")
-            remove_sg_from_instance(ec2_client, instanceobj, sg_id)
-            print(f"Deleting tmp SG: {sg_id}")
-            response = ec2_client.delete_security_group(GroupId=sg_id)
+            print(f"Removing tmp access from SG: {security_group_id}")
+            del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            delete_sg_ingress_rule(ec2_client, security_group_id, del_rule)
             print('Successfully disabled temporary access')
         except Exception as err:  # pylint: disable=broad-except
             print(str(traceback.format_exc()))
             print(f"Disabling access error: {err}")
+
 
 def handle_copilot_ha():
   # use cases:
@@ -305,8 +377,6 @@ def handle_copilot_ha():
   inter_region = os.environ.get("INTER_REGION", "") == "True"
   copilot_init = get_copilot_init()
 
-  print("shaheer1")
-
   # return if inter-region init in current region is standby_region
   if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
@@ -328,16 +398,12 @@ def handle_copilot_ha():
   controller_username = "admin"
   controller_creds = get_vm_password("controller")
 
-  print("shaheer2")
-
   # get copilot instance and auth info
   copilot_instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
   copilot_user_info = get_copilot_user_info()
 
   restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
-
-  print("shaheer3")
 
   # get restore_region copilot to be created/restored
   copilot_instanceobj = restore_client.describe_instances(
@@ -356,20 +422,15 @@ def handle_copilot_ha():
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
-  print("shaheer4")
   # enable tmp access on the controller
   controller_tmp_sg = manage_tmp_access(restore_client, controller_instance_name, "add_rule")
-  print("shaheer5")
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instance_name, "add_rule")
-  print("shaheer5")
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
   print(f"got instance public IPs: {instance_public_ips}")
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
   print(f"got copilot auth ip: {copilot_auth_ip}")
-
-  print("shaheer6")
 
   copilot_event = {
     "region": restore_region,
@@ -408,21 +469,20 @@ def handle_copilot_ha():
   }
   print(f"copilot_event: {copilot_event}")
 
-  print("shaheer7")
   # sleep
   print("sleeping for 800 seconds")
   time.sleep(800)
 
-  print("shaheer8")
   handle_event(copilot_event)
 
-  print("shaheer9")
-  # enable tmp access on the controller
-  manage_tmp_access(restore_client, controller_instance_name, "del_rule", controller_tmp_sg)
-  print("shaheer10")
-  # enable tmp access on the copilot
-  manage_tmp_access(restore_client, copilot_instance_name, "del_rule", copilot_tmp_sg)
-  print("shaheer11")
+  # disable tmp access on the controller
+  if controller_tmp_sg:
+      print(f"controller tmp sg exists: {controller_tmp_sg}")
+      manage_tmp_access(restore_client, controller_instance_name, "del_rule", controller_tmp_sg)
+  # disable tmp access on the copilot
+  if copilot_tmp_sg:
+      print(f"copilot_tmp_sg exists: {copilot_tmp_sg}")
+      manage_tmp_access(restore_client, copilot_instance_name, "del_rule", copilot_tmp_sg)
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
