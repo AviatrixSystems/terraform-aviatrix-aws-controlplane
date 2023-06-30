@@ -146,7 +146,7 @@ def get_instance_recent_restart(type):
     # Calculate the time difference between the launch time and current time
     delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
     # Check if the instance was recently restarted (e.g. within the last 10 minutes)
-    if delta < datetime.timedelta(minutes=30):
+    if delta < datetime.timedelta(minutes=60):
         return True
     else:
         return False
@@ -352,9 +352,7 @@ def handle_copilot_ha():
   )
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
-  print(f"got instance public IPs: {instance_public_ips}")
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
-  print(f"got copilot auth ip: {copilot_auth_ip}")
 
   copilot_event = {
     "region": restore_region,
