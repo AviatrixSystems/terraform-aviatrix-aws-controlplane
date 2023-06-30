@@ -299,6 +299,8 @@ def handle_copilot_ha():
   inter_region = os.environ.get("INTER_REGION", "") == "True"
   copilot_init = get_copilot_init()
 
+  print("shaheer1")
+
   # return if inter-region init in current region is standby_region
   if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
@@ -311,14 +313,12 @@ def handle_copilot_ha():
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
 
-  # sleep
-  print("sleeping for 900 seconds")
-  time.sleep(900)
-
   # get controller instance and auth info
   controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
   controller_username = "admin"
   controller_creds = get_vm_password("controller")
+
+  print("shaheer2")
 
   # get copilot instance and auth info
   copilot_instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
@@ -326,6 +326,8 @@ def handle_copilot_ha():
 
   restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
+
+  print("shaheer3")
 
   # get restore_region copilot to be created/restored
   copilot_instanceobj = restore_client.describe_instances(
@@ -344,15 +346,20 @@ def handle_copilot_ha():
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
+  print("shaheer4")
   # enable tmp access on the controller
   controller_tmp_sg = manage_tmp_access(restore_client, controller_instance_name, "add_rule")
+  print("shaheer5")
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instance_name, "add_rule")
+  print("shaheer5")
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
   print(f"got instance public IPs: {instance_public_ips}")
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
   print(f"got copilot auth ip: {copilot_auth_ip}")
+
+  print("shaheer6")
 
   copilot_event = {
     "region": restore_region,
@@ -391,12 +398,21 @@ def handle_copilot_ha():
   }
   print(f"copilot_event: {copilot_event}")
 
+  print("shaheer7")
+  # sleep
+  print("sleeping for 900 seconds")
+  time.sleep(900)
+
+  print("shaheer8")
   handle_event(copilot_event)
 
+  print("shaheer9")
   # enable tmp access on the controller
   manage_tmp_access(restore_client, controller_instance_name, "del_rule", controller_tmp_sg)
+  print("shaheer10")
   # enable tmp access on the copilot
   manage_tmp_access(restore_client, copilot_instance_name, "del_rule", copilot_tmp_sg)
+  print("shaheer11")
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
