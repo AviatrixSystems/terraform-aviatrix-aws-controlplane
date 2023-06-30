@@ -246,7 +246,11 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
     if operation == "add_rule":
         try:
             print(f"Enabling access - Creating tmp rules for SG: {security_group_id}")
-            add_rule = check_if_rule_exists(ec2_client, security_group_id, {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'})
+            add_rule = check_if_rule_exists(
+                ec2_client,
+                security_group_id,
+                {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'}
+            )
             if add_rule:
                 print(f"Enabling tmp access on SG: {security_group_id}")
                 data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
@@ -395,11 +399,9 @@ def handle_copilot_ha():
 
   # disable tmp access on the controller
   if controller_tmp_sg:
-      print(f"controller tmp sg exists: {controller_tmp_sg}")
       manage_tmp_access(restore_client, controller_tmp_sg, "del_rule")
   # disable tmp access on the copilot
   if copilot_tmp_sg:
-      print(f"copilot_tmp_sg exists: {copilot_tmp_sg}")
       manage_tmp_access(restore_client, copilot_tmp_sg, "del_rule")
 
 def handle_event(event):
