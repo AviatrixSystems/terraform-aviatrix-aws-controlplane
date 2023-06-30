@@ -306,8 +306,8 @@ def handle_copilot_ha():
     print(str(err))
 
   # sleep
-  print("sleeping for 120 seconds")
-  time.sleep(120)
+  print("sleeping for 900 seconds")
+  time.sleep(900)
 
   # get controller instance and auth info
   controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
@@ -392,10 +392,6 @@ def handle_copilot_ha():
     },
   }
   print(f"copilot_event: {copilot_event}")
-
-  # sleep
-  print("sleeping for 800 seconds")
-  time.sleep(800)
 
   handle_event(copilot_event)
 
