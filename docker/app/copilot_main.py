@@ -514,7 +514,7 @@ def handle_event(event):
         print(f"Unable to get saved config. Abort restore")
         return
       # setting possibly new controller IP in saved config
-      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['controller_info']['public_ip']
+      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['auth_ip']
       # 2. restore saved config on new copilot
       print(f"Restoring config on CoPilot: {config}")
       response = copilot_api.restore_copilot(config)
