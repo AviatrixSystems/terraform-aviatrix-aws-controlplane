@@ -225,23 +225,6 @@ def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
         print(str(traceback.format_exc()))
         print(f"Retrieving rules from SG {security_group_id} error: {err}")
 
-# rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
-def delete_sg_ingress_rule(ec2_client, security_group_id, rule):
-    try:
-        response = ec2_client.revoke_security_group_ingress(
-            GroupId=security_group_id,
-            IpPermissions=[rule]
-        )
-
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            print("Security group ingress rule deleted successfully.")
-        else:
-            print("Failed to delete security group ingress rule.")
-    except Exception as err:  # pylint: disable=broad-except
-        print(str(traceback.format_exc()))
-        print(f"Removing SG rule from SG {security_group_id} access error: {err}")
-
-
 def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
     if operation == "add_rule":
         try:
@@ -265,7 +248,7 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
         try:
             print(f"Removing tmp access from SG: {security_group_id}")
             del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
-            delete_sg_ingress_rule(ec2_client, security_group_id, del_rule)
+            modify_sg_rules(ec2_client, "del_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
             print('Successfully disabled temporary access')
         except Exception as err:  # pylint: disable=broad-except
             print(str(traceback.format_exc()))
@@ -413,23 +396,38 @@ def handle_event(event):
   if event['copilot_type'] == "singleNode":
     print(f"Adding CoPilot IPs '{event['copilot_info']['public_ip']}' and '{event['copilot_info']['private_ip']}' to Controller SG '{event['controller_info']['sg_id']}'")
     try:
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['public_ip']}/32"])
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['private_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['public_ip']}/32"]
+      )
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['private_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding CoPilot IP to Controller SG failed due to " + str(err))
     try:
       print(f"Adding Controller auth IP '{event['auth_ip']}' to CoPilot SG '{event['copilot_info']['sg_id']}'")
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['copilot_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['auth_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['copilot_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['auth_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding Controller auth IP to CoPilot SG failed due to " + str(err))
