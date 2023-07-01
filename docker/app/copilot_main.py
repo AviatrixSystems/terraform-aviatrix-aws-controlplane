@@ -146,7 +146,7 @@ def get_instance_recent_restart(type):
     # Calculate the time difference between the launch time and current time
     delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
     # Check if the instance was recently restarted (e.g. within the last 10 minutes)
-    if delta < datetime.timedelta(minutes=30):
+    if delta < datetime.timedelta(minutes=60):
         return True
     else:
         return False
@@ -162,6 +162,97 @@ def log_failover_status(type):
         print(recent_reboot_log)
     else:
         print(no_recent_reboot_log)
+
+def modify_sg_rules(
+    ec2_client,
+    operation: str,
+    security_group_id: str,
+    from_port: int,
+    to_port: int,
+    protocol: str = "tcp",
+    cidr_list = [],
+) -> None:
+    try:
+        if operation == "add_rule":
+            fn = ec2_client.authorize_security_group_ingress
+        elif operation == "del_rule":
+            fn = ec2_client.revoke_security_group_ingress
+        data = fn(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    "FromPort": from_port,
+                    "ToPort": to_port,
+                    "IpProtocol": protocol,
+                    "IpRanges": [
+                        {
+                            "CidrIp": cidr,
+                            "Description": "Added by copilot ha script"
+                        } for cidr in cidr_list
+                    ]
+                }
+            ]
+        )
+        print(f"Rules successfully modified: {data}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Modifying SG rules error: {err}")
+
+# check_rule = {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'}
+def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
+    try:
+        response = ec2_client.describe_security_groups(
+            GroupIds=[security_group_id]
+        )
+        print(f"found security group rules: {response}")
+        add_rule = True
+        if 'SecurityGroups' in response:
+            security_group = response['SecurityGroups'][0]
+            all_rules = security_group['IpPermissions']
+            print(f"all sg rules: {all_rules}")
+            for each_rule in all_rules:
+                if each_rule['IpProtocol'] == check_rule['IpProtocol'] and each_rule['FromPort'] == check_rule['FromPort']:
+                    print(f"found https rule: {each_rule}")
+                    for ip_range in each_rule['IpRanges']:
+                        if ip_range['CidrIp'] == check_rule['CidrIp']:
+                            print(f"found https quad 0 rule: {each_rule}")
+                            add_rule = False
+                            break
+        else:
+            print("Failed to retrieve security group rules.")
+        return add_rule
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Retrieving rules from SG {security_group_id} error: {err}")
+
+def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
+    if operation == "add_rule":
+        try:
+            print(f"Enabling access - Creating tmp rules for SG: {security_group_id}")
+            add_rule = check_if_rule_exists(
+                ec2_client,
+                security_group_id,
+                {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'}
+            )
+            if add_rule:
+                print(f"Enabling tmp access on SG: {security_group_id}")
+                data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+                return security_group_id
+            else:
+                print(f"Access already enabled on SG {security_group_id}")
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Enabling access error: {err}")
+    elif operation == "del_rule":
+        # Remove SG from instances, and Delete
+        try:
+            print(f"Removing tmp access from SG: {security_group_id}")
+            del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            modify_sg_rules(ec2_client, "del_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+            print('Successfully disabled temporary access')
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Disabling access error: {err}")
 
 
 def handle_copilot_ha():
@@ -211,7 +302,7 @@ def handle_copilot_ha():
   controller_creds = get_vm_password("controller")
 
   # get copilot instance and auth info
-  instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+  copilot_instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
   copilot_user_info = get_copilot_user_info()
 
   restore_region = get_restore_region()
@@ -221,7 +312,7 @@ def handle_copilot_ha():
   copilot_instanceobj = restore_client.describe_instances(
     Filters=[
       {"Name": "instance-state-name", "Values": ["running"]},
-      {"Name": "tag:Name", "Values": [instance_name]},
+      {"Name": "tag:Name", "Values": [copilot_instance_name]},
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"copilot_instanceobj: {copilot_instanceobj}")
@@ -234,6 +325,18 @@ def handle_copilot_ha():
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
+  # enable tmp access on the controller
+  controller_tmp_sg = manage_tmp_access(
+      restore_client,
+      controller_instanceobj['SecurityGroups'][0]['GroupId'],
+      "add_rule"
+  )
+  # enable tmp access on the copilot
+  copilot_tmp_sg = manage_tmp_access(
+      restore_client,
+      copilot_instanceobj['SecurityGroups'][0]['GroupId'],
+      "add_rule"
+  )
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
   copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
@@ -274,9 +377,15 @@ def handle_copilot_ha():
     },
   }
   print(f"copilot_event: {copilot_event}")
-  
+
   handle_event(copilot_event)
 
+  # disable tmp access on the controller
+  if controller_tmp_sg:
+      manage_tmp_access(restore_client, controller_tmp_sg, "del_rule")
+  # disable tmp access on the copilot
+  if copilot_tmp_sg:
+      manage_tmp_access(restore_client, copilot_tmp_sg, "del_rule")
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
@@ -287,23 +396,38 @@ def handle_event(event):
   if event['copilot_type'] == "singleNode":
     print(f"Adding CoPilot IPs '{event['copilot_info']['public_ip']}' and '{event['copilot_info']['private_ip']}' to Controller SG '{event['controller_info']['sg_id']}'")
     try:
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['public_ip']}/32"])
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['private_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['public_ip']}/32"]
+      )
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['private_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding CoPilot IP to Controller SG failed due to " + str(err))
     try:
       print(f"Adding Controller auth IP '{event['auth_ip']}' to CoPilot SG '{event['copilot_info']['sg_id']}'")
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['copilot_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['auth_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['copilot_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['auth_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding Controller auth IP to CoPilot SG failed due to " + str(err))
@@ -321,8 +445,6 @@ def handle_event(event):
                                  private_mode=False,
                                  add=True)
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   # if custom copilot user is needed, login with the controller user,
   # and then create the copilot user
   if event["copilot_custom_user"]:
@@ -341,8 +463,6 @@ def handle_event(event):
                                                                event["copilot_info"]['user_info']["password"])
   print(f"set_controller_ip: {set_controller_ip_resp}")
 
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   if event['copilot_init']:
     # copilot init use case - not HA
     if event['copilot_type'] == "singleNode":
@@ -394,7 +514,7 @@ def handle_event(event):
         print(f"Unable to get saved config. Abort restore")
         return
       # setting possibly new controller IP in saved config
-      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['controller_info']['public_ip']
+      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['auth_ip']
       # 2. restore saved config on new copilot
       print(f"Restoring config on CoPilot: {config}")
       response = copilot_api.restore_copilot(config)
@@ -420,11 +540,7 @@ def handle_event(event):
   print(f"get_copilot_backup: {response}")
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   controller_copilot_setup(api, event)
-  # close controller sg
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
 
 if __name__ == "__main__":
   copilot_event = {
