@@ -1,9 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-# resource "time_sleep" "wait_for_zip" {
-#   create_duration = "60s"
-# }
-
 resource "aws_ecs_task_definition" "task_def" {
   family                   = "AVX_PLATFORM_HA"
   requires_compatibilities = ["FARGATE"]
@@ -378,8 +374,9 @@ resource "aws_launch_template" "avtx-controller" {
     device_name = "/dev/sda1"
 
     ebs {
-      volume_size = var.root_volume_size
-      volume_type = var.root_volume_type
+      volume_size           = var.root_volume_size
+      volume_type           = var.root_volume_type
+      delete_on_termination = true
     }
   }
 
@@ -457,6 +454,10 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   timeouts {
     delete = "15m"
   }
+
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 resource "aws_sqs_queue" "controller_updates_queue" {
@@ -612,6 +613,10 @@ module "ecs_cluster" {
   source = "./modules/terraform-aws-ecs"
 
   cluster_name = "avx_platform_ha"
+  cluster_settings = {
+    "name" : "containerInsights",
+    "value" : "disabled"
+  }
 
   cluster_configuration = {
     execute_command_configuration = {
@@ -645,7 +650,46 @@ module "ecs_cluster" {
 
 resource "aws_cloudwatch_log_group" "log_group" {
   name              = "/aws/ecs/avx_platform_ha"
-  retention_in_days = 7
+  retention_in_days = 0
 
   tags = local.common_tags
+}
+
+locals {
+  controller_eip     = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
+  argument_stop_task = format("--region %s --cluster %s", var.region, "avx_platform_ha")
+  argument_delete_sg = var.use_existing_vpc ? null : format("--region %s --vpc %s", var.region, aws_vpc.vpc[0].id)
+}
+
+resource "null_resource" "stop_ecs_tasks_script" {
+  triggers = {
+    argument_stop_task = local.argument_stop_task
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/stop_ecs_tasks.py ${self.triggers.argument_stop_task}"
+    on_failure = continue
+  }
+
+  depends_on = [
+    module.ecs_cluster
+  ]
+}
+
+resource "null_resource" "delete_sg_script" {
+  count = var.use_existing_vpc ? 0 : 1
+  triggers = {
+    argument_delete_sg = local.argument_delete_sg
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/delete_sg.py ${self.triggers.argument_delete_sg}"
+    on_failure = continue
+  }
+
+  depends_on = [
+    aws_vpc.vpc[0]
+  ]
 }

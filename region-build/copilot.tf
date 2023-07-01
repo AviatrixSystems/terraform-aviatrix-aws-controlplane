@@ -8,7 +8,7 @@ resource "aws_launch_template" "avtx-copilot" {
     ebs {
       volume_size           = var.cop_root_volume_size
       volume_type           = var.cop_root_volume_type
-      delete_on_termination = false
+      delete_on_termination = true
     }
   }
 
@@ -89,6 +89,10 @@ resource "aws_autoscaling_group" "avtx_copilot" {
   timeouts {
     delete = "15m"
   }
+
+  depends_on = [
+    null_resource.delete_sg_script
+  ]
 }
 
 # Define a listener

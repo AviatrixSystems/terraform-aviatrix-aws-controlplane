@@ -94,7 +94,7 @@ module "aws_controller_ha" {
   asg_notif_email             = "asg@example.com"
   s3_backup_bucket            = "backup-bucket"
   s3_backup_region            = "us-east-1"
-  ha_distribution             = "inter-az"
+  ha_distribution             = "inter-region"
   zone_name                   = "example.com"
   record_name                 = "controller.example.com"
   inter_region_backup_enabled = true
@@ -156,7 +156,7 @@ module "aws_controller_ha" {
 | subnet_name                   | Aviatrix-Public-Subnet                     | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
 | subnet_names                  |                                            | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | tags                          |                                            | Map of common tags which should be used for module resources                                                                                                                                                                                   |
-| termination_protection        | true                                       | Whether to enable termination protection on the Controller, CoPilot and load balancers                                                                                                                                                         |
+| termination_protection        | true                                       | Whether to enable termination protection on the Controller and CoPilot instances                                                                                                                                                               |
 | use_existing_eip              | false                                      | Set to true to use the EIP(s) specified by `existing_eip` (and `existing_dr_eip`) for the Aviatrix Controller(s) rather than allocating new EIPs                                                                                               |
 | use_existing_copilot_eip      | false                                      | Set to true to use the EIP(s) specified by `existing_copilot_eip` (and `existing_copilot_dr_eip`) for the Aviatrix CoPilot(s) rather than allocating new EIPs                                                                                  |
 | use_existing_vpc              | false                                      | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                                                                                                                 |
