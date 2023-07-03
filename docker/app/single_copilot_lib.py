@@ -21,57 +21,6 @@ PORT_HTTPS = 443
 PROTO_UDP = "UDP"
 IPV4_ANY = "0.0.0.0/0"
 
-def revoke_security_group_ingress(
-    ec2_client,
-    security_group_id: str,
-    from_port: int,
-    to_port: int,
-    protocol: str = "tcp",
-    cidr_list: List[str] = [],
-) -> None:
-    modify_security_group_ingress(ec2_client, "del_rule", security_group_id, from_port, to_port, protocol, cidr_list)
-
-def authorize_security_group_ingress(
-    ec2_client,
-    security_group_id: str,
-    from_port: int,
-    to_port: int,
-    protocol: str = "tcp",
-    cidr_list: List[str] = [],
-) -> None:
-    modify_security_group_ingress(ec2_client, "add_rule", security_group_id, from_port, to_port, protocol, cidr_list)
-
-def modify_security_group_ingress(
-    ec2_client,
-    operation: str,
-    security_group_id: str,
-    from_port: int,
-    to_port: int,
-    protocol: str = "tcp",
-    cidr_list: List[str] = [],
-) -> None:
-    if operation == "add_rule":
-        fn = ec2_client.authorize_security_group_ingress
-    elif operation == "del_rule":
-        fn = ec2_client.revoke_security_group_ingress
-    fn(
-        GroupId=security_group_id,
-        IpPermissions=[
-            {
-                "FromPort": from_port,
-                "ToPort": to_port,
-                "IpProtocol": protocol,
-                "IpRanges": [
-                    {
-                        "CidrIp": cidr,
-                        "Description": "Added by copilot ha script"
-                    } for cidr in cidr_list
-                ]
-            }
-        ]
-    )
-
-
 class ControllerAPI:
     def __init__(self, controller_ip: str) -> None:
         self._controller_ip: str = controller_ip
@@ -175,34 +124,6 @@ class ControllerAPI:
         except Exception as err:
             print(f"Failed to get API token, {err}")
         return resp
-
-    def manage_sg_access(self, ec2_client, sg_id, open=True):
-        try:
-            if open:
-                print(f"Adding 0.0.0.0/0 to SG {sg_id}")
-                authorize_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
-            else:
-                print(f"Removing 0.0.0.0/0 from SG {sg_id}")
-                revoke_security_group_ingress(ec2_client, sg_id, 443, 443, 'tcp', ["0.0.0.0/0"])
-        except botocore.exceptions.ClientError as err:
-            if err.response['Error']['Code'] == "InvalidPermission.Duplicate":
-                open and print(f"SG {sg_id} is already open to 0.0.0.0/0")
-            elif err.response['Error']['Code'] == "InvalidPermission.NotFound":
-                not open and print(f"SG {sg_id} is already closed to 0.0.0.0/0")
-            else:
-                print(str(traceback.format_exc()))
-                if open:
-                    print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
-                else:
-                    print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
-                print(f"Error message: {err.response['Error']['Message']}")
-        except Exception as err:  # pylint: disable=broad-except
-            print(str(traceback.format_exc()))
-            if open:
-                print(f"Adding 0.0.0.0/0 to SG {sg_id} failed: {err.response['Error']['Code']}")
-            else:
-                print(f"Removing 0.0.0.0/0 from SG {sg_id} failed: {err.response['Error']['Code']}")
-            print(f"Error message: {err.response['Error']['Message']}")
 
     def retry_login(self, username: str, password: str) -> bool:
         attempts = 0

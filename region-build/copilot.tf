@@ -125,37 +125,48 @@ resource "aws_security_group" "AviatrixCopilotSecurityGroup" {
   description = "Aviatrix - Copilot Security Group"
   vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
-  dynamic "ingress" {
-    for_each = var.cop_allowed_cidrs
-    content {
-      description      = ingress.key
-      from_port        = ingress.value["port"]
-      to_port          = ingress.value["port"]
-      protocol         = ingress.value["protocol"]
-      cidr_blocks      = ingress.value["cidrs"]
-      ipv6_cidr_blocks = []
-      prefix_list_ids  = null
-      security_groups  = null
-      self             = null
-    }
-  }
-  egress = [
-    {
-      description      = "All out traffic allowed"
-      from_port        = 0
-      to_port          = 0
-      protocol         = "-1"
-      cidr_blocks      = ["0.0.0.0/0"]
-      ipv6_cidr_blocks = []
-      prefix_list_ids  = null
-      security_groups  = null
-      self             = null
-    }
-  ]
-
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}AviatrixCopilotSecurityGroup"
   })
+}
+
+resource "aws_security_group_rule" "copilot_https_ingress_rule" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = var.cop_incoming_https_cidr
+  security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
+  description       = "CoPilot HTTPS Ingress - DO NOT DELETE"
+}
+
+resource "aws_security_group_rule" "copilot_syslog_ingress_rule" {
+  type              = "ingress"
+  from_port         = 5000
+  to_port           = 5000
+  protocol          = "udp"
+  cidr_blocks       = var.cop_incoming_syslog_cidr
+  security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
+  description       = "CoPilot Syslog Ingress - DO NOT DELETE"
+}
+
+resource "aws_security_group_rule" "copilot_netflow_ingress_rule" {
+  type              = "ingress"
+  from_port         = 31283
+  to_port           = 31283
+  protocol          = "udp"
+  cidr_blocks       = var.cop_incoming_netflow_cidr
+  security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
+  description       = "CoPilot Netflow Ingress - DO NOT DELETE"
+}
+
+resource "aws_security_group_rule" "copilot_egress_rule" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
 }
 
 resource "aws_eip" "copilot_eip" {
