@@ -54,14 +54,15 @@ The following resources should be created before running Terraform. The module w
 
 ```
 module "aws_controller_ha" {
-  source              = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair             = "keypair1"
-  incoming_ssl_cidr   = ["x.x.x.x/32"]
-  access_account_name = "AWS-Account"
-  admin_email         = "admin@example.com"
-  asg_notif_email     = "asg@example.com"
-  s3_backup_bucket    = "backup-bucket"
-  s3_backup_region    = "us-east-1"
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
 }
 ```
 
@@ -69,15 +70,16 @@ module "aws_controller_ha" {
 
 ```
 module "aws_controller_ha" {
-  source              = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair             = "keypair1"
-  incoming_ssl_cidr   = ["x.x.x.x/32"]
-  access_account_name = "AWS-Account"
-  admin_email         = "admin@example.com"
-  asg_notif_email     = "asg@example.com"
-  s3_backup_bucket    = "backup-bucket"
-  s3_backup_region    = "us-east-1"
-  ha_distribution     = "inter-az"
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
 }
 ```
 
@@ -89,6 +91,7 @@ module "aws_controller_ha" {
   keypair                     = "keypair1"
   dr_keypair                  = "keypair2"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
+  cop_incoming_https_cidr     = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
