@@ -192,3 +192,7 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
    - Login and create temp AWS account.
    - Restore configuration from backup.
    - Update environment variables in Lambda.
+
+### Caveats
+
+- In `inter-az` and `inter-region` deployments, if there is an HA event on the primary controller, it will successfully failover to the standby controller. A new standby controller is deployed and will take approximately 15 minutes to initialize. If there is another HA event with the new primary controller during this 15 minute window, the subsequent failover will not succeed because the new standby controller has not been fully initialized.
