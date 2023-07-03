@@ -22,7 +22,7 @@ import copilot_main as cp_lib
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.02"
+VERSION = "0.03"
 
 HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
