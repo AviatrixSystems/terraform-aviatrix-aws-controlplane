@@ -204,18 +204,14 @@ def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
         response = ec2_client.describe_security_groups(
             GroupIds=[security_group_id]
         )
-        print(f"found security group rules: {response}")
         add_rule = True
         if 'SecurityGroups' in response:
             security_group = response['SecurityGroups'][0]
             all_rules = security_group['IpPermissions']
-            print(f"all sg rules: {all_rules}")
             for each_rule in all_rules:
                 if each_rule['IpProtocol'] == check_rule['IpProtocol'] and each_rule['FromPort'] == check_rule['FromPort']:
-                    print(f"found https rule: {each_rule}")
                     for ip_range in each_rule['IpRanges']:
                         if ip_range['CidrIp'] == check_rule['CidrIp']:
-                            print(f"found https quad 0 rule: {each_rule}")
                             add_rule = False
                             break
         else:
