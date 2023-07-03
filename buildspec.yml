@@ -93,12 +93,7 @@ phases:
       - . /tmp/aws_cred_export.txt && terraform init
   build:
     commands:
-      - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
-      - echo "saving outputs"
-      - terraform output lb_dns_name > lb_dns_name.txt
-      - cat lb_dns_name.txt
-      - cat lb_dns_name.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/loadbalancer" --value "{}" --overwrite
-      - echo "preparing cft singal file"
+      - echo "preparing cft signal success file"
       - |
         cat >> success_response.json << EOF
         {
@@ -109,9 +104,30 @@ phases:
         }
         EOF
       - cat success_response.json
-      - echo "sending signal to cloudformation"
-      - curl -T success_response.json $cfn_url
-      - echo "Post apply build"
+      - echo "preparing cft signal failure file"
+      - |
+        cat >> fail_response.json << EOF
+        {
+          "Status" : "FAILURE",
+          "Reason" : "Configuration Failed",
+          "UniqueId" : "ID5678",
+          "Data" : "Terraform apply failed"
+        }
+        EOF
+      - cat fail_response.json
+      - |
+        if . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy ; then
+          echo "Terraform apply success"
+          echo "saving outputs"
+          terraform output ha_distribution > ha_distribution.txt
+          cat ha_distribution.txt
+          cat ha_distribution.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/ha_distribution" --value "{}" --overwrite
+          echo "sending success signal to cloudformation"
+          curl -T success_response.json $cfn_url
+        else
+          echo "sending fail signal to cloudformation"
+          curl -T fail_response.json $cfn_url
+        fi
   post_build:
     commands:
       - echo "Nothing to do in the post_build for now"
