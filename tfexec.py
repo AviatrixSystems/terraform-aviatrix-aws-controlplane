@@ -11,14 +11,14 @@ def cfn_signal_response(success_resp: bool = True):
         'UniqueId': 'ID1234' if success_resp else 'ID5678',
         'Data': 'Terraform apply complete' if success_resp else 'Terraform apply failed'
     }
-    return signal_resp
+    return json.dumps(signal_resp)
 
 def send_cfn_signal(cfn_url: str, success_signal: bool = True):
     print(f"send_cfn_signal signal URL: {cfn_url}")
     cfn_params = cfn_signal_response(success_signal)
     headers = {"Content-Type": "application/json"}
     try:
-        cfn_resp = requests.get(url=cfn_url, params=cfn_params, headers=headers)
+        cfn_resp = requests.put(url=cfn_url, data=cfn_params, headers=headers)
         print(f"CFN Signal response: {cfn_resp.status_code}")
     except Exception as err:
         print(f"Error sending signal to CFN: {str(err)}")
@@ -79,9 +79,6 @@ def main():
             send_cfn_signal(cfn_url, True)
     except Exception as err:
         print(f"Error {str(err)}")
-        cmd = ["terraform", "destroy", "-auto-approve"]
-        print(f"Running Terraform Destroy: {cmd}")
-        subprocess.call(cmd)
         send_cfn_signal(cfn_url, False)
         raise err
 
