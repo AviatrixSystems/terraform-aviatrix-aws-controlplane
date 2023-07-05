@@ -25,21 +25,16 @@ def send_cfn_signal(cfn_url: str, success_signal: bool = True):
 
 def get_terraform_output():
     command = "terraform output -json"
-
     try:
         output = subprocess.check_output(command, shell=True)
         output = output.decode('utf-8')  # Decode the byte string to UTF-8
-
-        # Parse the output as JSON
-        output_json = json.loads(output)
-
+        output_json = json.loads(output) # Parse the output as JSON
         return output_json
     except subprocess.CalledProcessError as e:
         print(f"Failed to run 'terraform output'. Error: {e}")
 
 def save_ssm_parameter(parameter_name, parameter_value, parameter_type='String', description=''):
     ssm_client = boto3.client('ssm')
-
     response = ssm_client.put_parameter(
         Name=parameter_name,
         Value=parameter_value,
@@ -47,7 +42,6 @@ def save_ssm_parameter(parameter_name, parameter_value, parameter_type='String',
         Description=description,
         Overwrite=True
     )
-
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
         print(f"SSM parameter '{parameter_name}' saved successfully.")
     else:
@@ -57,8 +51,11 @@ def save_tf_outputs():
     tf_output = get_terraform_output()
     print(f"tf_output: {tf_output}")
     for op_key in tf_output.keys():
-        print(f"saving output {op_key} with value {tf_output[op_key]['value']}")
-        save_ssm_parameter(f"/aviatrix/controller/{op_key}", tf_output[op_key]['value'])
+        if tf_output[op_key]['value'] == '':
+            print(f"skipping output {op_key} with empty value: {tf_output[op_key]['value']}")
+        else:
+            print(f"saving output {op_key} with value {tf_output[op_key]['value']}")
+            save_ssm_parameter(f"/aviatrix/controller/{op_key}", tf_output[op_key]['value'])
 
 def main():
     if len(sys.argv) != 3:
@@ -82,6 +79,10 @@ def main():
             send_cfn_signal(cfn_url, True)
     except Exception as err:
         print(f"Error {str(err)}")
+        cmd = ["terraform", "destroy", "-auto-approve"]
+        print(f"Running Terraform Destroy: {cmd}")
+        subprocess.call(cmd)
+        send_cfn_signal(cfn_url, False)
         raise err
 
 main()
