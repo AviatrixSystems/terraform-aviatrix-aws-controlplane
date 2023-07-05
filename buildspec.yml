@@ -77,9 +77,9 @@ phases:
         cop_root_volume_size = "$cop_root_volume_size"
         cop_default_data_volume_type = "$cop_default_data_volume_type"
         cop_default_data_volume_size = "$cop_default_data_volume_size"
-        cop_incoming_https_cidr = "$cop_incoming_https_cidr"
-        cop_incoming_netflow_cidr = "$cop_incoming_netflow_cidr"
-        cop_incoming_syslog_cidr = "$cop_incoming_syslog_cidr"
+        cop_incoming_https_cidr = ["$cop_incoming_https_cidr"]
+        cop_incoming_netflow_cidr = ["$cop_incoming_netflow_cidr"]
+        cop_incoming_syslog_cidr = ["$cop_incoming_syslog_cidr"]
         cop_type = "$cop_type"
         copilot_username = "$copilot_username"
         copilot_email = "$copilot_email"
