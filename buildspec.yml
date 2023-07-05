@@ -77,6 +77,9 @@ phases:
         cop_root_volume_size = "$cop_root_volume_size"
         cop_default_data_volume_type = "$cop_default_data_volume_type"
         cop_default_data_volume_size = "$cop_default_data_volume_size"
+        cop_incoming_https_cidr = "$cop_incoming_https_cidr"
+        cop_incoming_netflow_cidr = "$cop_incoming_netflow_cidr"
+        cop_incoming_syslog_cidr = "$cop_incoming_syslog_cidr"
         cop_type = "$cop_type"
         copilot_username = "$copilot_username"
         copilot_email = "$copilot_email"
@@ -93,41 +96,7 @@ phases:
       - . /tmp/aws_cred_export.txt && terraform init
   build:
     commands:
-      - echo "preparing cft signal success file"
-      - |
-        cat >> success_response.json << EOF
-        {
-          "Status" : "SUCCESS",
-          "Reason" : "Configuration Complete",
-          "UniqueId" : "ID1234",
-          "Data" : "Terraform apply complete"
-        }
-        EOF
-      - cat success_response.json
-      - echo "preparing cft signal failure file"
-      - |
-        cat >> fail_response.json << EOF
-        {
-          "Status" : "FAILURE",
-          "Reason" : "Configuration Failed",
-          "UniqueId" : "ID5678",
-          "Data" : "Terraform apply failed"
-        }
-        EOF
-      - cat fail_response.json
-      - |
-        if . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy ; then
-          echo "Terraform apply success"
-          echo "saving outputs"
-          terraform output ha_distribution > ha_distribution.txt
-          cat ha_distribution.txt
-          cat ha_distribution.txt | tr -d '[],"\n ' | xargs -I{} aws ssm put-parameter --type "String" --name "/aviatrix/controller/ha_distribution" --value "{}" --overwrite
-          echo "sending success signal to cloudformation"
-          curl -T success_response.json $cfn_url
-        else
-          echo "sending fail signal to cloudformation"
-          curl -T fail_response.json $cfn_url
-        fi
+      - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy ${cfn_url}
   post_build:
     commands:
       - echo "Nothing to do in the post_build for now"
