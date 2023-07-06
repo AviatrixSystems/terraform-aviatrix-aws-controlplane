@@ -653,7 +653,97 @@ Resources:
     Properties:
       Name: /aviatrix/controller/ha_distribution
       Type: String
-      Value: "ha_distribution Details"
+      Value: "HA Distribution Type - currently NA"
+  ZoneNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/zone_name
+      Type: String
+      Value: "Route53 Zone Name - currently NA"
+  RecordNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/record_name
+      Type: String
+      Value: "Route53 Record Name - currently NA"
+  S3BackupRegionSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/s3_backup_region
+      Type: String
+      Value: "S3 Backup Region Name - currently NA"
+  S3BackupBucketSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/s3_backup_bucket
+      Type: String
+      Value: "S3 Backup Bucket Name - currently NA"
+  LogGroupSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/log_group_name
+      Type: String
+      Value: "Cloudwatch Log Group Name - currently NA"
+  ControllerNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/controller_name
+      Type: String
+      Value: "Controller Name - currently NA"
+  CopilotNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/copilot_name
+      Type: String
+      Value: "CoPilot Name - currently NA"
+  RegionSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/region
+      Type: String
+      Value: "Primary Region - currently NA"
+  DrRegionSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/dr_region
+      Type: String
+      Value: "DR Region - currently NA"
+  ControllerPublicIpSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/controller_public_ip
+      Type: String
+      Value: "Controller Public IP - currently NA"
+  DrControllerPublicIpSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/dr_controller_public_ip
+      Type: String
+      Value: "DR Controller Public IP - currently NA"
+  CopilotPublicIpSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/copilot_public_ip
+      Type: String
+      Value: "CoPilot Public IP - currently NA"
+  DrCopilotPublicIpSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/dr_copilot_public_ip
+      Type: String
+      Value: "DR CoPilot Public IP - currently NA"
+  LbDnsNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/lb_dns_name
+      Type: String
+      Value: "Loadbalancer DNS name - currently NA"
+  DrLbDnsNameSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aviatrix/controller/dr_lb_dns_name
+      Type: String
+      Value: "DR Loadbalancer DNS name - currently NA"
   S3StateAndSoftware:
     Type: AWS::S3::Bucket
     Properties:
@@ -931,13 +1021,97 @@ Outputs:
     Description: HA Distribution Details
     Value:
       Fn::GetAtt:
-        -  HADistributionSSM
+        - HADistributionSSM
         - Value
-  # AviatrixRoleEC2ARN:
-  #   Description: AviatrixRoleEC2 ARN
-  #   Condition: AviatrixIAMRoleNotExist
-  #   Value: !GetAtt
-  #     - AviatrixRoleEC2
-  #     - Arn
+  ZoneName:
+    Description: Route53 Zone Name
+    Value:
+      Fn::GetAtt:
+        - ZoneNameSSM
+        - Value
+  RecordName:
+    Description: Route53 Record Name
+    Value:
+      Fn::GetAtt:
+        - RecordNameSSM
+        - Value
+  S3BackupRegion:
+    Description: S3 Backup Region Name
+    Value:
+      Fn::GetAtt:
+        - S3BackupRegionSSM
+        - Value
+  S3BackupBucket:
+    Description: S3 Backup Bucket Name
+    Value:
+      Fn::GetAtt:
+        - S3BackupBucketSSM
+        - Value
+  LogGroup:
+    Description: Cloudwatch Log Group Name
+    Value:
+      Fn::GetAtt:
+        - LogGroupSSM
+        - Value
+  ControllerName:
+    Description: Controller Name
+    Value:
+      Fn::GetAtt:
+        - ControllerNameSSM
+        - Value
+  CopilotName:
+    Description: CoPilot Name
+    Value:
+      Fn::GetAtt:
+        - CopilotNameSSM
+        - Value
+  Region:
+    Description: Primary Region
+    Value:
+      Fn::GetAtt:
+        - RegionSSM
+        - Value
+  DrRegion:
+    Description: DR Region
+    Value:
+      Fn::GetAtt:
+        - DrRegionSSM
+        - Value
+  ControllerPublicIp:
+    Description: Controller Public IP
+    Value:
+      Fn::GetAtt:
+        - ControllerPublicIpSSM
+        - Value
+  DrControllerPublicIp:
+    Description: DR Controller Public IP
+    Value:
+      Fn::GetAtt:
+        - DrControllerPublicIpSSM
+        - Value
+  CopilotPublicIp:
+    Description: CoPilot Public IP
+    Value:
+      Fn::GetAtt:
+        - CopilotPublicIpSSM
+        - Value
+  DrCopilotPublicIp:
+    Description: DR CoPilot Public IP
+    Value:
+      Fn::GetAtt:
+        - DrCopilotPublicIpSSM
+        - Value
+  LbDnsName:
+    Description: LoadBalancer DNS name
+    Value:
+      Fn::GetAtt:
+        - LbDnsNameSSM
+        - Value
+  DrLbDnsName:
+    Description: DR LoadBalancer DNS name
+    Value:
+      Fn::GetAtt:
+        - DrLbDnsNameSSM
+        - Value
   WARNING:
     Value: Aviatrix Platform is deployed successfully. Please wait for about 20 mins for platform initialization. You can go to AWS CodeBuild to trace the progress.
