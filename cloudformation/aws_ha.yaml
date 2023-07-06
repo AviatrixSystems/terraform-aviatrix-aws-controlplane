@@ -1009,7 +1009,7 @@ Resources:
         Auth:
           Type: OAUTH
           Resource: CodeBuildSourceCredential
-      SourceVersion: cf_dev_update
+      SourceVersion: main
       TimeoutInMinutes: 60
       Tags:
         - Key: Name
