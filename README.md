@@ -198,4 +198,15 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 
 ### Caveats
 
-- In `inter-az` and `inter-region` deployments, if there is an HA event on the primary controller, it will successfully failover to the standby controller. A new standby controller is deployed and will take approximately 15 minutes to initialize. If there is another HA event with the new primary controller during this 15 minute window, the subsequent failover will not succeed because the new standby controller has not been fully initialized.
+- In `inter-az` and `inter-region` deployments, if there is an HA event on the primary Controller, it will successfully failover to the standby Controller. A new standby Controller is deployed and will take approximately 15 minutes to initialize. If there is another HA event with the new primary Controller during this 15 minute window, the subsequent failover will not succeed because the new standby Controller has not been fully initialized.
+
+#### HA in an inter-region deplyoment - Controller ONLY
+- In the case of an HA event occurring only for the Controller in an inter-region HA deployment, the CoPilot does NOT automatically switch over to the secondary region. The CoPilot uses its associated Controller to authenticate all requests, and currently, there is no way change the Controller IP that is used for authentication. In an inter-region HA event for the Controller, the Controller IP will change, between the primary and the secondary Controllers. However, the CoPilot will continue to reach out to the primary Controller IP. Currently, the only way to resolve this is to force a CoPilot failover manually. A log message will be printed to show that a Controller HA event has occurred, but the CoPilot has not been restarted recently, and users are asked to verify the connectivity. Users will have **1 hour** after the Controller HA event to trigger CoPilot HA.
+- In summary, in the case where only the Controller HA event occurs in an inter-region HA deployment, customers wlll have to manually trigger CoPilot HA within **1 hour** by stopping the CoPilot VM from the AWS Console.
+
+#### HA in an inter-region deplyoment - CoPilot ONLY
+- In the case of an HA event occurring only for the CoPilot in an inter-region HA deployment, neither the Controller nor the CoPilot automatically switches over to the secondary region. Since CoPilot is currently mostly used for monitoring and the Controller is used for management, we did not want to force an unneeded Controller failover. So, in this case, a log message will be printed to show that a CoPilot HA event was detected an inter-region deployment, but the Controller was not restarted recently. The new CoPilot will be initialized in the same region.
+- In summary, in the case where only the CoPilot HA event occurs in an inter-region HA deployment, the new CoPilot will be initialized in the same region as the working Controller.
+
+#### HA in an inter-region deplyoment - Controller AND CoPilot
+- In this case of an HA event occurring for both the Controller and the CoPilot in an inter-region HA deployment, both the Controller and the CoPilot will restored in the DR region. This case assumes a regional outage, because both the Controller and the CoPilot have an HA event.
