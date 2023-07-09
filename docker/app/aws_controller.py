@@ -22,7 +22,7 @@ import copilot_main as cp_lib
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.01"
+VERSION = "0.03"
 
 HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
@@ -1563,12 +1563,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
     # create a basic env dic and log copilot failover status
     try:
-        tmp_env = {
-            "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
-            "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
-            "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
-        }
-        cp_lib.log_failover_status(tmp_env, "copilot")
+        cp_lib.log_failover_status("copilot")
     except Exception as err:
         print(
             f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
@@ -1971,18 +1966,12 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
     env = dict(os.environ.items())
-    print(f"0.1: {env}")
+    print(f"environment: {os.environ.items()}")
     try:
         # get current region copilot info
-        current_region = env["SQS_QUEUE_REGION"]
-        instance_name = env["AVIATRIX_COP_TAG"]
-        curr_cop_eip = env["COP_EIP"]
-        cop_deployment = env["COP_DEPLOYMENT"]
-        env["copilot_data_node_public_ips"] = []
-        env["copilot_data_node_private_ips"] = []
-        env["copilot_data_node_instance_names"] = []
-        env["copilot_data_node_names"] = []
-        env["copilot_data_node_sg_names"] = []
+        current_region = os.environ.get("SQS_QUEUE_REGION", "")
+        instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+        curr_cop_eip = os.environ.get("COP_EIP", "")
 
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
@@ -2060,7 +2049,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     )
                     raise AvxError("Could not assign EIP to primary region Copilot")
 
-        cp_lib.handle_copilot_ha(env)
+        cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
         print(f"handle_cop_ha_event failed with err: {str(err)}")

@@ -5,11 +5,14 @@ resource "aws_lb" "avtx-controller" {
   enable_cross_zone_load_balancing = true
   idle_timeout                     = "300"
   subnets                          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
-  enable_deletion_protection       = var.termination_protection
 
   tags = {
     Name = "${local.name_prefix}AviatrixControllerLB"
   }
+
+  depends_on = [
+    aws_internet_gateway.igw
+  ]
 }
 
 # Define a listener

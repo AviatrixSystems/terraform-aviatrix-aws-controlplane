@@ -2,6 +2,7 @@ import boto3
 import time
 import datetime
 import traceback
+import os
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
@@ -41,34 +42,34 @@ def controller_copilot_setup(api, event):
   response = api.wait_and_get_copilot_sg_status()
   print(f"get_copilot_sg_status: {response}")
 
-def get_vm_password(env, pass_type="copilot"):
-  if pass_type == "copilot" and env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
-    if env["AVX_COP_PASSWORD"] == "":
+def get_vm_password(pass_type="copilot"):
+  if pass_type == "copilot" and os.environ.get("COP_EMAIL", "") != "" and os.environ.get("COP_USERNAME", "") != "":
+    if os.environ.get("AVX_COP_PASSWORD", "") == "":
         # Fetch Aviatrix CoPilot credentials from encrypted SSM parameter store
         password = get_ssm_parameter_value(
-          env["AVX_COPILOT_PASSWORD_SSM_PATH"],
-          env["AVX_PASSWORD_SSM_REGION"],
+          os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
+          os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         )
     else:
-        password = env["AVX_COP_PASSWORD"]
+        password = os.environ.get("AVX_COP_PASSWORD", "")
   else:
-    if env["AVX_PASSWORD"] == "":
+    if os.environ.get("AVX_PASSWORD", "") == "":
         # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
         password =get_ssm_parameter_value(
-          env["AVX_PASSWORD_SSM_PATH"],
-          env["AVX_PASSWORD_SSM_REGION"],
+          os.environ.get("AVX_PASSWORD_SSM_PATH", ""),
+          os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         )
     else:
-        password = env["AVX_PASSWORD"]
+        password = os.environ.get("AVX_PASSWORD", "")
   return password
 
-def get_copilot_user_info(env):
+def get_copilot_user_info():
   # get copilot user info
   user_info = {}
-  user_info["password"] = get_vm_password(env)
-  if env["COP_EMAIL"] != "" and env["COP_USERNAME"] != "":
-    user_info["username"] = env["COP_USERNAME"]
-    user_info["email"] = env["COP_EMAIL"]
+  user_info["password"] = get_vm_password()
+  if os.environ.get("COP_EMAIL", "") != "" and os.environ.get("COP_USERNAME", "") != "":
+    user_info["username"] = os.environ.get("COP_USERNAME", "")
+    user_info["email"] = os.environ.get("COP_EMAIL", "")
     user_info["user_groups"] = ["admin"]  # hardcode copilot user group
     user_info["custom_user"] = True
   else:
@@ -78,80 +79,60 @@ def get_copilot_user_info(env):
     user_info["custom_user"] = False
   return user_info
 
-def get_restore_region(env):
+def get_restore_region():
   # determine restore region based on event type
-  if get_copilot_inter_region(env) and not get_copilot_init(env):
-    print(f"inter-region HA in current region '{get_current_region(env)}'")
-    if get_instance_recent_restart(env, "controller"):
-      restore_region = get_dr_region(env)
+  if os.environ.get("INTER_REGION", "") == "True" and os.environ.get("PRIV_IP", ""):
+    print(f"inter-region HA in current region '{os.environ.get('SQS_QUEUE_REGION', '')}'")
+    if get_instance_recent_restart("controller"):
+      restore_region = os.environ.get("DR_REGION", "")
       print(f"Controller was also restarted recently, so we will assume regional failure")
       print(f"restore controller and copilot to dr region'{restore_region}'")
     else:
-      restore_region = get_current_region(env)
+      restore_region = os.environ.get("SQS_QUEUE_REGION", "")
       print(f"HA event in an inter-region deployment, but the controller was not restarted recently. We will assume that only the CoPilot VM failed")
       print(f"restore copilot in current region because assuming controller did not fail in inter-region HA: '{restore_region}'")
   else:
-    restore_region = get_current_region(env)
-    if get_copilot_inter_region(env):
+    restore_region = os.environ.get("SQS_QUEUE_REGION", "")
+    if os.environ.get("INTER_REGION", "") == "True":
       print(f"inter-region init - create in current region: '{restore_region}'")
-      print(f"current region '{get_current_region(env)}' is inter-region primary '{get_active_region(env)}'")
+      print(f"current region '{os.environ.get('SQS_QUEUE_REGION', '')}' is inter-region primary '{os.environ.get('ACTIVE_REGION', '')}'")
     else:
       print(f"intra-region init/HA - create/restore in current region: '{restore_region}'")
   return restore_region
 
-def get_copilot_init(env):
-  return False if "PRIV_IP" in env else True
-
-def get_active_region(env):
-  if get_copilot_inter_region(env):
-    if "ACTIVE_REGION" in env:
-      return env["ACTIVE_REGION"]
-    else:
-      print(f"Inter-region deployment, but unable to find ACTIVE_REGION key: {env}")
-  else:
-    print(f"Not inter-region deployment - no ACTIVE_REGION in intra-region")
-
-def get_copilot_inter_region(env):
-  if "INTER_REGION" in env and env["INTER_REGION"] == "True":
+def get_copilot_init():
+  print(f"Private IP check for init: {os.environ.get('PRIV_IP', '')}")
+  if os.environ.get("PRIV_IP", "") == "":
     return True
   else:
     return False
 
-def get_current_region(env):
-  return env["SQS_QUEUE_REGION"]
-
-def get_standby_region(env):
-  return env["STANDBY_REGION"]
-
-def get_dr_region(env):
-  return env["DR_REGION"]
-
-def get_controller_copilot_public_ips(env, controller, copilot):
+def get_controller_copilot_public_ips(controller, copilot):
   public_ips = {}
   # determine correct controller/copilot IPs based on event
-  if get_copilot_inter_region(env) and not get_copilot_init(env):
+  if os.environ.get("INTER_REGION", "") == "True" and os.environ.get("PRIV_IP", ""):
     public_ips["copilot_public_ip"] = copilot["PublicIpAddress"]
     public_ips["controller_public_ip"] = controller["PublicIpAddress"]
   else:
-    public_ips["copilot_public_ip"] = env["COP_EIP"]
-    public_ips["controller_public_ip"] = env["EIP"]
+    public_ips["copilot_public_ip"] = os.environ.get("COP_EIP", "")
+    public_ips["controller_public_ip"] = os.environ.get("EIP", "")
   return public_ips
 
-def get_copilot_auth_ip(env, public_ips, controller):
+def get_copilot_auth_ip(public_ips, controller):
   # get the auth IP that will be used by copilot
-  if "COP_AUTH_IP" in env and env["COP_AUTH_IP"] == "private":
+  if os.environ.get("COP_AUTH_IP", "") == "private":
     copilot_auth_ip = controller["PrivateIpAddress"]
   else:
     copilot_auth_ip = public_ips["controller_public_ip"]
 
   return copilot_auth_ip
 
-def get_instance_recent_restart(env, type):
-    curr_region = get_current_region(env)
+def get_instance_recent_restart(type):
+    curr_region = os.environ.get("SQS_QUEUE_REGION", "")
     if type == "controller":
-        instance_name = env["AVIATRIX_TAG"]
+        instance_name = os.environ.get("AVIATRIX_TAG", "")
     else:
-        instance_name = env["AVIATRIX_COP_TAG"]
+        instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
@@ -165,25 +146,112 @@ def get_instance_recent_restart(env, type):
     # Calculate the time difference between the launch time and current time
     delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
     # Check if the instance was recently restarted (e.g. within the last 10 minutes)
-    if delta < datetime.timedelta(minutes=30):
+    if delta < datetime.timedelta(minutes=60):
         return True
     else:
         return False
 
-def log_failover_status(env, type):
+def log_failover_status(type):
     if type == "controller":
         recent_reboot_log = "The Controller instance was recently restarted."
         no_recent_reboot_log = "The Controller instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
     else:
         recent_reboot_log = "The CoPilot instance was recently restarted."
         no_recent_reboot_log = "The CoPilot instance was not recently restarted. If this is an inter-region deployment, there may be a disconnect between the Controller and the CoPilot. Please verify the assocation manually."
-    if get_instance_recent_restart(env, type):
+    if get_instance_recent_restart(type):
         print(recent_reboot_log)
     else:
         print(no_recent_reboot_log)
 
+def modify_sg_rules(
+    ec2_client,
+    operation: str,
+    security_group_id: str,
+    from_port: int,
+    to_port: int,
+    protocol: str = "tcp",
+    cidr_list = [],
+) -> None:
+    try:
+        if operation == "add_rule":
+            fn = ec2_client.authorize_security_group_ingress
+        elif operation == "del_rule":
+            fn = ec2_client.revoke_security_group_ingress
+        data = fn(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    "FromPort": from_port,
+                    "ToPort": to_port,
+                    "IpProtocol": protocol,
+                    "IpRanges": [
+                        {
+                            "CidrIp": cidr,
+                            "Description": "Added by copilot ha script"
+                        } for cidr in cidr_list
+                    ]
+                }
+            ]
+        )
+        print(f"Rules successfully modified: {data}")
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Modifying SG rules error: {err}")
 
-def handle_copilot_ha(env):
+# check_rule = {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'}
+def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
+    try:
+        response = ec2_client.describe_security_groups(
+            GroupIds=[security_group_id]
+        )
+        add_rule = True
+        if 'SecurityGroups' in response:
+            security_group = response['SecurityGroups'][0]
+            all_rules = security_group['IpPermissions']
+            for each_rule in all_rules:
+                if each_rule['IpProtocol'] == check_rule['IpProtocol'] and each_rule['FromPort'] == check_rule['FromPort']:
+                    for ip_range in each_rule['IpRanges']:
+                        if ip_range['CidrIp'] == check_rule['CidrIp']:
+                            add_rule = False
+                            break
+        else:
+            print("Failed to retrieve security group rules.")
+        return add_rule
+    except Exception as err:  # pylint: disable=broad-except
+        print(str(traceback.format_exc()))
+        print(f"Retrieving rules from SG {security_group_id} error: {err}")
+
+def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
+    if operation == "add_rule":
+        try:
+            print(f"Enabling access - Creating tmp rules for SG: {security_group_id}")
+            add_rule = check_if_rule_exists(
+                ec2_client,
+                security_group_id,
+                {'IpProtocol': 'tcp', 'FromPort': 443, 'CidrIp': '0.0.0.0/0'}
+            )
+            if add_rule:
+                print(f"Enabling tmp access on SG: {security_group_id}")
+                data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+                return security_group_id
+            else:
+                print(f"Access already enabled on SG {security_group_id}")
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Enabling access error: {err}")
+    elif operation == "del_rule":
+        # Remove SG from instances, and Delete
+        try:
+            print(f"Removing tmp access from SG: {security_group_id}")
+            del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            modify_sg_rules(ec2_client, "del_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
+            print('Successfully disabled temporary access')
+        except Exception as err:  # pylint: disable=broad-except
+            print(str(traceback.format_exc()))
+            print(f"Disabling access error: {err}")
+
+
+def handle_copilot_ha():
   # use cases:
   # intra-region init
   #   assign pri copilot eip
@@ -204,19 +272,18 @@ def handle_copilot_ha(env):
   #   assign pri copilot eip
   #   restore to pri region copilot with pri controller
 
-  # get env information
-  inter_region = get_copilot_inter_region(env)
-  copilot_init = get_copilot_init(env)
-  cop_deployment = env["COP_DEPLOYMENT"]
+  # get deployment information
+  inter_region = os.environ.get("INTER_REGION", "") == "True"
+  copilot_init = get_copilot_init()
 
   # return if inter-region init in current region is standby_region
-  if inter_region and copilot_init and get_current_region(env) == get_standby_region(env):
-    print(f"Not initializing copilot in the standby region '{get_current_region(env)}' in inter-region init")
+  if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
+    print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
 
   # log controller failover status
   try:
-    log_failover_status(env, "controller")
+    log_failover_status("controller")
   except Exception as err:
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
@@ -226,11 +293,15 @@ def handle_copilot_ha(env):
   time.sleep(900)
 
   # get controller instance and auth info
-  controller_instance_name = env["AVIATRIX_TAG"]
+  controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
   controller_username = "admin"
-  controller_creds = get_vm_password(env, "controller")
+  controller_creds = get_vm_password("controller")
 
-  restore_region = get_restore_region(env)
+  # get copilot instance and auth info
+  copilot_instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+  copilot_user_info = get_copilot_user_info()
+
+  restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
   copilot_user_info = get_copilot_user_info(env)
 
@@ -254,7 +325,7 @@ def handle_copilot_ha(env):
   copilot_instanceobj = restore_client.describe_instances(
     Filters=[
       {"Name": "instance-state-name", "Values": ["running"]},
-      {"Name": "tag:Name", "Values": [instance_name]},
+      {"Name": "tag:Name", "Values": [copilot_instance_name]},
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"copilot_instanceobj: {copilot_instanceobj}")
@@ -267,15 +338,26 @@ def handle_copilot_ha(env):
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
+  # enable tmp access on the controller
+  controller_tmp_sg = manage_tmp_access(
+      restore_client,
+      controller_instanceobj['SecurityGroups'][0]['GroupId'],
+      "add_rule"
+  )
+  # enable tmp access on the copilot
+  copilot_tmp_sg = manage_tmp_access(
+      restore_client,
+      copilot_instanceobj['SecurityGroups'][0]['GroupId'],
+      "add_rule"
+  )
 
-  instance_public_ips = get_controller_copilot_public_ips(env, controller_instanceobj, copilot_instanceobj)
-  copilot_auth_ip = get_copilot_auth_ip(env, instance_public_ips, controller_instanceobj)
+  instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
+  copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
 
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
-    "cluster_ha_main_node": True,
-    "primary_account_name": env["PRIMARY_ACC_NAME"],
+    "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
     "copilot_type": env['COP_DEPLOYMENT'],  # values should be "singleNode" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
@@ -308,9 +390,15 @@ def handle_copilot_ha(env):
     },
   }
   print(f"copilot_event: {copilot_event}")
-  
+
   handle_event(copilot_event)
 
+  # disable tmp access on the controller
+  if controller_tmp_sg:
+      manage_tmp_access(restore_client, controller_tmp_sg, "del_rule")
+  # disable tmp access on the copilot
+  if copilot_tmp_sg:
+      manage_tmp_access(restore_client, copilot_tmp_sg, "del_rule")
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
@@ -321,23 +409,38 @@ def handle_event(event):
   if event['copilot_type'] == "singleNode":
     print(f"Adding CoPilot IPs '{event['copilot_info']['public_ip']}' and '{event['copilot_info']['private_ip']}' to Controller SG '{event['controller_info']['sg_id']}'")
     try:
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['public_ip']}/32"])
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['controller_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['copilot_info']['private_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['public_ip']}/32"]
+      )
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['controller_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['copilot_info']['private_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding CoPilot IP to Controller SG failed due to " + str(err))
     try:
       print(f"Adding Controller auth IP '{event['auth_ip']}' to CoPilot SG '{event['copilot_info']['sg_id']}'")
-      single_cplt.authorize_security_group_ingress(ec2_client,
-                                                  event['copilot_info']['sg_id'],
-                                                  443, 443, 'tcp',
-                                                  [f"{event['auth_ip']}/32"])
+      modify_sg_rules(
+          ec2_client,
+          "add_rule",
+          event['copilot_info']['sg_id'],
+          443,
+          443,
+          "tcp",
+          [f"{event['auth_ip']}/32"]
+      )
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding Controller auth IP to CoPilot SG failed due to " + str(err))
@@ -356,8 +459,6 @@ def handle_event(event):
                                  add=True)
 
   api = single_cplt.ControllerAPI(controller_ip=event['controller_info']['public_ip'])
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   # if custom copilot user is needed, login with the controller user,
   # and then create the copilot user
   if event["copilot_custom_user"]:
@@ -378,9 +479,6 @@ def handle_event(event):
                                                                event["copilot_info"]['user_info']["username"],
                                                                event["copilot_info"]['user_info']["password"])
   print(f"set_controller_ip: {set_controller_ip_resp}")
-
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
 
   if event['copilot_init']:
     # copilot init use case - not HA
@@ -433,7 +531,7 @@ def handle_event(event):
         print(f"Unable to get saved config. Abort restore")
         return
       # setting possibly new controller IP in saved config
-      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['controller_info']['public_ip']
+      config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['auth_ip']
       # 2. restore saved config on new copilot
       print(f"Restoring config on CoPilot: {config}")
       response = copilot_api.restore_copilot(config)
@@ -454,11 +552,7 @@ def handle_event(event):
   print(f"get_copilot_backup: {response}")
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
-  # make sure controller sg is open
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], True)
   controller_copilot_setup(api, event)
-  # close controller sg
-  api.manage_sg_access(ec2_client, event['controller_info']['sg_id'], False)
 
 if __name__ == "__main__":
   copilot_event = {
