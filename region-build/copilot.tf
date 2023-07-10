@@ -173,7 +173,6 @@ resource "aws_autoscaling_group" "avtx_copilot" {
   ]
 }
 
-
 # Define a listener
 resource "aws_lb_listener" "avtx-copilot" {
   load_balancer_arn = aws_lb.avtx-controller.arn
@@ -255,7 +254,7 @@ resource "aws_eip" "copilot_eip" {
 }
 
 resource "aws_eip" "copilot_data_nodes_eips" {
-  count  = var.use_existing_copilot_eip ? 0 : var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 1
+  count  = var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? 0 : var.copilot_data_node_count : 0
   domain = "vpc"
   tags   = local.common_tags
 }
