@@ -142,6 +142,15 @@ def ecs_handler():
 
     print(f"Event {msg_lifecycle} Description {msg_desc}")
 
+    # log copilot failover status
+    try:
+        cp_lib.log_failover_status("copilot")
+    except Exception as err:
+        print(
+            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
+        )
+        print(str(err))
+
     if msg_event == "autoscaling:TEST_NOTIFICATION":
         print("Successfully received Test Event from ASG")
     # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
@@ -1561,14 +1570,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             print("Controller is already saved. Not restoring")
             return
 
-    # create a basic env dic and log copilot failover status
-    try:
-        cp_lib.log_failover_status("copilot")
-    except Exception as err:
-        print(
-            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
-        )
-        print(str(err))
     controller_instanceobj = client.describe_instances(
         Filters=[{"Name": "instance-id", "Values": [asg_inst]}]
     )["Reservations"][0]["Instances"][0]
@@ -1972,6 +1973,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         current_region = os.environ.get("SQS_QUEUE_REGION", "")
         instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
         curr_cop_eip = os.environ.get("COP_EIP", "")
+        cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
 
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
@@ -1983,6 +1985,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 ]
             )["Reservations"][0]["Instances"][0]
 
+            print(f"asg_inst: {asg_inst}")
+            print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
+            print(f"event: {event}")
+            print(f"asg_orig: {asg_orig}")
+            print(f"asg_dest: {asg_dest}")
+
             if asg_inst != curr_region_main_cop_instanceobj['InstanceId']:
                 print(f"Not processing Init/HA event for instance {asg_inst} -- fault-tolerant deployment data node")
                 return
@@ -1990,6 +1998,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 print(f"Processing Init/HA event for instance {curr_region_main_cop_instanceobj['InstanceId']} -- fault-tolerant deployment Main node")
 
             # Assign COP_EIP to current region copilot
+            print(f"Assigning EIP: {json.loads(event['Message']).get('Destination', '')}")
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
                     print(
@@ -1997,8 +2006,10 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     )
                     raise AvxError("Could not assign EIP to primary region Main Copilot")
 
-            cop_data_node_eips = env["COP_DATA_NODES_EIPS"]
+            cop_data_node_eips = os.environ.get("COP_DEPLOYMENT", "")
+            print(f"cop_data_node_eips - str: {cop_data_node_eips}")
             cop_data_node_eips = cop_data_node_eips.split(",")
+            print(f"cop_data_node_eips - list: {cop_data_node_eips}")
 
             curr_region_data_cop_instanceobjects = client.describe_instances(
                 Filters=[
@@ -2006,10 +2017,15 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     {"Name": "tag:Name", "Values": [f"{instance_name}-Data"]},
                 ]
             )
+            env1 = {}
             for reservation in curr_region_data_cop_instanceobjects["Reservations"]:
+                print(f"reservation: {reservation}")
                 for inst in reservation['Instances']:
+                    print(f"inst: {inst}")
                     if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+                        print(f"event['Message']: {json.loads(event['Message']).get('Destination', '')}")
                         curr_data_node_eip = cop_data_node_eips.pop()
+                        print(f"curr_data_node_eip: {curr_data_node_eip}")
                         name_update_resp = client.create_tags(
                             Resources=[inst['InstanceId']], 
                             Tags=[{
@@ -2027,11 +2043,12 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                                 f"Could not assign EIP '{curr_data_node_eip}' to current region '{current_region}' Data Copilot: {inst}"
                             )
                             raise AvxError("Could not assign EIP to primary region Data Node Copilot")
-                        env["copilot_data_node_public_ips"].append(curr_data_node_eip)
-                        env["copilot_data_node_private_ips"].append(inst["PrivateIpAddress"])
-                        env["copilot_data_node_names"].append(inst['InstanceId'])
-                        env["copilot_data_node_instance_names"].append(f"{instance_name}-Data-{len(cop_data_node_eips)}")
-                        env["copilot_data_node_sg_names"].append(inst["SecurityGroups"][0]["GroupName"])
+                        env1["copilot_data_node_public_ips"].append(curr_data_node_eip)
+                        env1["copilot_data_node_private_ips"].append(inst["PrivateIpAddress"])
+                        env1["copilot_data_node_names"].append(inst['InstanceId'])
+                        env1["copilot_data_node_instance_names"].append(f"{instance_name}-Data-{len(cop_data_node_eips)}")
+                        env1["copilot_data_node_sg_names"].append(inst["SecurityGroups"][0]["GroupName"])
+            print(f"env1: {env1}")
         else: 
             # get current region copilot to restore eip
             curr_region_cop_instanceobj = client.describe_instances(
@@ -2049,7 +2066,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     )
                     raise AvxError("Could not assign EIP to primary region Copilot")
 
-        cp_lib.handle_copilot_ha()
+        # cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
         print(f"handle_cop_ha_event failed with err: {str(err)}")
