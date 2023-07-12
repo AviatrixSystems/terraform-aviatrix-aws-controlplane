@@ -64,6 +64,14 @@ resource "aws_ecs_task_definition" "task_def" {
           value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
         },
         {
+          name  = "COP_DATA_NODES_NAMES",
+          value =  var.copilot_deployment == "fault-tolerant" ? module.data_nodes[0].instance_names : ""
+        },
+        {
+          name  = "COP_DATA_NODES_IDS",
+          value =  var.copilot_deployment == "fault-tolerant" ? module.data_nodes[0].instance_ids : ""
+        },
+        {
           name  = "COP_DEPLOYMENT",
           value = var.copilot_deployment
         },
@@ -216,6 +224,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_DATA_NODES_EIPS",
           value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
+        },
+        {
+          name  = "COP_DATA_NODES_NAMES",
+          value =  var.copilot_deployment == "fault-tolerant" ? module.data_nodes[0].instance_names : ""
+        },
+        {
+          name  = "COP_DATA_NODES_IDS",
+          value =  var.copilot_deployment == "fault-tolerant" ? module.data_nodes[0].instance_ids : ""
         },
         {
           name  = "COP_DEPLOYMENT",
