@@ -132,7 +132,10 @@ def get_instance_recent_restart(type):
     if type == "controller":
         instance_name = os.environ.get("AVIATRIX_TAG", "")
     else:
-        instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
+        if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
+            instance_name = f"{os.environ.get('AVIATRIX_COP_TAG', '')}-Main"
+        else:
+            instance_name = os.environ.get('AVIATRIX_COP_TAG', '')
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
@@ -310,7 +313,7 @@ def handle_copilot_ha():
   env["copilot_data_node_usernames"] = []
   env["copilot_data_node_passwords"] = []
   env["copilot_data_node_volumes"] = []
-  if cop_deployment == "fault-tolerant":
+  if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
     instance_name = f"{env['AVIATRIX_COP_TAG']}-Main"
     for node_name in env[copilot_data_node_instance_names]:
       env[copilot_data_node_regions].append(restore_region)
