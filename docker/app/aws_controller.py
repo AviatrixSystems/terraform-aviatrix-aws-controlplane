@@ -146,10 +146,7 @@ def ecs_handler():
     try:
         cp_lib.log_failover_status("copilot")
     except Exception as err:
-        print(
-            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
-        )
-        print(str(err))
+        print(f"Logging copilot failover status failed: {str(err)}")
 
     if msg_event == "autoscaling:TEST_NOTIFICATION":
         print("Successfully received Test Event from ASG")
