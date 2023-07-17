@@ -1963,7 +1963,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
-    env = dict(os.environ.items())
     print(f"environment: {os.environ.items()}")
     try:
         # get current region copilot info
@@ -1972,9 +1971,36 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         curr_cop_eip = os.environ.get("COP_EIP", "")
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
 
+        print(f"asg_inst: {asg_inst}")
+        print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
+        print(f"event: {event}")
+        print(f"asg_orig: {asg_orig}")
+        print(f"asg_dest: {asg_dest}")
+
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
             # get current region copilot to restore eip
+            data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
+            data_node_eips = data_node_eips.split(",")
+            data_node_names = os.environ.get("COP_DATA_NODES_NAMES", "")
+            print(f"Assigning Data node EIPs - Names: {data_node_names}")
+            print(f"Assigning Data node EIPs - EIPs: {data_node_eips}")
+            for cop_name in data_node_names:
+                node_eip = data_node_eips.pop()
+                data_node_instanceobj = client.describe_instances(
+                    Filters=[
+                        {"Name": "instance-state-name", "Values": ["running"]},
+                        {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
+                    ]
+                )["Reservations"][0]["Instances"][0]
+                print(f"Assigning EIP {eip} to data node {data_node_instanceobj}")
+                if not assign_eip(client, data_node_instanceobj, node_eip):
+                    print(
+                        f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
+                    )
+                    raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
+
+            print("Assigned EIPs to all data nodes")
             curr_region_main_cop_instanceobj = client.describe_instances(
                 Filters=[
                     {"Name": "instance-state-name", "Values": ["running"]},
@@ -1982,20 +2008,8 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 ]
             )["Reservations"][0]["Instances"][0]
 
-            print(f"asg_inst: {asg_inst}")
-            print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
-            print(f"event: {event}")
-            print(f"asg_orig: {asg_orig}")
-            print(f"asg_dest: {asg_dest}")
+            print(f"Assigning EIP to Main node: {curr_region_main_cop_instanceobj}")
 
-            if asg_inst != curr_region_main_cop_instanceobj['InstanceId']:
-                print(f"Not processing Init/HA event for instance {asg_inst} -- fault-tolerant deployment data node")
-                return
-            else:
-                print(f"Processing Init/HA event for instance {curr_region_main_cop_instanceobj['InstanceId']} -- fault-tolerant deployment Main node")
-
-            # Assign COP_EIP to current region copilot
-            print(f"Assigning EIP: {json.loads(event['Message']).get('Destination', '')}")
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
                     print(
@@ -2003,49 +2017,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     )
                     raise AvxError("Could not assign EIP to primary region Main Copilot")
 
-            cop_data_node_eips = os.environ.get("COP_DEPLOYMENT", "")
-            print(f"cop_data_node_eips - str: {cop_data_node_eips}")
-            cop_data_node_eips = cop_data_node_eips.split(",")
-            print(f"cop_data_node_eips - list: {cop_data_node_eips}")
-
-            curr_region_data_cop_instanceobjects = client.describe_instances(
-                Filters=[
-                    {"Name": "instance-state-name", "Values": ["running"]},
-                    {"Name": "tag:Name", "Values": [f"{instance_name}-Data"]},
-                ]
-            )
-            env1 = {}
-            for reservation in curr_region_data_cop_instanceobjects["Reservations"]:
-                print(f"reservation: {reservation}")
-                for inst in reservation['Instances']:
-                    print(f"inst: {inst}")
-                    if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-                        print(f"event['Message']: {json.loads(event['Message']).get('Destination', '')}")
-                        curr_data_node_eip = cop_data_node_eips.pop()
-                        print(f"curr_data_node_eip: {curr_data_node_eip}")
-                        name_update_resp = client.create_tags(
-                            Resources=[inst['InstanceId']], 
-                            Tags=[{
-                                'Key': 'Name',
-                                'Value': f"{instance_name}-Data-{len(cop_data_node_eips)}"}
-                            ]
-                        )
-                        if name_update_resp['ResponseMetadata']['HTTPStatusCode'] == 200:
-                            print(f"Instance name for data node {instance_name}-Data-{len(cop_data_node_eips)} updated successfully.")
-                        else:
-                            print(f"Failed to update instance name for data node {instance_name}-Data-{len(cop_data_node_eips)}.")
-                            raise AvxError("Failed to update instance name.")
-                        if not assign_eip(client, inst, curr_data_node_eip):
-                            print(
-                                f"Could not assign EIP '{curr_data_node_eip}' to current region '{current_region}' Data Copilot: {inst}"
-                            )
-                            raise AvxError("Could not assign EIP to primary region Data Node Copilot")
-                        env1["copilot_data_node_public_ips"].append(curr_data_node_eip)
-                        env1["copilot_data_node_private_ips"].append(inst["PrivateIpAddress"])
-                        env1["copilot_data_node_names"].append(inst['InstanceId'])
-                        env1["copilot_data_node_instance_names"].append(f"{instance_name}-Data-{len(cop_data_node_eips)}")
-                        env1["copilot_data_node_sg_names"].append(inst["SecurityGroups"][0]["GroupName"])
-            print(f"env1: {env1}")
         else: 
             # get current region copilot to restore eip
             curr_region_cop_instanceobj = client.describe_instances(
