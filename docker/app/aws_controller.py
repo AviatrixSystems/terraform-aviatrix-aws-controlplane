@@ -1972,7 +1972,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
 
         print(f"asg_inst: {asg_inst}")
-        print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
         print(f"event: {event}")
         print(f"asg_orig: {asg_orig}")
         print(f"asg_dest: {asg_dest}")
