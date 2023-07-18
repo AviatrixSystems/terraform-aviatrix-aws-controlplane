@@ -22,7 +22,7 @@ import copilot_main as cp_lib
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.03"
+VERSION = "0.04"
 
 HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
@@ -235,6 +235,17 @@ def create_new_sg(client):
 def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in ECS"""
 
+    current_task_def = ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY,
+    )
+
+    task_def_env_dict = {
+        item["name"]: item["value"]
+        for item in current_task_def["taskDefinition"]["containerDefinitions"][0][
+            "environment"
+        ]
+    }
+
     env_dict = {
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
         "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
@@ -261,7 +272,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "EIP": os.environ.get("EIP"),
         "INST_ID": os.environ.get("INST_ID", ""),
         "INTER_REGION": os.environ.get("INTER_REGION"),
-        "PRIV_IP": os.environ.get("PRIV_IP", ""),
+        "PRIV_IP": task_def_env_dict.get("PRIV_IP", ""),
         "S3_BUCKET_BACK": os.environ.get("S3_BUCKET_BACK"),
         "S3_BUCKET_REGION": os.environ.get("S3_BUCKET_REGION"),
         "SQS_QUEUE_NAME": os.environ.get("SQS_QUEUE_NAME"),
@@ -287,9 +298,6 @@ def update_env_dict(ecs_client, replace_dict={}):
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
-    )
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
