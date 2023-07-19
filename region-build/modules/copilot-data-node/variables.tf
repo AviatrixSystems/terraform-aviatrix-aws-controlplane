@@ -37,11 +37,6 @@ variable "subnet_ids" {
   description = "CoPilot Data Node Subnets"   
 }
 
-variable "security_group_ids" {
-  type        = list(string)
-  description = "CoPilot Data Node SGs"
-}
-
 variable "root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot Data Node"
