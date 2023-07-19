@@ -48,6 +48,8 @@ The following resources should be created before running Terraform. The module w
 
 - If `ha_distribution` is set to "inter-region", the hosted zone specified by `zone_name` must already exist in Route 53.
 
+- Authentication for AWS should be [configured](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) so that helper Python scripts can run on `terraform destroy`.
+
 ### Usage Example
 
 #### Single-AZ
