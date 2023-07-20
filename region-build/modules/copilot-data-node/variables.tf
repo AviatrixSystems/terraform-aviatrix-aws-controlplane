@@ -3,17 +3,9 @@ variable "node_name" {
   type        = string
 }
 
-variable "node_count" {
+variable "node_key" {
   type        = number
-  description = "Desired number of CoPilot data nodes"
-  default     = 3
-
-  validation {
-    condition = (
-      var.node_count >= 3 && var.node_count <= 9
-    )
-    error_message = "CoPilot data node count must be between 3 and 9, inclusive."
-  }
+  description = "Unique CoPilot Data Node Key"
 }
 
 variable "ami_id" {
@@ -32,9 +24,9 @@ variable "keypair" {
   description = "Key pair used by the Data Nodes"
 }
 
-variable "subnet_ids" {
-  type        = list(string)
-  description = "CoPilot Data Node Subnets"   
+variable "subnet_id" {
+  type        = string
+  description = "CoPilot Data Node Subnet"
 }
 
 variable "root_volume_size" {

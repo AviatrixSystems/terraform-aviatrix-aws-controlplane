@@ -1,14 +1,19 @@
-output "instance_ids" {
+output "instance_id" {
   description = "Data Node Instance ID"
-  value       = try(join(",", aws_instance.aviatrixcopilot.*.id), "")
+  value       = try(aws_instance.aviatrixcopilot.id, "")
 }
 
-output "instance_names" {
-  description = "Data Node Instance ID"
-  value       = try(join(",", aws_instance.aviatrixcopilot[*].tags["Name"]), "")
+output "instance_name" {
+  description = "Data Node Instance Name"
+  value       = try(aws_instance.aviatrixcopilot.tags["Name"], "")
 }
 
-output "sg_ids" {
+output "sg_id" {
   description = "Data Node SG ID"
-  value       = try(join(",", aws_security_group.AviatrixCopilotSecurityGroup[*].tags["Name"]), "")
+  value       = try(aws_security_group.AviatrixCopilotSecurityGroup.id, "")
+}
+
+output "sg_name" {
+  description = "Data Node SG Name"
+  value       = try(aws_security_group.AviatrixCopilotSecurityGroup.name, "")
 }
