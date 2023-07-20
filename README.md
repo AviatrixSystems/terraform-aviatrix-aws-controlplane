@@ -48,7 +48,7 @@ The following resources should be created before running Terraform. The module w
 
 - If `ha_distribution` is set to "inter-region", the hosted zone specified by `zone_name` must already exist in Route 53.
 
-- Authentication for AWS should be [configured](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) so that helper Python scripts can run on `terraform destroy`.
+- Boto3 should be [installed](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#installation) and authentication for AWS should be [configured](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) so that helper Python scripts can run on `terraform destroy`.
 
 ### Usage Example
 
@@ -116,6 +116,12 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 4. If the [previous HA solution](https://github.com/AviatrixSystems/Controller-HA-for-AWS/) was used, [disable Controller High Availability](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-ha-aws.html#disabling-aws-controller-high-availability) by deleting the CloudFormation stack.
 5. Terminate the previous Controller instance.
 6. Perform a [Controller restore](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-backup-restore.html#restoring-your-configuration) using the file noted in step 2.
+
+### Logging and Email Notifications
+
+- Logs can be viewed in CloudWatch in the `/aws/ecs/avx_platform_ha` log group.
+- Email alerts from the Aviatrix Controller will be sent to the address specified in `admin_email`.
+- Auto Scaling group events will be sent to the address specified in `asg_notif_email` only if you confirm the subscription. Upon `terraform apply`, AWS will send an email asking to confirm the subscription. If deploying `inter-region`, you will need to confirm both emails that are received.
 
 ### Variables
 
