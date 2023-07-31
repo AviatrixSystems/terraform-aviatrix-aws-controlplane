@@ -210,9 +210,9 @@ resource "aws_iam_policy" "ecs-policy" {
         "ssm:GetParameter"
       ],
       "Resource":[
-        "arn:aws:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
-        "arn:aws:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
-        "arn:aws:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
+        "arn:aws-cn:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
+        "arn:aws-cn:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
+        "arn:aws-cn:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
         ]
     },
     {
@@ -222,7 +222,7 @@ resource "aws_iam_policy" "ecs-policy" {
         "logs:PutLogEvents"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:logs:*:*:*"
+      "Resource": "arn:aws-cn:logs:*:*:*"
     },
     {
       "Effect": "Allow",
@@ -284,7 +284,7 @@ resource "aws_iam_policy" "eventbridge-policy" {
         {
             "Action": "ecs:RunTask",
             "Effect": "Allow",
-            "Resource": "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/*",
+            "Resource": "arn:aws-cn:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/*",
             "Sid": "ECSAccess1"
         },
         {

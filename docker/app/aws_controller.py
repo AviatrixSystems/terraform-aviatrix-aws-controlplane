@@ -976,7 +976,7 @@ def create_cloud_account(cid, controller_ip, account_name, cloud="default"):
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
     # set the default cloud = 1
-    cloud_type = 1
+    cloud_type = 1024
     # check if the input is "china", then set cloud_type to 1024
     if cloud.lower == "china":
         cloud_type = 1024
@@ -985,12 +985,12 @@ def create_cloud_account(cid, controller_ip, account_name, cloud="default"):
         "action": "setup_account_profile",
         "account_name": account_name,
         "aws_account_number": aws_acc_num,
-        "aws_role_arn": "arn:aws:iam::%s:role/%s"
+        "aws_role_arn": "arn:aws-cn:iam::%s:role/%s"
         % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
-        "aws_role_ec2": "arn:aws:iam::%s:role/%s"
+        "aws_role_ec2": "arn:aws-cn:iam::%s:role/%s"
         % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
         "cloud_type": cloud_type,
-        "aws_iam": "true",
+        "aws_china_iam": "true"
     }
 
     print("Trying to create account with data %s\n" % str(post_data))
@@ -1020,7 +1020,7 @@ def create_cloud_account(cid, controller_ip, account_name, cloud="default"):
 def restore_backup(cid, controller_ip, s3_file, account_name,cloud="default"):
     """Restore backup from the s3 bucket"""
     #set the default cloud type to 1 (AWS)
-    cloud_type = 1
+    cloud_type = 1024
     #check if the input is "china", then set cloud type to 1024
     if cloud.lower == "china":
         cloud_type = 1024
@@ -1146,7 +1146,7 @@ def set_customer_id(cid, controller_api_ip):
 def setup_ctrl_backup(controller_ip, cid, acc_name, now=None, cloud="default"):
     """Enable S3 backup"""
     # set the default cloud type = 1 (AWS)
-    cloud_type = 1
+    cloud_type = 1024
     # check if the input is "china", then set cloud type to 1024
     if cloud.lower == "china":
         cloud_type = 1024
