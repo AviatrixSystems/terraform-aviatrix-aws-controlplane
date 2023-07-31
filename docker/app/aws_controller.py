@@ -968,13 +968,19 @@ def get_role(role, default):
     return name
 
 
-def create_cloud_account(cid, controller_ip, account_name):
+def create_cloud_account(cid, controller_ip, account_name, cloud="default"):
     """Create a temporary account to restore the backup"""
 
     print(f"Creating {account_name} account")
     client = boto3.client("sts")
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
+    # set the default cloud = 1
+    cloud_type = 1
+    # check if the input is "china", then set cloud_type to 1024
+    if cloud.lower == "china":
+        cloud_type = 1024
+
     post_data = {
         "action": "setup_account_profile",
         "account_name": account_name,
@@ -983,7 +989,7 @@ def create_cloud_account(cid, controller_ip, account_name):
         % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
         "aws_role_ec2": "arn:aws:iam::%s:role/%s"
         % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": 1,
+        "cloud_type": cloud_type,
         "aws_iam": "true",
     }
 
@@ -1011,12 +1017,16 @@ def create_cloud_account(cid, controller_ip, account_name):
     return output
 
 
-def restore_backup(cid, controller_ip, s3_file, account_name):
+def restore_backup(cid, controller_ip, s3_file, account_name,cloud="default"):
     """Restore backup from the s3 bucket"""
-
+    #set the default cloud type to 1 (AWS)
+    cloud_type = 1
+    #check if the input is "china", then set cloud type to 1024
+    if cloud.lower == "china":
+        cloud_type = 1024
     restore_data = {
         "action": "restore_cloudx_config",
-        "cloud_type": "1",
+        "cloud_type": cloud_type,
         "account_name": account_name,
         "file_name": s3_file,
         "bucket_name": os.environ.get("S3_BUCKET_BACK"),
@@ -1133,15 +1143,20 @@ def set_customer_id(cid, controller_api_ip):
         )
 
 
-def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
+def setup_ctrl_backup(controller_ip, cid, acc_name, now=None, cloud="default"):
     """Enable S3 backup"""
+    # set the default cloud type = 1 (AWS)
+    cloud_type = 1
+    # check if the input is "china", then set cloud type to 1024
+    if cloud.lower == "china":
+        cloud_type = 1024
 
     base_url = "https://%s/v1/api" % controller_ip
 
     post_data = {
         "action": "enable_cloudn_backup_config",
         "CID": cid,
-        "cloud_type": "1",
+        "cloud_type": cloud_type,
         "account_name": acc_name,
         "bucket_name": os.environ.get("S3_BUCKET_BACK"),
         "multiple": "true",
