@@ -236,7 +236,7 @@ def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in ECS"""
 
     current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
 
     task_def_env_dict = {
@@ -318,6 +318,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         new_env_list.append({"name": name, "value": value})
 
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
@@ -335,7 +336,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
 
     print("Updating environment %s" % env_dict)
     current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -356,6 +357,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     for name, value in env_dict.items():
         new_env_list.append({"name": name, "value": value})
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
@@ -551,7 +553,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         )
     print("Setting environment %s" % env_dict)
     current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -573,6 +575,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         new_env_list.append({"name": name, "value": value})
 
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
     ecs_client.register_task_definition(**new_task_def)
