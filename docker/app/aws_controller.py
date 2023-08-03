@@ -259,6 +259,9 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "COP_ASG": os.environ.get("COP_ASG"),
         "COP_EIP": os.environ.get("COP_EIP"),
+        "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
+        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
+        "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
@@ -505,6 +508,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "CTRL_INIT_VER": os.environ.get("CTRL_INIT_VER", ""),
         "EIP": eip,
         "COP_EIP": os.environ.get("COP_EIP"),
+        "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
+        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
+        "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "VPC_ID": vpc_id,
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
         "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
@@ -529,10 +535,8 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
-            "AVX_COPILOT_PASSWORD_SSM_PATH"
-        ),
-        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
+        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
@@ -1971,44 +1975,36 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         curr_cop_eip = os.environ.get("COP_EIP", "")
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
 
-        print(f"asg_inst: {asg_inst}")
-        print(f"event: {event}")
-        print(f"asg_orig: {asg_orig}")
-        print(f"asg_dest: {asg_dest}")
-
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
             # get current region copilot to restore eip
+            data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
+            data_node_details = json.loads(data_node_details)
             data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
             data_node_eips = data_node_eips.split(",")
-            data_node_names = os.environ.get("COP_DATA_NODES_NAMES", "")
-            print(f"Assigning Data node EIPs - Names: {data_node_names}")
-            print(f"Assigning Data node EIPs - EIPs: {data_node_eips}")
-            for cop_name in data_node_names:
+            # assign EIPs to data nodes
+            for inst in data_node_details:
                 node_eip = data_node_eips.pop()
                 data_node_instanceobj = client.describe_instances(
                     Filters=[
                         {"Name": "instance-state-name", "Values": ["running"]},
-                        {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
+                        {"Name": "tag:Name", "Values": [inst['instance_name']]},
                     ]
                 )["Reservations"][0]["Instances"][0]
-                print(f"Assigning EIP {eip} to data node {data_node_instanceobj}")
+                print(f"Assigning EIP {node_eip} to data node {data_node_instanceobj}")
                 if not assign_eip(client, data_node_instanceobj, node_eip):
                     print(
                         f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
                     )
                     raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
+            # end assigning EIPs to data nodes
 
-            print("Assigned EIPs to all data nodes")
             curr_region_main_cop_instanceobj = client.describe_instances(
                 Filters=[
                     {"Name": "instance-state-name", "Values": ["running"]},
                     {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
                 ]
             )["Reservations"][0]["Instances"][0]
-
-            print(f"Assigning EIP to Main node: {curr_region_main_cop_instanceobj}")
-
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
                     print(
@@ -2033,7 +2029,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     )
                     raise AvxError("Could not assign EIP to primary region Copilot")
 
-        # cp_lib.handle_copilot_ha()
+        cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
         print(f"handle_cop_ha_event failed with err: {str(err)}")

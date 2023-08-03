@@ -3,6 +3,7 @@ import time
 import datetime
 import traceback
 import os
+import json
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 
@@ -306,23 +307,9 @@ def handle_copilot_ha():
 
   restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
-  copilot_user_info = get_copilot_user_info(env)
 
-  # get copilot instance and auth info
-  env["copilot_data_node_regions"] = []
-  env["copilot_data_node_usernames"] = []
-  env["copilot_data_node_passwords"] = []
-  env["copilot_data_node_volumes"] = []
   if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
-    instance_name = f"{env['AVIATRIX_COP_TAG']}-Main"
-    for node_name in env[copilot_data_node_instance_names]:
-      env[copilot_data_node_regions].append(restore_region)
-      env[copilot_data_node_usernames].append(copilot_user_info['username'])
-      env[copilot_data_node_passwords].append(copilot_user_info['password'])
-      env[copilot_data_node_volumes].append('/dev/sda2')
-  else:
-    instance_name = env["AVIATRIX_COP_TAG"]
-
+    copilot_instance_name = f"{copilot_instance_name}-Main"
 
   # get restore_region (main) copilot to be created/restored
   copilot_instanceobj = restore_client.describe_instances(
@@ -355,23 +342,56 @@ def handle_copilot_ha():
   )
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
-  copilot_auth_ip = get_copilot_auth_ip(instance_public_ips, controller_instanceobj)
+  if os.environ.get("COP_AUTH_IP", "") == "private":
+      copilot_auth_ip = controller_instanceobj['PrivateIpAddress']
+  else:
+      copilot_auth_ip = instance_public_ips["controller_public_ip"]
+
+  copilot_data_node_public_ips = []
+  copilot_data_node_private_ips = []
+  copilot_data_node_regions = []
+  copilot_data_node_names = []
+  copilot_data_node_usernames = []
+  copilot_data_node_passwords = []
+  copilot_data_node_volumes = []
+  copilot_data_node_sg_names = []
+
+  if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
+    data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
+    data_node_details = json.loads(data_node_details)
+    print(f"Getting Data node Details: {data_node_details}")
+    for inst in data_node_details:
+      data_node_instanceobj = restore_client.describe_instances(
+          Filters=[
+              {"Name": "instance-state-name", "Values": ["running"]},
+              {"Name": "tag:Name", "Values": [inst['instance_name']]},
+          ]
+      )["Reservations"][0]["Instances"][0]
+      print(f"Getting details from data node {data_node_instanceobj}")
+      copilot_data_node_public_ips.append(data_node_instanceobj['PublicIpAddress'])
+      copilot_data_node_private_ips.append(data_node_instanceobj['PrivateIpAddress'])
+      copilot_data_node_regions.append(restore_region)
+      copilot_data_node_names.append(inst['instance_name'])
+      copilot_data_node_usernames.append(copilot_user_info["username"])
+      copilot_data_node_passwords.append(copilot_user_info["password"])
+      copilot_data_node_volumes.append('/dev/sdf')
+      copilot_data_node_sg_names.append(data_node_instanceobj["SecurityGroups"][0]["GroupName"])
 
   copilot_event = {
     "region": restore_region,
     "copilot_init": copilot_init,
     "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
-    "copilot_type": env['COP_DEPLOYMENT'],  # values should be "singleNode" or "fault-tolerant"
+    "copilot_type": os.environ.get("COP_DEPLOYMENT", ""),  # values should be "singleNode" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
-    "copilot_data_node_public_ips": env[copilot_data_node_public_ips],  # cluster data nodes public IPs
-    "copilot_data_node_private_ips": env[copilot_data_node_private_ips],  # cluster data nodes private IPs
-    "copilot_data_node_regions": env[copilot_data_node_regions],  # cluster data nodes regions (should be the same)
-    "copilot_data_node_names": env[copilot_data_node_names],  # names to be displayed in copilot cluster info
-    "copilot_data_node_usernames": env[copilot_data_node_volumes], # cluster data nodes auth info
-    "copilot_data_node_passwords": env[copilot_data_node_volumes], # cluster data nodes auth info
-    "copilot_data_node_volumes": env[copilot_data_node_volumes],  # linux volume names (eg "/dev/sdf") - can be the same
-    "copilot_data_node_sg_names": env[copilot_data_node_sg_names],  # cluster data nodes security group names
+    "copilot_data_node_public_ips": copilot_data_node_public_ips,  # cluster data nodes public IPs
+    "copilot_data_node_private_ips": copilot_data_node_private_ips,  # cluster data nodes private IPs
+    "copilot_data_node_regions": copilot_data_node_regions,  # cluster data nodes regions (should be the same)
+    "copilot_data_node_names": copilot_data_node_names,  # names to be displayed in copilot cluster info
+    "copilot_data_node_usernames": copilot_data_node_usernames, # cluster data nodes auth info
+    "copilot_data_node_passwords": copilot_data_node_passwords, # cluster data nodes auth info
+    "copilot_data_node_volumes": copilot_data_node_volumes,  # linux volume names (eg "/dev/sdf") - can be the same
+    "copilot_data_node_sg_names": copilot_data_node_sg_names,  # cluster data nodes security group names
     "controller_info": {
         "public_ip": instance_public_ips["controller_public_ip"],
         "private_ip": controller_instanceobj["PrivateIpAddress"],
