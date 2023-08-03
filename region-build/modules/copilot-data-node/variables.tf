@@ -19,6 +19,11 @@ variable "instance_type" {
   default     = "t3.2xlarge"
 }
 
+variable "controller_ip" {
+  type        = string
+  description = "Controller IP address"
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair used by the Data Nodes"

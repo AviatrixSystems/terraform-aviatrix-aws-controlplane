@@ -221,24 +221,31 @@ resource "aws_eip" "copilot_eip" {
 resource "aws_eip" "copilot_data_nodes_eips" {
   count  = var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? 0 : var.copilot_data_node_count : 0
   domain = "vpc"
-  tags   = local.common_tags
+  tags   = merge(local.common_tags, {
+    Name = "CopilotDataNodeEIP-${count.index}",
+    DataNodeIndex = count.index
+  })
 }
 
 
 module "data_nodes" {
-  count  = var.copilot_deployment == "fault-tolerant" ? 1 : 0
+  count  = var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 0
   source = "./modules/copilot-data-node"
 
   node_name = local.cop_tag
-  node_count = var.copilot_data_node_count
+  node_key = count.index
   ami_id = local.cop_ami_id
   instance_type = var.cop_instance_type
+  controller_ip = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
   keypair = var.keypair
-  subnet_ids = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
-  security_group_ids = [aws_security_group.AviatrixCopilotSecurityGroup.id]
+  subnet_id =  local.data_node_subnets[count.index % length(local.data_node_subnets)]
   root_volume_size = var.cop_root_volume_size
   root_volume_type = var.cop_root_volume_type
   default_data_volume_size = var.cop_default_data_volume_size
   default_data_volume_type = var.cop_default_data_volume_type
   tags = local.common_tags
+}
+
+locals {
+  data_node_subnets = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
 }
