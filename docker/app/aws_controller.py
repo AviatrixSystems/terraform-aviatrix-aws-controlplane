@@ -1974,6 +1974,7 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
         curr_cop_eip = os.environ.get("COP_EIP", "")
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
+        copilot_init = os.environ.get("PRIV_IP", "") == ""
 
         if cop_deployment == "fault-tolerant":
             # add new vars to env list
@@ -1983,21 +1984,23 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
             data_node_eips = data_node_eips.split(",")
             # assign EIPs to data nodes
-            for inst in data_node_details:
-                node_eip = data_node_eips.pop()
-                data_node_instanceobj = client.describe_instances(
-                    Filters=[
-                        {"Name": "instance-state-name", "Values": ["running"]},
-                        {"Name": "tag:Name", "Values": [inst['instance_name']]},
-                    ]
-                )["Reservations"][0]["Instances"][0]
-                print(f"Assigning EIP {node_eip} to data node {data_node_instanceobj}")
-                if not assign_eip(client, data_node_instanceobj, node_eip):
-                    print(
-                        f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
-                    )
-                    raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
-            # end assigning EIPs to data nodes
+            if copilot_init:
+                for inst in data_node_details:
+                    node_eip = data_node_eips.pop()
+                    data_node_instanceobj = client.describe_instances(
+                        Filters=[
+                            {"Name": "instance-state-name", "Values": ["running"]},
+                            {"Name": "tag:Name", "Values": [inst['instance_name']]},
+                        ]
+                    )["Reservations"][0]["Instances"][0]
+                    print(f"Assigning EIP {node_eip} to data node {data_node_instanceobj}")
+                    if not assign_eip(client, data_node_instanceobj, node_eip):
+                        print(
+                            f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
+                        )
+                        raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
+                # end assigning EIPs to data nodes
+            # only add data node EIPs in cluster copilot init
 
             curr_region_main_cop_instanceobj = client.describe_instances(
                 Filters=[

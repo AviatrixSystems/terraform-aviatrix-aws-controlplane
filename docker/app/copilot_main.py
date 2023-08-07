@@ -542,29 +542,27 @@ def handle_event(event):
       cluster_cplt.function_handler(cluster_event)
   else:
     # copilot HA use case
-    if event['copilot_type'] == "singleNode" or event['cluster_ha_main_node']:
-      # singleNode copilot HA
-      # 1. get saved config from controller
-      print(f"SingleNode CoPilot HA OR Cluster main node HA begin ...")
-      print(f"Getting saved CoPilot config from the controller")
-      config = api.get_copilot_config(event['copilot_type'])
-      print(f"get_copilot_config: {config}")
-      # abort restore if unable to get config
-      if config == {}:
-        print(f"Unable to get saved config. Abort restore")
-        return
-      # setting possibly new controller IP in saved config
+    # 1. get saved config from controller
+    print(f"SingleNode CoPilot HA OR Cluster main node HA begin ...")
+    print(f"Getting saved CoPilot config from the controller")
+    config = api.get_copilot_config(event['copilot_type'])
+    print(f"get_copilot_config: {config}")
+    # abort restore if unable to get config
+    if config == {}:
+      print(f"Unable to get saved config. Abort restore")
+      return
+    # setting possibly new controller IP in saved config
+    if config.get('singleCopilot'):
       config['singleCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['auth_ip']
-      # 2. restore saved config on new copilot
-      print(f"Restoring config on CoPilot: {config}")
-      response = copilot_api.restore_copilot(config)
-      print(f"restore_config: {response}")
-      print(f"Getting restore_config status")
-      copilot_api.wait_copilot_restore_complete(event['copilot_type'])
-      print("CoPilot restore end")
-    else:
-      # clustered copilot data node HA
-      print(f"Clustered CoPilot data node HA use case ...")
+    elif config.get('mainCopilot'):
+      config['mainCopilot']['copilotConfigFiles']['db.json']['config']['controllerIp'] = event['auth_ip']
+    # 2. restore saved config on new copilot
+    print(f"Restoring config on CoPilot: {config}")
+    response = copilot_api.restore_copilot(config)
+    print(f"restore_config: {response}")
+    print(f"Getting restore_config status")
+    copilot_api.wait_copilot_restore_complete(event['copilot_type'])
+    print("CoPilot restore end")
   
   # Post init or HA actions
   # 1. enable copilot config backup on new copilot instances
