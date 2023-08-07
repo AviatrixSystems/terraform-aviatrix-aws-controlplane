@@ -210,9 +210,9 @@ resource "aws_iam_policy" "ecs-policy" {
         "ssm:GetParameter"
       ],
       "Resource":[
-        "arn:${iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
-        "arn:${iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
-        "arn:${iam_type}:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
+        "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
+        "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
+        "arn:${local.iam_type}:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
         ]
     },
     {
@@ -222,7 +222,7 @@ resource "aws_iam_policy" "ecs-policy" {
         "logs:PutLogEvents"
       ],
       "Effect": "Allow",
-      "Resource": "arn:${iam_type}:logs:*:*:*"
+      "Resource": "arn:${local.iam_type}:logs:*:*:*"
     },
     {
       "Effect": "Allow",
@@ -285,7 +285,7 @@ resource "aws_iam_policy" "eventbridge-policy" {
         {
             "Action": "ecs:RunTask",
             "Effect": "Allow",
-            "Resource": "arn:${iam_type}:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/*",
+            "Resource": "arn:${local.iam_type}:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/*",
             "Sid": "ECSAccess1"
         },
         {
@@ -349,7 +349,7 @@ resource "null_resource" "push_ecr_image" {
       --region ${var.region} \
       | docker login \
       --username AWS \
-      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com.cn
+      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.${local.ecr_url}
     docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
     EOF
   }

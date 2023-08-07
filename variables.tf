@@ -262,6 +262,7 @@ locals {
   // identify gloabl or china region
   ischina           = regexall("^cn-",var.region)
   iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"
+  ecr_url           = contains(local.ischina,"cn-") ? "amazonaws.com.cn":"amazonaws.com"
 
   common_tags = merge(
     var.tags, {
