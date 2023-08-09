@@ -1030,14 +1030,14 @@ def create_cloud_account(cid, controller_ip, account_name):
     else:
         output = response.json()
 
-    return output, post_data
+    return output
 
 
 def restore_backup(cid, controller_ip, s3_file, account_name):
     """Restore backup from the s3 bucket"""
-    ec2.client = boto3.client("ec2")
+    ec2_client = boto3.client("ec2")
     region_list = ec2_client.describe_regions().get('Regions')
-    if re.match("^cn-", region_list[0].get("RegionName")):
+    if region_list[0]["RegionName"].startswith("cn-"):
         cloud_type = "1024"
     else:
         cloud_type = "1"
@@ -1162,9 +1162,9 @@ def set_customer_id(cid, controller_api_ip):
 
 def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     """Enable S3 backup"""
-    ec2.client = boto3.client("ec2")
+    ec2_client = boto3.client("ec2")
     region_list = ec2_client.describe_regions().get('Regions')
-    if re.match("^cn-", region_list[0].get("RegionName")):
+    if region_list[0]["RegionName"].startswith("cn-"):
         cloud_type = "1024"
     else:
         cloud_type = "1"
