@@ -975,43 +975,40 @@ def create_cloud_account(cid, controller_ip, account_name):
 
     print(f"Creating {account_name} account")
     client = boto3.client("sts")
-    ec2.client = boto3.client("ec2")
-    region_list = ec2_client.describe_regions().get('Regions')
+    ec2_client = boto3.client("ec2")
+    region_list = ec2_client.describe_regions()['Regions']
  
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
  
-    if re.match("^cn-", region_list[0].get("RegionName")):
-        cloud_type = "1024"
-        iam_type = "aws-cn"
-        ischina = "true"
+    # if re.match("^cn-", region_list[0]["RegionName"]) != None:
+    if region_list[0]["RegionName"].startswith("cn-") == True:
+        print("cn- identification is true")
         post_data = {
         "action": "setup_account_profile",
         "account_name": account_name,
         "aws_china_account_number": aws_acc_num,
-        "aws_china_role_arn": "arn:%s:iam::%s:role/%s"
-        % (aws_acc_num, get_role("iam_type","AWS_ROLE_APP_NAME", "aviatrix-role-app")),
-        "aws_china_role_ec2": "arn:%s:iam::%s:role/%s"
-        % (aws_acc_num, get_role("iam_type","AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": cloud_type,
-        "aws_china_iam": ischina
+        "aws_china_role_arn": "arn:aws-cn:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
+        "aws_china_role_ec2": "arn:aws-cn:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
+        "cloud_type": "1024",
+        "aws_china_iam": "true",
     }
     else:
-        cloud_type = "1"
-        iam_type = "aws"
-        ischina = "false"
+        print("cn- identification is false")
         post_data = {
         "action": "setup_account_profile",
         "account_name": account_name,
         "aws_account_number": aws_acc_num,
-        "aws_role_arn": "arn:%s:iam::%s:role/%s"
-        % (aws_acc_num, get_role("iam_type","AWS_ROLE_APP_NAME", "aviatrix-role-app")),
-        "aws_role_ec2": "arn:%s:iam::%s:role/%s"
-        % (aws_acc_num, get_role("iam_type","AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": cloud_type,
-        "aws_china_iam": ischina
+        "aws_role_arn": "arn:aws:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
+        "aws_role_ec2": "arn:aws:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
+        "cloud_type": "1",
+        "aws_iam": "true",
     }
-            
+                    
     print("Trying to create account with data %s\n" % str(post_data))
     post_data["CID"] = cid
 
@@ -1033,7 +1030,7 @@ def create_cloud_account(cid, controller_ip, account_name):
     else:
         output = response.json()
 
-    return output
+    return output, post_data
 
 
 def restore_backup(cid, controller_ip, s3_file, account_name):
