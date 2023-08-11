@@ -167,37 +167,36 @@ def log_failover_status(type):
     else:
         print(no_recent_reboot_log)
 
-def modify_sg_rules(
-    ec2_client,
-    operation: str,
-    security_group_id: str,
-    from_port: int,
-    to_port: int,
-    protocol: str = "tcp",
-    cidr_list = [],
-) -> None:
+# operation = 'add_rule' OR 'del_rule'
+# rule = {from_port: int, to_port: int, protocol: str, cidr_list, description}
+def modify_sg_rules(ec2_client, operation, security_group_id, sg_rule) -> None:
     try:
         if operation == "add_rule":
             fn = ec2_client.authorize_security_group_ingress
         elif operation == "del_rule":
             fn = ec2_client.revoke_security_group_ingress
+        if sg_rule.get("description"):
+            sg_desc = sg_rule.get("description")
+        else:
+            sg_desc = "Added by copilot ha script"
         data = fn(
             GroupId=security_group_id,
             IpPermissions=[
                 {
-                    "FromPort": from_port,
-                    "ToPort": to_port,
-                    "IpProtocol": protocol,
+                    "FromPort": sg_rule["from_port"],
+                    "ToPort": sg_rule["to_port"],
+                    "IpProtocol": sg_rule["protocol"],
                     "IpRanges": [
                         {
                             "CidrIp": cidr,
-                            "Description": "Added by copilot ha script"
-                        } for cidr in cidr_list
+                            "Description": sg_desc
+                        } for cidr in sg_rule["cidr_list"]
                     ]
                 }
             ]
         )
         print(f"Rules successfully modified: {data}")
+        return security_group_id
     except Exception as err:  # pylint: disable=broad-except
         print(str(traceback.format_exc()))
         print(f"Modifying SG rules error: {err}")
@@ -236,8 +235,13 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
             )
             if add_rule:
                 print(f"Enabling tmp access on SG: {security_group_id}")
-                data = modify_sg_rules(ec2_client, "add_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
-                return security_group_id
+                open_https_rule = {"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_list": ["0.0.0.0/0"], "description": "TMP OPEN HTTPS"}
+                modified_sg_id = modify_sg_rules(ec2_client, "add_rule", security_group_id, open_https_rule)
+                if modified_sg_id:
+                    print('Successfully enabled temporary access')
+                    return security_group_id
+                else:
+                    print(f"Unable to open TMP access in SG: {security_group_id}")
             else:
                 print(f"Access already enabled on SG {security_group_id}")
         except Exception as err:  # pylint: disable=broad-except
@@ -247,13 +251,49 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
         # Remove SG from instances, and Delete
         try:
             print(f"Removing tmp access from SG: {security_group_id}")
-            del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
-            modify_sg_rules(ec2_client, "del_rule", security_group_id, 443, 443, "tcp", ["0.0.0.0/0"])
-            print('Successfully disabled temporary access')
+            # del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            open_https_rule = {"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_list": ["0.0.0.0/0"], "description": "TMP OPEN HTTPS"}
+            modify_sg_rules(ec2_client, "del_rule", security_group_id, open_https_rule)
+            if modified_sg_id:
+                print('Successfully disabled temporary access')
+                return security_group_id
+            else:
+                print(f"Unable to close TMP access in SG: {security_group_id}")
         except Exception as err:  # pylint: disable=broad-except
             print(str(traceback.format_exc()))
             print(f"Disabling access error: {err}")
 
+def clear_security_group_rules(ec2_client, security_group_id):
+    response = ec2_client.describe_security_groups(
+        GroupIds=[security_group_id]
+    )
+    if 'SecurityGroups' in response:
+        security_group = response['SecurityGroups'][0]
+        sg_rules = []
+        for rule in security_group['IpPermissions']:
+            for ip_range in rule['IpRanges']:
+                if ip_range.get('Description'):
+                    if 'CoPilot private IP' in ip_range['Description'] or 'CoPilot public IP' in ip_range['Description']:
+                        delete_rule = {
+                            "FromPort": rule["FromPort"],
+                            "ToPort": rule["ToPort"],
+                            "IpProtocol": rule["IpProtocol"],
+                            "IpRanges": [{"CidrIp": ip_range["CidrIp"], "Description": ip_range["Description"]}]
+                        }
+                        sg_rules.append(delete_rule)
+        for rule in sg_rules:
+            print(f"Deleting rule: {rule}")
+            try:
+                ec2_client.revoke_security_group_ingress(
+                    GroupId=security_group_id,
+                    IpPermissions=[rule]
+                )
+            except Exception as err:
+                print(str(traceback.format_exc()))
+                print(f"Clearing rule error: {err}")
+        print(f"All CoPilot public and private IP rules in {security_group_id} deleted successfully.")
+    else:
+        print(f"Failed to retrieve security group rules.")
 
 def handle_copilot_ha():
   # use cases:
@@ -292,10 +332,6 @@ def handle_copilot_ha():
     print(f"Logging controller failover status failed with the error below.")
     print(str(err))
 
-  # sleep
-  print("sleeping for 900 seconds")
-  time.sleep(900)
-
   # get controller instance and auth info
   controller_instance_name = os.environ.get("AVIATRIX_TAG", "")
   controller_username = "admin"
@@ -328,18 +364,6 @@ def handle_copilot_ha():
     ]
   )["Reservations"][0]["Instances"][0]
   print(f"controller_instanceobj: {controller_instanceobj}")
-  # enable tmp access on the controller
-  controller_tmp_sg = manage_tmp_access(
-      restore_client,
-      controller_instanceobj['SecurityGroups'][0]['GroupId'],
-      "add_rule"
-  )
-  # enable tmp access on the copilot
-  copilot_tmp_sg = manage_tmp_access(
-      restore_client,
-      copilot_instanceobj['SecurityGroups'][0]['GroupId'],
-      "add_rule"
-  )
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
   if os.environ.get("COP_AUTH_IP", "") == "private":
@@ -355,6 +379,7 @@ def handle_copilot_ha():
   copilot_data_node_passwords = []
   copilot_data_node_volumes = []
   copilot_data_node_sg_names = []
+  copilot_data_node_sg_ids = []
 
   if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
     data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
@@ -376,6 +401,7 @@ def handle_copilot_ha():
       copilot_data_node_passwords.append(copilot_user_info["password"])
       copilot_data_node_volumes.append('/dev/sdf')
       copilot_data_node_sg_names.append(data_node_instanceobj["SecurityGroups"][0]["GroupName"])
+      copilot_data_node_sg_ids.append(data_node_instanceobj["SecurityGroups"][0]["GroupId"])
 
   copilot_event = {
     "region": restore_region,
@@ -392,6 +418,7 @@ def handle_copilot_ha():
     "copilot_data_node_passwords": copilot_data_node_passwords, # cluster data nodes auth info
     "copilot_data_node_volumes": copilot_data_node_volumes,  # linux volume names (eg "/dev/sdf") - can be the same
     "copilot_data_node_sg_names": copilot_data_node_sg_names,  # cluster data nodes security group names
+    "copilot_data_node_sg_ids": copilot_data_node_sg_ids, # cluster data nodes security group IDs
     "controller_info": {
         "public_ip": instance_public_ips["controller_public_ip"],
         "private_ip": controller_instanceobj["PrivateIpAddress"],
@@ -414,6 +441,28 @@ def handle_copilot_ha():
   }
   print(f"copilot_event: {copilot_event}")
 
+  if copilot_init:
+      print("copilot init case - not deleting rules")
+  else:
+      # clear SG rules from main copilot SG
+      print(f"copilot ha event - clearing rules in copilot main sg: {copilot_instanceobj['SecurityGroups'][0]['GroupId']}")
+      clear_security_group_rules(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'])
+      if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
+          print("copilot ha event for fault-tolerant deployment")
+          print(f"clearing rules in node copilot sgs: {copilot_event['copilot_data_node_sg_ids']}")
+          for node_sg_id in copilot_event['copilot_data_node_sg_ids']:
+              clear_security_group_rules(restore_client, node_sg_id)
+
+  # enable tmp access on the copilot
+  copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
+
+  print("waiting for copilot upgrade check")
+  copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=copilot_event['copilot_info']['public_ip'], cid="")
+  copilot_upgrade_check_api.retry_upgrade_check()
+
+  # enable tmp access on the controller
+  controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
+
   handle_event(copilot_event)
 
   # disable tmp access on the controller
@@ -425,45 +474,42 @@ def handle_copilot_ha():
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
-  print(f"Starting CoPilot HA with copilot_init = '{event['copilot_init']}' and copilot_type = '{event['copilot_type']}'")
+  print("Starting CoPilot HA")
   ec2_client = boto3.client("ec2", region_name=event['region'])
 
   # Security group adjustment
   if event['copilot_type'] == "singleNode":
-    print(f"Adding CoPilot IPs '{event['copilot_info']['public_ip']}' and '{event['copilot_info']['private_ip']}' to Controller SG '{event['controller_info']['sg_id']}'")
+    print("Adding CoPilot public and private IPs to Controller SG")
     try:
-      modify_sg_rules(
-          ec2_client,
-          "add_rule",
-          event['controller_info']['sg_id'],
-          443,
-          443,
-          "tcp",
-          [f"{event['copilot_info']['public_ip']}/32"]
-      )
-      modify_sg_rules(
-          ec2_client,
-          "add_rule",
-          event['controller_info']['sg_id'],
-          443,
-          443,
-          "tcp",
-          [f"{event['copilot_info']['private_ip']}/32"]
-      )
+      copilot_public_ip_rule = {
+          "from_port": 443,
+          "to_port": 443,
+          "protocol": "tcp",
+          "cidr_list": [f"{event['copilot_info']['public_ip']}/32"],
+          "description": "Main CoPilot public IP"
+      }
+      modify_sg_rules(ec2_client, "add_rule", event['controller_info']['sg_id'], copilot_public_ip_rule)
+      copilot_private_ip_rule = {
+          "from_port": 443,
+          "to_port": 443,
+          "protocol": "tcp",
+          "cidr_list": [f"{event['copilot_info']['private_ip']}/32"],
+          "description": "Main CoPilot private IP"
+      }
+      modify_sg_rules(ec2_client, "add_rule", event['controller_info']['sg_id'], copilot_private_ip_rule)
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding CoPilot IP to Controller SG failed due to " + str(err))
     try:
       print(f"Adding Controller auth IP '{event['auth_ip']}' to CoPilot SG '{event['copilot_info']['sg_id']}'")
-      modify_sg_rules(
-          ec2_client,
-          "add_rule",
-          event['copilot_info']['sg_id'],
-          443,
-          443,
-          "tcp",
-          [f"{event['auth_ip']}/32"]
-      )
+      controller_auth_ip_rule = {
+          "from_port": 443,
+          "to_port": 443,
+          "protocol": "tcp",
+          "cidr_list": [f"{event['auth_ip']}/32"],
+          "description": "Controller Auth IP"
+      }
+      modify_sg_rules(ec2_client, "add_rule", event['copilot_info']['sg_id'], controller_auth_ip_rule)
     except Exception as err:  # pylint: disable=broad-except
       print(str(traceback.format_exc()))
       print("Adding Controller auth IP to CoPilot SG failed due to " + str(err))
