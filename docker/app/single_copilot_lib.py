@@ -345,6 +345,8 @@ class CoPilotAPI:
         try:
             if endpoint == "login":
                 url = f"https://{self._copilot_ip}/api/login"
+            elif endpoint == "updateStatus":
+                url = f"https://{self._copilot_ip}/api/info/updateStatus"
             else:
                 url = f"https://{self._copilot_ip}/v1/api/{endpoint}"
             resp = {}
@@ -469,3 +471,28 @@ class CoPilotAPI:
         else:
             raise Exception(f"Exceed the limitation of CoPilot type '{type}'  API '{api}' checks")
 
+    def _get_copilot_upgrade_status(self) -> Dict[str, Any]:
+        return self.v1("GET", "updateStatus")
+
+    def retry_upgrade_check(self,) -> bool:
+        attempts = 0
+        retries = 15
+        delay = 30
+        upgrade_done = False
+        while attempts <= retries:
+            print(f"Rechecking upgrade status attempt: {attempts} / {retries}")
+            try:
+                resp = self._get_copilot_upgrade_status()
+                status = resp.get("status")
+                if status == "finished":
+                    print(f"CoPilot upgrade completed: {resp}")
+                    upgrade_done = True
+                    break
+                else:
+                    print(f"Upgrade Status is not finished: {resp}")
+            except Exception as err:
+                print(f"Checking upgrade status attempt err: {err}")
+            attempts += 1
+            print(f"Retrying attempt {attempts} in {delay} seconds")
+            time.sleep(delay)
+        return upgrade_done
