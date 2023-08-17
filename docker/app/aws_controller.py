@@ -163,10 +163,10 @@ def ecs_handler():
         pri_region = region
         dr_region = os.environ.get("DR_REGION")
         update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
-        print(f"set CONTROLLER_RUNNING env var: {os.environ.items()}")
         handle_ctrl_inter_region_event(pri_region, dr_region)
         update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
-        print(f"unset CONTROLLER_RUNNING env var: {os.environ.items()}")
+        if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
     elif msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
@@ -182,7 +182,6 @@ def ecs_handler():
 
         if msg_asg == os.environ.get("CTRL_ASG"):
             update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
-            print(f"set CONTROLLER_RUNNING env var: {os.environ.items()}")
             handle_ctrl_ha_event(
                 ec2_client,
                 ecs_client,
@@ -192,7 +191,8 @@ def ecs_handler():
                 msg_dest,
             )
             update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
-            print(f"unset CONTROLLER_RUNNING env var: {os.environ.items()}")
+            if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
         elif msg_asg == os.environ.get("COP_ASG"):
             update_env_dict(ecs_client, {"COPILOT_RUNNING": "running"})
             handle_cop_ha_event(
@@ -204,7 +204,8 @@ def ecs_handler():
                 msg_dest,
             )
             update_env_dict(ecs_client, {"COPILOT_RUNNING": ""})
-            print(f"unset COPILOT_RUNNING env var: {os.environ.items()}")
+            if aws_utils.get_task_def_env(ecs_client).get("CONTROLLER_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
 
 
 def create_new_sg(client):
