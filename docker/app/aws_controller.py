@@ -69,8 +69,6 @@ def ecs_handler():
     sqs_resource = boto3.resource("sqs", region_name=queue_region)
     ecs_client = boto3.client("ecs")
 
-    print(f"1. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
-
     queue_name = os.environ.get("SQS_QUEUE_NAME")
     print(f"SQS Queue Name: {queue_name}")
     queue_url = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
@@ -109,8 +107,6 @@ def ecs_handler():
     )
     print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
 
-    print(f"2. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
-
     try:
         region = event["TopicArn"].split(":")[3]
         print(f"Event in region {region}")
@@ -127,14 +123,13 @@ def ecs_handler():
         and os.environ.get("STATE", "") != "INIT"
         and asg == os.environ.get("CTRL_ASG")
     ):
-        print("ECS probably did not complete last time. Reverting sg %s" % tmp_sg)
-        update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
+        print("ECS probably did not complete last time. Trying to revert sg %s" % tmp_sg)
         restored_access = restore_security_group_access(ec2_client, tmp_sg, ecs_client)
         if restored_access:
+            update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
             update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
             print(f"restored access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
 
-    print(f"3. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
     try:
         msg_json = json.loads(event["Message"])
         msg_asg = msg_json.get("AutoScalingGroupName", "")
@@ -169,11 +164,9 @@ def ecs_handler():
         dr_region = os.environ.get("DR_REGION")
         update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
         print(f"set CONTROLLER_RUNNING env var: {os.environ.items()}")
-        print(f"4. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
         handle_ctrl_inter_region_event(pri_region, dr_region)
         update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
         print(f"unset CONTROLLER_RUNNING env var: {os.environ.items()}")
-        print(f"5. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
     elif msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
@@ -190,7 +183,6 @@ def ecs_handler():
         if msg_asg == os.environ.get("CTRL_ASG"):
             update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
             print(f"set CONTROLLER_RUNNING env var: {os.environ.items()}")
-            print(f"6. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
             handle_ctrl_ha_event(
                 ec2_client,
                 ecs_client,
@@ -201,11 +193,8 @@ def ecs_handler():
             )
             update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
             print(f"unset CONTROLLER_RUNNING env var: {os.environ.items()}")
-            print(f"7. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
         elif msg_asg == os.environ.get("COP_ASG"):
             update_env_dict(ecs_client, {"COPILOT_RUNNING": "running"})
-            print(f"set COPILOT_RUNNING env var: {os.environ.items()}")
-            print(f"8. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
             handle_cop_ha_event(
                 ec2_client,
                 ecs_client,
@@ -216,7 +205,6 @@ def ecs_handler():
             )
             update_env_dict(ecs_client, {"COPILOT_RUNNING": ""})
             print(f"unset COPILOT_RUNNING env var: {os.environ.items()}")
-            print(f"9. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
 
 
 def create_new_sg(client):
@@ -268,18 +256,8 @@ def create_new_sg(client):
 def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in ECS"""
 
-    print(f"10. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
-
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
-
-    task_def_env_dict = {
-        item["name"]: item["value"]
-        for item in current_task_def["taskDefinition"]["containerDefinitions"][0][
-            "environment"
-        ]
-    }
+    current_task_def = aws_utils.get_task_def(ecs_client)
+    task_def_env_dict = aws_utils.get_task_def_env(ecs_client)
 
     env_dict = {
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
@@ -317,10 +295,10 @@ def update_env_dict(ecs_client, replace_dict={}):
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
-        "COP_TMP_SG_GRP": os.environ.get("COP_TMP_SG_GRP", ""),
-        "CONTROLLER_TMP_SG_GRP": os.environ.get("CONTROLLER_TMP_SG_GRP", ""),
-        "CONTROLLER_RUNNING": os.environ.get("CONTROLLER_RUNNING", ""),
-        "COPILOT_RUNNING": os.environ.get("COPILOT_RUNNING", ""),
+        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
         "VERSION": VERSION,
         "VPC_ID": os.environ.get("VPC_ID"),
         "PRIMARY_ACC_NAME": os.environ.get("PRIMARY_ACC_NAME"),
@@ -365,8 +343,8 @@ def update_env_dict(ecs_client, replace_dict={}):
 
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"update_env_dict.2 - {new_task_def}")
-    print(f"11. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    print(f"update_env_dict.2 - new_task_def: {new_task_def}")
+    print(f"update_env_dict.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
     print("Updated environment dictionary")
 
 
@@ -377,14 +355,10 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     # for key in empty_keys:
     #     del env_dict[key]
 
-    print(f"12. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
-
     env_dict.update(replace_dict)
 
     print("Updating environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
+    current_task_def = aws_utils.get_task_def(ecs_client)
     print(f"sync_env_var.1 - {current_task_def}")
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -409,8 +383,8 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
 
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"sync_env_var.2 - {new_task_def}")
-    print(f"13. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    print(f"sync_env_var.2 - new_task_def: {new_task_def}")
+    print(f"sync_env_var.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
     print("Updated environment dictionary")
 
 
@@ -514,8 +488,6 @@ def login_to_controller(ip_addr, username, pwd):
 def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     """Sets Environment variables"""
 
-    print(f"14. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
-
     if eip is None:
         # If EIP is not known at this point, get from controller inst
         eip = controller_instanceobj["NetworkInterfaces"][0]["Association"].get(
@@ -554,6 +526,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
                     "Encrypted": vol["Encrypted"],
                 }
             )
+    task_def_env_dict = aws_utils.get_task_def_env(ecs_client)
 
     env_dict = {
         "ADMIN_EMAIL": os.environ.get("ADMIN_EMAIL", ""),
@@ -577,10 +550,10 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "DISKS": json.dumps(disks),
         "TAGS": json.dumps(tags_stripped),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
-        "COP_TMP_SG_GRP": os.environ.get("COP_TMP_SG_GRP", ""),
-        "CONTROLLER_TMP_SG_GRP": os.environ.get("CONTROLLER_TMP_SG_GRP", ""),
-        "CONTROLLER_RUNNING": os.environ.get("CONTROLLER_RUNNING", ""),
-        "COPILOT_RUNNING": os.environ.get("COPILOT_RUNNING", ""),
+        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
@@ -609,9 +582,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
             "INTER_REGION_BACKUP_ENABLED"
         )
     print("Setting environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
+    current_task_def = aws_utils.get_task_def(ecs_client)
     print(f"set_environ.1 - {current_task_def}")
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
@@ -636,8 +607,8 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
 
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"set_environ.2 - {new_task_def}")
-    print(f"15. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    print(f"set_environ.2 - new_task_def: {new_task_def}")
+    print(f"set_environ.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
     os.environ.update(env_dict)
 
 
@@ -955,9 +926,9 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
 def restore_security_group_access(client, sg_id, ecs_client=None):
     """Remove 0.0.0.0/0 rule in previously added security group"""
 
+    print(f"restore_security_group_access - ecs_client: {ecs_client}")
     if ecs_client:
-        print("restore_security_group_access - ecs_client present")
-        if aws_utils.get_task_def_env_var(ecs_client, "COPILOT_RUNNING") == "running":
+        if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
             print(f"not restoring SG - COPILOT_RUNNING: {aws_utils.get_task_def_env(ecs_client)}")
             return
         else:
