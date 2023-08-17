@@ -172,29 +172,30 @@ def log_failover_status(type):
 # rule = {from_port: int, to_port: int, protocol: str, cidr_list, description}
 def modify_sg_rules(ec2_client, operation, security_group_id, sg_rule) -> None:
     try:
-        if operation == "add_rule":
-            fn = ec2_client.authorize_security_group_ingress
-        elif operation == "del_rule":
-            fn = ec2_client.revoke_security_group_ingress
         if sg_rule.get("description"):
             sg_desc = sg_rule.get("description")
         else:
             sg_desc = "Added by copilot ha script"
+        modify_rule = {
+            "FromPort": sg_rule["from_port"],
+            "ToPort": sg_rule["to_port"],
+            "IpProtocol": sg_rule["protocol"],
+            "IpRanges": [
+                {
+                    "CidrIp": cidr
+                } for cidr in sg_rule["cidr_list"]
+            ]
+        }
+        if operation == "add_rule":
+            fn = ec2_client.authorize_security_group_ingress
+            for ip_range in modify_rule["IpRanges"]:
+                ip_range["Description"] = sg_desc
+        elif operation == "del_rule":
+            fn = ec2_client.revoke_security_group_ingress
+        print(f"modify_sg_rules: oper: {operation} - rule: {modify_rule}")
         data = fn(
             GroupId=security_group_id,
-            IpPermissions=[
-                {
-                    "FromPort": sg_rule["from_port"],
-                    "ToPort": sg_rule["to_port"],
-                    "IpProtocol": sg_rule["protocol"],
-                    "IpRanges": [
-                        {
-                            "CidrIp": cidr,
-                            "Description": sg_desc
-                        } for cidr in sg_rule["cidr_list"]
-                    ]
-                }
-            ]
+            IpPermissions=[modify_rule]
         )
         print(f"Rules successfully modified: {data}")
         return security_group_id
