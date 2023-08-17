@@ -411,7 +411,7 @@ def handle_copilot_ha():
     "copilot_init": copilot_init,
     "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
-    "copilot_type": os.environ.get("COP_DEPLOYMENT", ""),  # values should be "singleNode" or "fault-tolerant"
+    "copilot_type": os.environ.get("COP_DEPLOYMENT", ""),  # values should be "simple" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
     "copilot_data_node_public_ips": copilot_data_node_public_ips,  # cluster data nodes public IPs
     "copilot_data_node_private_ips": copilot_data_node_private_ips,  # cluster data nodes private IPs
@@ -490,7 +490,7 @@ def handle_event(event):
   ec2_client = boto3.client("ec2", region_name=event['region'])
 
   # Security group adjustment
-  if event['copilot_type'] == "singleNode":
+  if event['copilot_type'] == "simple":
     print("Adding CoPilot public and private IPs to Controller SG")
     try:
       copilot_public_ip_rule = {
@@ -563,12 +563,12 @@ def handle_event(event):
 
   if event['copilot_init']:
     # copilot init use case - not HA
-    if event['copilot_type'] == "singleNode":
-      # singleNode copilot init
-      print("SingleNode CoPilot Initialization begin ...")
+    if event['copilot_type'] == "simple":
+      # simple copilot init
+      print("Simple CoPilot Initialization begin ...")
       response = copilot_api.init_copilot_single_node(event['copilot_info']['user_info']['username'],
                                                       event['copilot_info']['user_info']['password'])
-      print(f"singlenode_copilot_init: {response}")
+      print(f"Simple_copilot_init: {response}")
       copilot_api.wait_copilot_init_complete(event['copilot_type'])
     else:
       # Fault Tolerant copilot init
@@ -601,7 +601,7 @@ def handle_event(event):
   else:
     # copilot HA use case
     # 1. get saved config from controller
-    print(f"SingleNode CoPilot HA OR Cluster main node HA begin ...")
+    print(f"Simple CoPilot HA OR Cluster main node HA begin ...")
     print(f"Getting saved CoPilot config from the controller")
     config = api.get_copilot_config(event['copilot_type'])
     print(f"get_copilot_config: {config}")
@@ -637,7 +637,7 @@ if __name__ == "__main__":
   copilot_event = {
     "region": "",
     "copilot_init": True,
-    "copilot_type": "singleNode", # values should be "singleNode" or "fault-tolerant"
+    "copilot_type": "simple", # values should be "simple" or "fault-tolerant"
     "cluster_ha_main_node": True, # if clustered copilot HA case, set to True if HA for main node
     "copilot_data_node_public_ips": ["",
                                       ""], # cluster data nodes public IPs

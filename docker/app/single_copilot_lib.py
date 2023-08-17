@@ -301,7 +301,7 @@ class ControllerAPI:
     
     def get_copilot_config(self, copilot_type) -> Dict[str, Any]:
         api_response = self.pull_copilot_config_from_api()
-        if copilot_type == "singleNode":
+        if copilot_type == "simple":
             return api_response['results']
         else:
             return {'mainCopilot': api_response['results']['mainCopilot']}
@@ -389,7 +389,7 @@ class CoPilotAPI:
         return self.v1("GET", "configuration/backup")
 
     def get_copilot_init_status(self, type) -> Dict[str, Any]:
-        if type == "singleNode":
+        if type == "simple":
             return self.v1("GET", "single-node")
         elif type == "clustered":
             return self.v1("GET", "cluster")
