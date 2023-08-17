@@ -6,6 +6,7 @@ import os
 import json
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
+import aws_utils as aws_utils
 
 def get_ssm_parameter_value(path, region):
     try:
@@ -253,7 +254,7 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
             print(f"Removing tmp access from SG: {security_group_id}")
             # del_rule = {'ToPort': 443, 'FromPort': 443, 'IpProtocol': 'tcp', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
             open_https_rule = {"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_list": ["0.0.0.0/0"], "description": "TMP OPEN HTTPS"}
-            modify_sg_rules(ec2_client, "del_rule", security_group_id, open_https_rule)
+            modified_sg_id = modify_sg_rules(ec2_client, "del_rule", security_group_id, open_https_rule)
             if modified_sg_id:
                 print('Successfully disabled temporary access')
                 return security_group_id
@@ -343,6 +344,9 @@ def handle_copilot_ha():
 
   restore_region = get_restore_region()
   restore_client = boto3.client("ec2", restore_region)
+  restore_ecs_client = boto3.client('ecs', restore_region)
+
+  print(f"1. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
 
   if os.environ.get("COP_DEPLOYMENT", "") == "fault-tolerant":
     copilot_instance_name = f"{copilot_instance_name}-Main"
@@ -441,6 +445,8 @@ def handle_copilot_ha():
   }
   print(f"copilot_event: {copilot_event}")
 
+  print(f"2. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
+
   if copilot_init:
       print("copilot init case - not deleting rules")
   else:
@@ -456,21 +462,39 @@ def handle_copilot_ha():
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
+  print(f"3. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
+
   print("waiting for copilot upgrade check")
   copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=copilot_event['copilot_info']['public_ip'], cid="")
   copilot_upgrade_check_api.retry_upgrade_check()
 
   # enable tmp access on the controller
-  controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
+  controller_tmp_sg = aws_utils.get_task_def_env_var(restore_ecs_client, "CONTROLLER_TMP_SG_GRP")
+  if controller_tmp_sg:
+      print(f"controller TMP access already enabled by controller: {controller_tmp_sg}")
+  else:
+      print(f"enabling controller TMP access")
+      controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
+
+  print(f"4. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
 
   handle_event(copilot_event)
 
+  print(f"5. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
+
   # disable tmp access on the controller
-  if controller_tmp_sg:
+  if aws_utils.get_task_def_env_var(restore_ecs_client, "CONTROLLER_RUNNING") == "running":
+      print(f"not restoring SG - CONTROLLER_RUNNING: {aws_utils.get_task_def_env(restore_ecs_client)}")
+  elif controller_tmp_sg:
+      print(f"removing controller TMP access SG rule: {controller_tmp_sg}")
       manage_tmp_access(restore_client, controller_tmp_sg, "del_rule")
+
+  print(f"6. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
   # disable tmp access on the copilot
   if copilot_tmp_sg:
       manage_tmp_access(restore_client, copilot_tmp_sg, "del_rule")
+
+  print(f"7. task_def_env: {aws_utils.get_task_def_env(restore_ecs_client)}")
 
 def handle_event(event):
   # Preliminary actions - wait for CoPilot instances to be ready
