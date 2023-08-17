@@ -97,6 +97,22 @@ resource "aws_ecs_task_definition" "task_def" {
           value = ""
         },
         {
+          name  = "CONTROLLER_TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "COPILOT_TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "CONTROLLER_RUNNING",
+          value = ""
+        },
+        {
+          name  = "COPILOT_RUNNING",
+          value = ""
+        },
+        {
           name  = "S3_BUCKET_BACK",
           value = var.s3_backup_bucket
         },
