@@ -23,7 +23,7 @@ import aws_utils as aws_utils
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.03"
+VERSION = "0.04"
 
 HANDLE_HA_TIMEOUT = 840
 MAX_LOGIN_TIMEOUT = 800
@@ -270,6 +270,17 @@ def update_env_dict(ecs_client, replace_dict={}):
 
     print(f"10. task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
 
+    current_task_def = ecs_client.describe_task_definition(
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
+    )
+
+    task_def_env_dict = {
+        item["name"]: item["value"]
+        for item in current_task_def["taskDefinition"]["containerDefinitions"][0][
+            "environment"
+        ]
+    }
+
     env_dict = {
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
         "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
@@ -299,7 +310,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "EIP": os.environ.get("EIP"),
         "INST_ID": os.environ.get("INST_ID", ""),
         "INTER_REGION": os.environ.get("INTER_REGION"),
-        "PRIV_IP": os.environ.get("PRIV_IP", ""),
+        "PRIV_IP": task_def_env_dict.get("PRIV_IP", ""),
         "S3_BUCKET_BACK": os.environ.get("S3_BUCKET_BACK"),
         "S3_BUCKET_REGION": os.environ.get("S3_BUCKET_REGION"),
         "SQS_QUEUE_NAME": os.environ.get("SQS_QUEUE_NAME"),
@@ -329,9 +340,6 @@ def update_env_dict(ecs_client, replace_dict={}):
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
-    )
 
     print(f"update_env_dict.1 - {current_task_def}")
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -353,6 +361,8 @@ def update_env_dict(ecs_client, replace_dict={}):
         new_env_list.append({"name": name, "value": value})
 
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
+
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)
     print(f"update_env_dict.2 - {new_task_def}")
@@ -373,7 +383,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
 
     print("Updating environment %s" % env_dict)
     current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
     print(f"sync_env_var.1 - {current_task_def}")
 
@@ -395,6 +405,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     for name, value in env_dict.items():
         new_env_list.append({"name": name, "value": value})
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)
@@ -599,7 +610,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         )
     print("Setting environment %s" % env_dict)
     current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY,
+        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
     print(f"set_environ.1 - {current_task_def}")
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -621,6 +632,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         new_env_list.append({"name": name, "value": value})
 
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
+    new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
     new_task_def = ecs_client.register_task_definition(**new_task_def)

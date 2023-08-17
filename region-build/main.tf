@@ -456,6 +456,8 @@ resource "aws_launch_template" "avtx-controller" {
   }
 }
 
+data "aws_default_tags" "current" {}
+
 resource "aws_autoscaling_group" "avtx_ctrl" {
   name                      = "avtx_controller"
   max_size                  = 1
@@ -494,6 +496,16 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     value               = "Controller"
     propagate_at_launch = true
   }
+
+  dynamic "tag" {
+    for_each = data.aws_default_tags.current.tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+  }
+
   wait_for_capacity_timeout = "30m"
   timeouts {
     delete = "15m"
