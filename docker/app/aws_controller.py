@@ -25,7 +25,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 VERSION = "0.04"
 
-HANDLE_HA_TIMEOUT = 840
+HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
 WAIT_DELAY = 30
 
@@ -1415,7 +1415,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
         dr_client, dr_instanceobj, api_private_access
     )
     if not dr_duplicate:
-        update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": dr_sg_modified})
+        update_env_dict(dr_ecs_client, {"CONTROLLER_TMP_SG_GRP": dr_sg_modified})
         print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
     print(
         "0.0.0.0/0:443 rule is %s present %s"

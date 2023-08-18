@@ -455,6 +455,10 @@ def handle_copilot_ha():
           print(f"clearing rules in node copilot sgs: {copilot_event['copilot_data_node_sg_ids']}")
           for node_sg_id in copilot_event['copilot_data_node_sg_ids']:
               clear_security_group_rules(restore_client, node_sg_id)
+      else:
+          print("copilot ha event for simple deployment")
+          print(f"clearing rules in main copilot sg: {copilot_event['copilot_info']['sg_id']}")
+          clear_security_group_rules(restore_client, copilot_event['copilot_info']['sg_id'])
 
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
@@ -603,8 +607,8 @@ def handle_event(event):
     # 1. get saved config from controller
     print(f"Simple CoPilot HA OR Cluster main node HA begin ...")
     print(f"Getting saved CoPilot config from the controller")
-    config = api.get_copilot_config(event['copilot_type'])
-    print(f"get_copilot_config: {config}")
+    config = api.retry_get_copilot_config(event['copilot_type'])
+    print(f"retry_get_copilot_config: {config}")
     # abort restore if unable to get config
     if config == {}:
       print(f"Unable to get saved config. Abort restore")
