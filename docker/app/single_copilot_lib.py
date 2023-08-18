@@ -321,8 +321,6 @@ class ControllerAPI:
         return copilot_config
 
 
-
-
 class CoPilotAPI:
     def __init__(self, copilot_ip: str, cid: str) -> None:
         self._copilot_ip: str = copilot_ip
