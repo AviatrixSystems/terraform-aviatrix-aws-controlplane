@@ -128,7 +128,6 @@ def ecs_handler():
         if restored_access:
             update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
             update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
-            print(f"restored access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
 
     try:
         msg_json = json.loads(event["Message"])
@@ -320,7 +319,6 @@ def update_env_dict(ecs_client, replace_dict={}):
     os.environ.update(replace_dict)
     print("Updating environment %s" % env_dict)
 
-    print(f"update_env_dict.1 - {current_task_def}")
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
     remove_args = [
@@ -343,24 +341,17 @@ def update_env_dict(ecs_client, replace_dict={}):
     new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
-    new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"update_env_dict.2 - new_task_def: {new_task_def}")
-    print(f"update_env_dict.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    ecs_client.register_task_definition(**new_task_def)
     print("Updated environment dictionary")
 
 
 def sync_env_var(ecs_client, env_dict, replace_dict={}):
     """Update DR environment variables in ECS"""
-    # Removing empty key's from the env
-    # empty_keys = [key for key, val in env_dict.items() if not val]
-    # for key in empty_keys:
-    #     del env_dict[key]
 
     env_dict.update(replace_dict)
 
     print("Updating environment %s" % env_dict)
     current_task_def = aws_utils.get_task_def(ecs_client)
-    print(f"sync_env_var.1 - {current_task_def}")
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
@@ -383,9 +374,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
-    new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"sync_env_var.2 - new_task_def: {new_task_def}")
-    print(f"sync_env_var.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    ecs_client.register_task_definition(**new_task_def)
     print("Updated environment dictionary")
 
 
@@ -584,7 +573,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         )
     print("Setting environment %s" % env_dict)
     current_task_def = aws_utils.get_task_def(ecs_client)
-    print(f"set_environ.1 - {current_task_def}")
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
     remove_args = [
@@ -607,9 +595,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     new_task_def["tags"] = current_task_def["tags"]
 
     print("Updating task definition")
-    new_task_def = ecs_client.register_task_definition(**new_task_def)
-    print(f"set_environ.2 - new_task_def: {new_task_def}")
-    print(f"set_environ.3 - task_def_env: {aws_utils.get_task_def_env(ecs_client)}")
+    ecs_client.register_task_definition(**new_task_def)
     os.environ.update(env_dict)
 
 
@@ -924,16 +910,12 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
     return False, sgs[0]
 
 
-def restore_security_group_access(client, sg_id, ecs_client=None):
+def restore_security_group_access(client, sg_id, ecs_client):
     """Remove 0.0.0.0/0 rule in previously added security group"""
 
-    print(f"restore_security_group_access - ecs_client: {ecs_client}")
-    if ecs_client:
-        if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
-            print(f"not restoring SG - COPILOT_RUNNING: {aws_utils.get_task_def_env(ecs_client)}")
-            return
-        else:
-            print(f"restoring SG - COPILOT_RUNNING: {aws_utils.get_task_def_env(ecs_client)}")
+    if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
+        print(f"Abort SG restore - COPILOT_RUNNING is set")
+        return
 
     try:
         client.revoke_security_group_ingress(
@@ -1356,15 +1338,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     pri_ecs_client = boto3.client("ecs", pri_region)
     dr_client = boto3.client("ec2", dr_region)
     dr_ecs_client = boto3.client("ecs", dr_region)
-    pri_task_def = pri_ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY
-    )
-    print(f"handle_ctrl_inter_region_event.1 - pri_task_def - {pri_task_def}")
     pri_env_var = pri_ecs_client.describe_task_definition(
         taskDefinition=TASK_DEF_FAMILY
     )["taskDefinition"]["containerDefinitions"][0]["environment"]
-    dr_task_def = dr_ecs_client.describe_task_definition(taskDefinition=TASK_DEF_FAMILY)
-    print(f"handle_ctrl_inter_region_event.2 - dr_task_def - {dr_task_def}")
     dr_env_var = dr_ecs_client.describe_task_definition(taskDefinition=TASK_DEF_FAMILY)[
         "taskDefinition"
     ]["containerDefinitions"][0]["environment"]
@@ -1555,7 +1531,6 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
                 restored_access = restore_security_group_access(dr_client, dr_sg_modified, dr_ecs_client)
                 if restored_access:
                     update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
-                    print(f"restored access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
             sync_env_var(
                 dr_ecs_client,
                 dr_env,
@@ -2021,7 +1996,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             restored_access = restore_security_group_access(client, sg_modified, ecs_client)
             if restored_access:
                 update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
-                print(f"restored access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
         else:
             update_env_dict(ecs_client)
         print("- Completed function -")
@@ -2055,7 +2029,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                             {"Name": "tag:Name", "Values": [inst['instance_name']]},
                         ]
                     )["Reservations"][0]["Instances"][0]
-                    print(f"Assigning EIP {node_eip} to data node {data_node_instanceobj}")
                     if not assign_eip(client, data_node_instanceobj, node_eip):
                         print(
                             f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"

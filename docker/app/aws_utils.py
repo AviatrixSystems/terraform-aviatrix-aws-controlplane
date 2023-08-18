@@ -5,7 +5,6 @@ def get_task_def(ecs_client):
     current_task_def = ecs_client.describe_task_definition(
         taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
     )
-    print(f"get_task_def - {current_task_def}")
     return current_task_def
 
 
