@@ -18,13 +18,14 @@ import requests
 import boto3
 import botocore
 import copilot_main as cp_lib
+import aws_utils as aws_utils
 
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
 VERSION = "0.04"
 
-HANDLE_HA_TIMEOUT = 840
+HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
 WAIT_DELAY = 30
 
@@ -122,9 +123,11 @@ def ecs_handler():
         and os.environ.get("STATE", "") != "INIT"
         and asg == os.environ.get("CTRL_ASG")
     ):
-        print("ECS probably did not complete last time. Reverting sg %s" % tmp_sg)
-        update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
-        restore_security_group_access(ec2_client, tmp_sg)
+        print("ECS probably did not complete last time. Trying to revert sg %s" % tmp_sg)
+        restored_access = restore_security_group_access(ec2_client, tmp_sg, ecs_client)
+        if restored_access:
+            update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
+            update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
 
     try:
         msg_json = json.loads(event["Message"])
@@ -142,6 +145,12 @@ def ecs_handler():
 
     print(f"Event {msg_lifecycle} Description {msg_desc}")
 
+    # log copilot failover status
+    try:
+        cp_lib.log_failover_status("copilot")
+    except Exception as err:
+        print(f"Logging copilot failover status failed: {str(err)}")
+
     if msg_event == "autoscaling:TEST_NOTIFICATION":
         print("Successfully received Test Event from ASG")
     # Use PRIV_IP to determine if this is the intial deployment. Don't handle INTER_REGION on initial deploy.
@@ -152,7 +161,11 @@ def ecs_handler():
     ):
         pri_region = region
         dr_region = os.environ.get("DR_REGION")
+        update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
         handle_ctrl_inter_region_event(pri_region, dr_region)
+        update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
+        if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
     elif msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
@@ -167,6 +180,7 @@ def ecs_handler():
             print(f"Unknown instance launch origin {msg_orig} and/or dest {msg_dest}")
 
         if msg_asg == os.environ.get("CTRL_ASG"):
+            update_env_dict(ecs_client, {"CONTROLLER_RUNNING": "running"})
             handle_ctrl_ha_event(
                 ec2_client,
                 ecs_client,
@@ -175,7 +189,11 @@ def ecs_handler():
                 msg_orig,
                 msg_dest,
             )
+            update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
+            if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
         elif msg_asg == os.environ.get("COP_ASG"):
+            update_env_dict(ecs_client, {"COPILOT_RUNNING": "running"})
             handle_cop_ha_event(
                 ec2_client,
                 ecs_client,
@@ -184,6 +202,9 @@ def ecs_handler():
                 msg_orig,
                 msg_dest,
             )
+            update_env_dict(ecs_client, {"COPILOT_RUNNING": ""})
+            if aws_utils.get_task_def_env(ecs_client).get("CONTROLLER_RUNNING", "") == "":
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
 
 
 def create_new_sg(client):
@@ -235,16 +256,8 @@ def create_new_sg(client):
 def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in ECS"""
 
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
-
-    task_def_env_dict = {
-        item["name"]: item["value"]
-        for item in current_task_def["taskDefinition"]["containerDefinitions"][0][
-            "environment"
-        ]
-    }
+    current_task_def = aws_utils.get_task_def(ecs_client)
+    task_def_env_dict = aws_utils.get_task_def_env(ecs_client)
 
     env_dict = {
         "API_PRIVATE_ACCESS": os.environ.get("API_PRIVATE_ACCESS", "False"),
@@ -264,6 +277,9 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "COP_ASG": os.environ.get("COP_ASG"),
         "COP_EIP": os.environ.get("COP_EIP"),
+        "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
+        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
+        "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
@@ -279,6 +295,10 @@ def update_env_dict(ecs_client, replace_dict={}):
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
+        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
         "VERSION": VERSION,
         "VPC_ID": os.environ.get("VPC_ID"),
         "PRIMARY_ACC_NAME": os.environ.get("PRIMARY_ACC_NAME"),
@@ -327,17 +347,11 @@ def update_env_dict(ecs_client, replace_dict={}):
 
 def sync_env_var(ecs_client, env_dict, replace_dict={}):
     """Update DR environment variables in ECS"""
-    # Removing empty key's from the env
-    empty_keys = [key for key, val in env_dict.items() if not val]
-    for key in empty_keys:
-        del env_dict[key]
 
     env_dict.update(replace_dict)
 
     print("Updating environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
+    current_task_def = aws_utils.get_task_def(ecs_client)
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
@@ -502,6 +516,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
                     "Encrypted": vol["Encrypted"],
                 }
             )
+    task_def_env_dict = aws_utils.get_task_def_env(ecs_client)
 
     env_dict = {
         "ADMIN_EMAIL": os.environ.get("ADMIN_EMAIL", ""),
@@ -509,6 +524,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "CTRL_INIT_VER": os.environ.get("CTRL_INIT_VER", ""),
         "EIP": eip,
         "COP_EIP": os.environ.get("COP_EIP"),
+        "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
+        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
+        "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "VPC_ID": vpc_id,
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
         "AVIATRIX_COP_TAG": os.environ.get("AVIATRIX_COP_TAG"),
@@ -522,6 +540,10 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "DISKS": json.dumps(disks),
         "TAGS": json.dumps(tags_stripped),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
+        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
@@ -533,10 +555,8 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
-            "AVX_COPILOT_PASSWORD_SSM_PATH"
-        ),
-        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
+        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
@@ -552,10 +572,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
             "INTER_REGION_BACKUP_ENABLED"
         )
     print("Setting environment %s" % env_dict)
-    current_task_def = ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY, include=["TAGS"]
-    )
-
+    current_task_def = aws_utils.get_task_def(ecs_client)
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
     remove_args = [
@@ -893,8 +910,12 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
     return False, sgs[0]
 
 
-def restore_security_group_access(client, sg_id):
+def restore_security_group_access(client, sg_id, ecs_client):
     """Remove 0.0.0.0/0 rule in previously added security group"""
+
+    if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
+        print(f"Abort SG restore - COPILOT_RUNNING is set")
+        return
 
     try:
         client.revoke_security_group_ingress(
@@ -1369,6 +1390,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     dr_duplicate, dr_sg_modified = temp_add_security_group_access(
         dr_client, dr_instanceobj, api_private_access
     )
+    if not dr_duplicate:
+        update_env_dict(dr_ecs_client, {"CONTROLLER_TMP_SG_GRP": dr_sg_modified})
+        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
     print(
         "0.0.0.0/0:443 rule is %s present %s"
         % (
@@ -1504,7 +1528,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
                 state = ""
             if not dr_duplicate:
                 print(f"Reverting sg {dr_sg_modified}")
-                restore_security_group_access(dr_client, dr_sg_modified)
+                restored_access = restore_security_group_access(dr_client, dr_sg_modified, dr_ecs_client)
+                if restored_access:
+                    update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
             sync_env_var(
                 dr_ecs_client,
                 dr_env,
@@ -1572,14 +1598,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             print("Controller is already saved. Not restoring")
             return
 
-    # create a basic env dic and log copilot failover status
-    try:
-        cp_lib.log_failover_status("copilot")
-    except Exception as err:
-        print(
-            f"Logging copilot failover status failed with the error below. The env is: {tmp_env}"
-        )
-        print(str(err))
     controller_instanceobj = client.describe_instances(
         Filters=[{"Name": "instance-id", "Values": [asg_inst]}]
     )["Reservations"][0]["Instances"][0]
@@ -1611,6 +1629,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
     duplicate, sg_modified = temp_add_security_group_access(
         client, controller_instanceobj, api_private_access
     )
+    if not duplicate:
+        update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": sg_modified})
+        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
     print(
         "0.0.0.0/0:443 rule is %s present %s"
         % (
@@ -1734,6 +1755,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                     duplicate, sg_modified = temp_add_security_group_access(
                         client, controller_instanceobj, api_private_access
                     )
+                    if not duplicate:
+                        update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": sg_modified})
+                        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
                     print(
                         "Default rule is %s present %s"
                         % (
@@ -1963,12 +1987,15 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             task_def = ecs_client.describe_task_definition(
                 taskDefinition=TASK_DEF_FAMILY,
             )
+            print(f"handle_ctrl_ha_event.1 - task_def - {task_def}")
             env_vars = copy.deepcopy(
                 task_def["taskDefinition"]["containerDefinitions"][0]["environment"]
             )
             env = {env_var["name"]: env_var["value"] for env_var in env_vars}
             sync_env_var(ecs_client, env, {"TMP_SG_GRP": ""})
-            restore_security_group_access(client, sg_modified)
+            restored_access = restore_security_group_access(client, sg_modified, ecs_client)
+            if restored_access:
+                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
         else:
             update_env_dict(ecs_client)
         print("- Completed function -")
@@ -1976,29 +2003,69 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
-    env = dict(os.environ.items())
     print(f"environment: {os.environ.items()}")
     try:
         # get current region copilot info
         current_region = os.environ.get("SQS_QUEUE_REGION", "")
         instance_name = os.environ.get("AVIATRIX_COP_TAG", "")
         curr_cop_eip = os.environ.get("COP_EIP", "")
+        cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
+        copilot_init = os.environ.get("PRIV_IP", "") == ""
 
-        # get current region copilot to restore eip
-        curr_region_cop_instanceobj = client.describe_instances(
-            Filters=[
-                {"Name": "instance-state-name", "Values": ["running"]},
-                {"Name": "tag:Name", "Values": [instance_name]},
-            ]
-        )["Reservations"][0]["Instances"][0]
+        if cop_deployment == "fault-tolerant":
+            # add new vars to env list
+            # get current region copilot to restore eip
+            data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
+            data_node_details = json.loads(data_node_details)
+            data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
+            data_node_eips = data_node_eips.split(",")
+            # assign EIPs to data nodes
+            if copilot_init:
+                for inst in data_node_details:
+                    node_eip = data_node_eips.pop()
+                    data_node_instanceobj = client.describe_instances(
+                        Filters=[
+                            {"Name": "instance-state-name", "Values": ["running"]},
+                            {"Name": "tag:Name", "Values": [inst['instance_name']]},
+                        ]
+                    )["Reservations"][0]["Instances"][0]
+                    if not assign_eip(client, data_node_instanceobj, node_eip):
+                        print(
+                            f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
+                        )
+                        raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
+                # end assigning EIPs to data nodes
+            # only add data node EIPs in cluster copilot init
 
-        # Assign COP_EIP to current region copilot
-        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-            if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
-                print(
-                    f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
-                )
-                raise AvxError("Could not assign EIP to primary region Copilot")
+            curr_region_main_cop_instanceobj = client.describe_instances(
+                Filters=[
+                    {"Name": "instance-state-name", "Values": ["running"]},
+                    {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
+                ]
+            )["Reservations"][0]["Instances"][0]
+            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+                if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
+                    print(
+                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Main Copilot: {curr_region_main_cop_instanceobj}"
+                    )
+                    raise AvxError("Could not assign EIP to primary region Main Copilot")
+
+        else: 
+            # get current region copilot to restore eip
+            curr_region_cop_instanceobj = client.describe_instances(
+                Filters=[
+                    {"Name": "instance-state-name", "Values": ["running"]},
+                    {"Name": "tag:Name", "Values": [instance_name]},
+                ]
+            )["Reservations"][0]["Instances"][0]
+
+            # Assign COP_EIP to current region copilot
+            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+                if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
+                    print(
+                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
+                    )
+                    raise AvxError("Could not assign EIP to primary region Copilot")
 
         cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except

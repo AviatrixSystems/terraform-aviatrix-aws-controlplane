@@ -296,15 +296,29 @@ class ControllerAPI:
         # return self.v2("POST", "enable_remote_syslog_logging", data=data)
         return self.v1("enable_remote_syslog_logging", data=data)
     
-    def pull_copilot_config_from_api(self) -> Dict[str, Any]:
-        return self.v2("POST", "get_copilot_data")
-    
     def get_copilot_config(self, copilot_type) -> Dict[str, Any]:
-        api_response = self.pull_copilot_config_from_api()
-        if copilot_type == "singleNode":
-            return api_response['results']
-        else:
-            return {'mainCopilot': api_response['results']['mainCopilot']}
+        api_response = self.v2("POST", "get_copilot_data")
+        return api_response.get('results', {})
+
+    def retry_get_copilot_config(self, copilot_type) -> bool:
+        attempts = 0
+        retries = 10
+        delay = 30
+        copilot_config = {}
+        while attempts <= retries:
+            print(f"Retrying getting copilot config - attempt {attempts} / {retries}")
+            try:
+                copilot_config = self.get_copilot_config(copilot_type)
+            except Exception as err:
+                print(f"Error getting copilot config: {err}")
+            if copilot_config == {}:
+                print(f"Unable to get copilot config: {copilot_config}. Retrying attempt after {delay} seconds")
+                time.sleep(delay)
+                attempts += 1
+            else:
+                print(f"Retrieved copilot config successfully: {copilot_config}")
+                break
+        return copilot_config
 
 
 class CoPilotAPI:
@@ -345,6 +359,8 @@ class CoPilotAPI:
         try:
             if endpoint == "login":
                 url = f"https://{self._copilot_ip}/api/login"
+            elif endpoint == "updateStatus":
+                url = f"https://{self._copilot_ip}/api/info/updateStatus"
             else:
                 url = f"https://{self._copilot_ip}/v1/api/{endpoint}"
             resp = {}
@@ -387,7 +403,7 @@ class CoPilotAPI:
         return self.v1("GET", "configuration/backup")
 
     def get_copilot_init_status(self, type) -> Dict[str, Any]:
-        if type == "singleNode":
+        if type == "simple":
             return self.v1("GET", "single-node")
         elif type == "clustered":
             return self.v1("GET", "cluster")
@@ -469,3 +485,28 @@ class CoPilotAPI:
         else:
             raise Exception(f"Exceed the limitation of CoPilot type '{type}'  API '{api}' checks")
 
+    def _get_copilot_upgrade_status(self) -> Dict[str, Any]:
+        return self.v1("GET", "updateStatus")
+
+    def retry_upgrade_check(self,) -> bool:
+        attempts = 0
+        retries = 15
+        delay = 30
+        upgrade_done = False
+        while attempts <= retries:
+            print(f"Rechecking upgrade status attempt: {attempts} / {retries}")
+            try:
+                resp = self._get_copilot_upgrade_status()
+                status = resp.get("status")
+                if status == "finished":
+                    print(f"CoPilot upgrade completed: {resp}")
+                    upgrade_done = True
+                    break
+                else:
+                    print(f"Upgrade Status is not finished: {resp}")
+            except Exception as err:
+                print(f"Checking upgrade status attempt err: {err}")
+            attempts += 1
+            print(f"Retrying attempt {attempts} in {delay} seconds")
+            time.sleep(delay)
+        return upgrade_done

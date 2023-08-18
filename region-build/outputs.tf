@@ -1,7 +1,8 @@
 locals {
   controller_tags      = [for item in aws_launch_template.avtx-controller.tag_specifications : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
   controller_name      = [for item in local.controller_tags : item if item != null]
-  copilot_tags         = [for item in aws_launch_template.avtx-copilot.tag_specifications : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
+  copilot_lt_tags      = var.copilot_deployment == "fault-tolerant" ? aws_launch_template.avtx-copilot-cluster-main[0].tag_specifications : aws_launch_template.avtx-copilot[0].tag_specifications
+  copilot_tags         = [for item in local.copilot_lt_tags : item["resource_type"] == "instance" ? item["tags"]["Name"] : null]
   copilot_name         = [for item in local.copilot_tags : item if item != null]
   controller_public_ip = var.use_existing_eip ? var.existing_eip : (length(aws_eip.controller_eip) > 0 ? aws_eip.controller_eip[0].public_ip : "")
   copilot_public_ip    = var.use_existing_copilot_eip ? var.existing_copilot_eip : (length(aws_eip.copilot_eip) > 0 ? aws_eip.copilot_eip[0].public_ip : "")

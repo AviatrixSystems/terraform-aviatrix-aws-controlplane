@@ -1,5 +1,9 @@
 data "aws_caller_identity" "current" {}
 
+resource "time_sleep" "wait_for_zip" {
+  create_duration = "60s"
+}
+
 resource "aws_ecs_task_definition" "task_def" {
   family                   = "AVX_PLATFORM_HA"
   requires_compatibilities = ["FARGATE"]
@@ -29,7 +33,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "AVIATRIX_COP_TAG",
-          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+          value = local.cop_tag
         },
         {
           name  = "AWS_ROLE_APP_NAME",
@@ -56,6 +60,18 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
+          name  = "COP_DATA_NODES_EIPS",
+          value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
+        },
+        {
+          name  = "COP_DATA_NODES_DETAILS",
+          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+        },
+        {
+          name  = "COP_DEPLOYMENT",
+          value = var.copilot_deployment
+        },
+        {
           name  = "COP_USERNAME",
           value = var.copilot_username
         },
@@ -78,6 +94,22 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "CONTROLLER_TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "COPILOT_TMP_SG_GRP",
+          value = ""
+        },
+        {
+          name  = "CONTROLLER_RUNNING",
+          value = ""
+        },
+        {
+          name  = "COPILOT_RUNNING",
           value = ""
         },
         {
@@ -175,7 +207,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "AVIATRIX_COP_TAG",
-          value = aws_launch_template.avtx-copilot.tag_specifications[1].tags.Name
+          value = local.cop_tag
         },
         {
           name  = "AWS_ROLE_APP_NAME",
@@ -200,6 +232,18 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EIP",
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
+        },
+        {
+          name  = "COP_DATA_NODES_EIPS",
+          value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
+        },
+        {
+          name  = "COP_DATA_NODES_DETAILS",
+          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+        },
+        {
+          name  = "COP_DEPLOYMENT",
+          value = var.copilot_deployment
         },
         {
           name  = "COP_USERNAME",
@@ -303,6 +347,10 @@ resource "aws_ecs_task_definition" "task_def" {
     precondition {
       condition     = (var.copilot_email == "" && var.copilot_username == "") || (var.copilot_email != "" && var.copilot_username != "")
       error_message = "To add a user for copilot, please provide both the username and the email. Otherwise, they both should be empty."
+    }
+    precondition {
+      condition     = (contains(["inter-az", "single-az", "inter-region"], var.ha_distribution) && var.copilot_deployment == "simple") || (contains(["inter-az", "single-az"], var.ha_distribution) && var.copilot_deployment == "fault-tolerant")
+      error_message = "Fault-Tolerant CoPilot cannot be deployed in an inter-region HA distribution. Please either change the CoPilot deployment, or the HA distribution."
     }
   }
 }

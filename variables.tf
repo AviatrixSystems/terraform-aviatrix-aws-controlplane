@@ -58,6 +58,30 @@ variable "instance_type" {
   default     = "t3.large"
 }
 
+variable "copilot_deployment" {
+  type        = string
+  description = "Desired CoPilot deployment type"
+  default     = "simple"
+
+  validation {
+    condition     = contains(["simple", "fault-tolerant"], var.copilot_deployment)
+    error_message = "Valid values for var:copilot_deployment are (simple, fault-tolerant)."
+  }
+}
+
+variable "copilot_data_node_count" {
+  type        = number
+  description = "Desired number of CoPilot data nodes in a Fault-Tolerant deployment"
+  default     = 3
+
+  validation {
+    condition = (
+      var.copilot_data_node_count >= 3 && var.copilot_data_node_count <= 9
+    )
+    error_message = "CoPilot data node count must be between 3 and 9, inclusive."
+  }
+}
+
 variable "cop_instance_type" {
   type        = string
   description = "CoPilot instance size"
@@ -382,8 +406,14 @@ variable "use_existing_copilot_eip" {
 
 variable "existing_copilot_eip" {
   type        = string
-  description = "Existing EIP to associate with the Aviatrix CoPilot"
+  description = "Existing EIP to associate with the Aviatrix CoPilot (Main Node, in a Fault-Tolerant deployment)"
   default     = ""
+}
+
+variable "existing_data_nodes_eips" {
+  type        = list(string)
+  description = "Existing EIP to associate with the Aviatrix CoPilot (Main Node, in a Fault-Tolerant deployment)"
+  default     = [""]
 }
 
 variable "existing_copilot_dr_eip" {
