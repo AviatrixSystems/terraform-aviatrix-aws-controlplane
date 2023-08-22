@@ -14,7 +14,8 @@ def get_ssm_parameter_value(path, region):
         resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
         return resp["Parameter"]["Value"]
     except Exception as err:
-        raise (f"Error fetching from ssm")
+        print(f"Error fetching from ssm")
+        raise err
 
 def controller_copilot_setup(api, event):
   # enable copilot association
@@ -141,12 +142,11 @@ def get_instance_recent_restart(type):
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
-    instanceobj = curr_region_client.describe_instances(
-        Filters=[
-            {"Name": "instance-state-name", "Values": ["running"]},
-            {"Name": "tag:Name", "Values": [instance_name]},
-        ]
-    )["Reservations"][0]["Instances"][0]
+    # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+    instanceobj = aws_utils.get_ec2_instance(curr_region_client, instance_name, "")
+    if instanceobj == {}:
+        print(f"Unable to find instance '{instance_name}' to check recent restart")
+        return False
     launch_time = instanceobj["LaunchTime"]
     # Calculate the time difference between the launch time and current time
     delta = datetime.datetime.now(datetime.timezone.utc) - launch_time
@@ -349,21 +349,19 @@ def handle_copilot_ha():
     copilot_instance_name = f"{copilot_instance_name}-Main"
 
   # get restore_region (main) copilot to be created/restored
-  copilot_instanceobj = restore_client.describe_instances(
-    Filters=[
-      {"Name": "instance-state-name", "Values": ["running"]},
-      {"Name": "tag:Name", "Values": [copilot_instance_name]},
-    ]
-  )["Reservations"][0]["Instances"][0]
+  # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+  copilot_instanceobj = aws_utils.get_ec2_instance(restore_client, copilot_instance_name, "")
+  if copilot_instanceobj == {}:
+      print(f"Unable to find copilot instance '{copilot_instance_name}' - Abort HA")
+      return False
   print(f"copilot_instanceobj: {copilot_instanceobj}")
 
   # get restore region controller
-  controller_instanceobj = restore_client.describe_instances(
-    Filters=[
-      {"Name": "instance-state-name", "Values": ["running"]},
-      {"Name": "tag:Name", "Values": [controller_instance_name]},
-    ]
-  )["Reservations"][0]["Instances"][0]
+  # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+  controller_instanceobj = aws_utils.get_ec2_instance(restore_client, controller_instance_name, "")
+  if controller_instanceobj == {}:
+      print(f"Unable to find controller instance '{controller_instance_name}' - Abort HA")
+      return False
   print(f"controller_instanceobj: {controller_instanceobj}")
 
   instance_public_ips = get_controller_copilot_public_ips(controller_instanceobj, copilot_instanceobj)
@@ -386,12 +384,11 @@ def handle_copilot_ha():
     data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
     data_node_details = json.loads(data_node_details)
     for inst in data_node_details:
-      data_node_instanceobj = restore_client.describe_instances(
-          Filters=[
-              {"Name": "instance-state-name", "Values": ["running"]},
-              {"Name": "tag:Name", "Values": [inst['instance_name']]},
-          ]
-      )["Reservations"][0]["Instances"][0]
+      # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+      data_node_instanceobj = aws_utils.get_ec2_instance(restore_client, inst['instance_name'], "")
+      if data_node_instanceobj == {}:
+          print(f"Unable to find data node instance {inst['instance_name']} - Skip instance")
+          break
       copilot_data_node_public_ips.append(data_node_instanceobj['PublicIpAddress'])
       copilot_data_node_private_ips.append(data_node_instanceobj['PrivateIpAddress'])
       copilot_data_node_regions.append(restore_region)

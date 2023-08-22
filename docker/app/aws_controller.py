@@ -1352,21 +1352,16 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     # 2. Trying to find Instance in DR region
     if dr_env.get("INST_ID"):
         print(f"INST_ID: {dr_env.get('INST_ID')}")
-        dr_instanceobj = dr_client.describe_instances(
-            Filters=[
-                {"Name": "instance-state-name", "Values": ["running"]},
-                {"Name": "instance-id", "Values": [dr_env.get("INST_ID")]},
-            ]
-        )["Reservations"][0]["Instances"][0]
+        # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+        dr_instanceobj = aws_utils.get_ec2_instance(dr_client, "", dr_env.get("INST_ID"))
     elif dr_env.get("AVIATRIX_TAG"):
         print(f"AVIATRIX_TAG : {dr_env.get('AVIATRIX_TAG')}")
-        dr_instanceobj = dr_client.describe_instances(
-            Filters=[
-                {"Name": "instance-state-name", "Values": ["running"]},
-                {"Name": "tag:Name", "Values": [dr_env.get("AVIATRIX_TAG")]},
-            ]
-        )["Reservations"][0]["Instances"][0]
+        # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+        dr_instanceobj = aws_utils.get_ec2_instance(dr_client, dr_env.get("AVIATRIX_TAG"), "")
     else:
+        dr_instanceobj = {}
+
+    if dr_instanceobj == {}:
         raise AvxError(f"Cannot find Controller in {dr_region}")
 
     dr_private_ip = dr_instanceobj.get("NetworkInterfaces")[0].get("PrivateIpAddress")
@@ -2023,12 +2018,10 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             if copilot_init:
                 for inst in data_node_details:
                     node_eip = data_node_eips.pop()
-                    data_node_instanceobj = client.describe_instances(
-                        Filters=[
-                            {"Name": "instance-state-name", "Values": ["running"]},
-                            {"Name": "tag:Name", "Values": [inst['instance_name']]},
-                        ]
-                    )["Reservations"][0]["Instances"][0]
+                    # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+                    data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
+                    if data_node_instanceobj == {}:
+                        raise AvxError(f"Unable to find data node {inst['instance_name']}")
                     if not assign_eip(client, data_node_instanceobj, node_eip):
                         print(
                             f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
@@ -2037,12 +2030,10 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 # end assigning EIPs to data nodes
             # only add data node EIPs in cluster copilot init
 
-            curr_region_main_cop_instanceobj = client.describe_instances(
-                Filters=[
-                    {"Name": "instance-state-name", "Values": ["running"]},
-                    {"Name": "tag:Name", "Values": [f"{instance_name}-Main"]},
-                ]
-            )["Reservations"][0]["Instances"][0]
+            # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+            curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
+            if curr_region_main_cop_instanceobj == {}:
+                raise AvxError(f"Unable to find main copilot {instance_name}-Main")
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
                     print(
@@ -2052,13 +2043,10 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
 
         else: 
             # get current region copilot to restore eip
-            curr_region_cop_instanceobj = client.describe_instances(
-                Filters=[
-                    {"Name": "instance-state-name", "Values": ["running"]},
-                    {"Name": "tag:Name", "Values": [instance_name]},
-                ]
-            )["Reservations"][0]["Instances"][0]
-
+            # get_ec2_instance(ec2_client, inst_name="", inst_id="")
+            curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
+            if curr_region_cop_instanceobj == {}:
+                raise AvxError(f"Unable to find copilot {instance_name}")
             # Assign COP_EIP to current region copilot
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
