@@ -216,7 +216,7 @@ variable "tags" {
 
 variable "controller_version" {
   type        = string
-  default     = ""
+  default     = "latest"
   description = "The initial version of the Aviatrix Controller at launch"
 }
 
