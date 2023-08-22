@@ -302,8 +302,8 @@ class ControllerAPI:
 
     def retry_get_copilot_config(self, copilot_type) -> bool:
         attempts = 0
-        retries = 10
-        delay = 30
+        retries = 15
+        delay = 60
         copilot_config = {}
         while attempts <= retries:
             print(f"Retrying getting copilot config - attempt {attempts} / {retries}")
@@ -507,6 +507,6 @@ class CoPilotAPI:
             except Exception as err:
                 print(f"Checking upgrade status attempt err: {err}")
             attempts += 1
-            print(f"Retrying attempt {attempts} in {delay} seconds")
+            print(f"Retrying upgrade check attempt {attempts} in {delay} seconds")
             time.sleep(delay)
         return upgrade_done
