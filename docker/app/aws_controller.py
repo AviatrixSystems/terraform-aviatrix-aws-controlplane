@@ -51,7 +51,9 @@ def main():
     """Entry point for the docker container."""
     print("Aviatrix Platform HA Version " + VERSION)
     try:
+        print(f"START - {time.strftime('%H:%M:%S', time.localtime())}")
         ecs_handler()
+        print(f"END - {time.strftime('%H:%M:%S', time.localtime())}")
     except AvxError as err:
         print("Operation failed due to: " + str(err))
     except Exception as err:  # pylint: disable=broad-except

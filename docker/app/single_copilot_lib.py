@@ -490,8 +490,8 @@ class CoPilotAPI:
 
     def retry_upgrade_check(self,) -> bool:
         attempts = 0
-        retries = 15
-        delay = 30
+        retries = 10
+        delay = 60
         upgrade_done = False
         while attempts <= retries:
             print(f"Rechecking upgrade status attempt: {attempts} / {retries}")
