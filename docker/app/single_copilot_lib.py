@@ -127,8 +127,8 @@ class ControllerAPI:
 
     def retry_login(self, username: str, password: str) -> bool:
         attempts = 0
-        retries = 5
-        delay = 300
+        retries = 10
+        delay = 60
         login_success = False
         while attempts <= retries:
             print(f"Retrying login attempt {attempts} / {retries}")
@@ -141,6 +141,7 @@ class ControllerAPI:
                 print(f"Unable to retrieve CID. Retrying login after {delay} seconds")
                 time.sleep(delay)
             attempts += 1
+        time.sleep(delay)
         return login_success
 
     def login(self, username: str, password: str) -> None:
@@ -302,7 +303,7 @@ class ControllerAPI:
 
     def retry_get_copilot_config(self, copilot_type) -> bool:
         attempts = 0
-        retries = 15
+        retries = 10
         delay = 60
         copilot_config = {}
         while attempts <= retries:
@@ -318,6 +319,7 @@ class ControllerAPI:
             else:
                 print(f"Retrieved copilot config successfully: {copilot_config}")
                 break
+        time.sleep(delay)
         return copilot_config
 
 
@@ -412,8 +414,8 @@ class CoPilotAPI:
     
     def retry_set_controller_ip(self, controller_ip, username: str, password: str) -> bool:
         attempts = 0
-        retries = 5
-        delay = 20
+        retries = 10
+        delay = 60
         set_ip = False
         while attempts <= retries:
             print(f"Retrying setting controller IP on copilot attempt #{attempts} / {retries}")
@@ -426,6 +428,7 @@ class CoPilotAPI:
                 print(f"Unable to set controller IP. Retrying after {delay} seconds")
                 time.sleep(delay)
             attempts += 1
+        time.sleep(delay)
         return set_ip
     
     def set_controller_ip(self, controller_ip, username: str, password: str) -> Dict[str, Any]:
@@ -494,7 +497,7 @@ class CoPilotAPI:
         delay = 60
         upgrade_done = False
         while attempts <= retries:
-            print(f"Rechecking upgrade status attempt: {attempts} / {retries}")
+            print(f"Retrying upgrade check attempt: {attempts} / {retries}")
             try:
                 resp = self._get_copilot_upgrade_status()
                 status = resp.get("status")
@@ -509,4 +512,5 @@ class CoPilotAPI:
             attempts += 1
             print(f"Retrying upgrade check attempt {attempts} in {delay} seconds")
             time.sleep(delay)
+        time.sleep(delay)
         return upgrade_done

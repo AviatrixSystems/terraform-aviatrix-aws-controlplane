@@ -198,7 +198,6 @@ def modify_sg_rules(ec2_client, operation, security_group_id, sg_rule) -> None:
         print(f"Rules successfully modified: {data}")
         return security_group_id
     except Exception as err:  # pylint: disable=broad-except
-        print(str(traceback.format_exc()))
         print(f"Modifying SG rules error: {err}")
         print(f"operation: {operation} - security_group_id: {security_group_id} - sg_rule: {sg_rule}")
 

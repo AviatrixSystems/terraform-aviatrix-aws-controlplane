@@ -49,4 +49,5 @@ def get_ec2_instance(ec2_client, inst_name="", inst_id=""):
         attempts += 1
         print(f"Retrying instance check attempt {attempts} in {delay} seconds")
         time.sleep(delay)
+    time.sleep(delay)
     return instanceobj
