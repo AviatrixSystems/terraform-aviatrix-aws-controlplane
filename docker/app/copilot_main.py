@@ -142,7 +142,6 @@ def get_instance_recent_restart(type):
     # Retrieve the launch time of the current region instance by instance name
     curr_region_client = boto3.client("ec2", curr_region)
     # get current region instance
-    # get_ec2_instance(ec2_client, inst_name="", inst_id="")
     instanceobj = aws_utils.get_ec2_instance(curr_region_client, instance_name, "")
     if instanceobj == {}:
         print(f"Unable to find instance '{instance_name}' to check recent restart")
@@ -349,7 +348,6 @@ def handle_copilot_ha():
     copilot_instance_name = f"{copilot_instance_name}-Main"
 
   # get restore_region (main) copilot to be created/restored
-  # get_ec2_instance(ec2_client, inst_name="", inst_id="")
   copilot_instanceobj = aws_utils.get_ec2_instance(restore_client, copilot_instance_name, "")
   if copilot_instanceobj == {}:
       print(f"Unable to find copilot instance '{copilot_instance_name}' - Abort HA")
@@ -357,7 +355,6 @@ def handle_copilot_ha():
   print(f"copilot_instanceobj: {copilot_instanceobj}")
 
   # get restore region controller
-  # get_ec2_instance(ec2_client, inst_name="", inst_id="")
   controller_instanceobj = aws_utils.get_ec2_instance(restore_client, controller_instance_name, "")
   if controller_instanceobj == {}:
       print(f"Unable to find controller instance '{controller_instance_name}' - Abort HA")
@@ -384,7 +381,6 @@ def handle_copilot_ha():
     data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
     data_node_details = json.loads(data_node_details)
     for inst in data_node_details:
-      # get_ec2_instance(ec2_client, inst_name="", inst_id="")
       data_node_instanceobj = aws_utils.get_ec2_instance(restore_client, inst['instance_name'], "")
       if data_node_instanceobj == {}:
           print(f"Unable to find data node instance {inst['instance_name']} - Skip instance")

@@ -44,7 +44,6 @@ def get_ec2_instance(ec2_client, inst_name="", inst_id=""):
                 break
         except Exception as err:
             print(f"Unable to find instance with '{id_tag}' - '{id_val}' -- {err} ")
-            raise err
         attempts += 1
         print(f"Retrying instance check attempt {attempts} in {delay} seconds")
         time.sleep(delay)

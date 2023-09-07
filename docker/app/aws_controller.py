@@ -1354,11 +1354,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     # 2. Trying to find Instance in DR region
     if dr_env.get("INST_ID"):
         print(f"INST_ID: {dr_env.get('INST_ID')}")
-        # get_ec2_instance(ec2_client, inst_name="", inst_id="")
         dr_instanceobj = aws_utils.get_ec2_instance(dr_client, "", dr_env.get("INST_ID"))
     elif dr_env.get("AVIATRIX_TAG"):
         print(f"AVIATRIX_TAG : {dr_env.get('AVIATRIX_TAG')}")
-        # get_ec2_instance(ec2_client, inst_name="", inst_id="")
         dr_instanceobj = aws_utils.get_ec2_instance(dr_client, dr_env.get("AVIATRIX_TAG"), "")
     else:
         dr_instanceobj = {}
@@ -2020,7 +2018,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             if copilot_init:
                 for inst in data_node_details:
                     node_eip = data_node_eips.pop()
-                    # get_ec2_instance(ec2_client, inst_name="", inst_id="")
                     data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
                     if data_node_instanceobj == {}:
                         raise AvxError(f"Unable to find data node {inst['instance_name']}")
@@ -2032,7 +2029,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                 # end assigning EIPs to data nodes
             # only add data node EIPs in cluster copilot init
 
-            # get_ec2_instance(ec2_client, inst_name="", inst_id="")
             curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
             if curr_region_main_cop_instanceobj == {}:
                 raise AvxError(f"Unable to find main copilot {instance_name}-Main")
@@ -2045,7 +2041,6 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
 
         else: 
             # get current region copilot to restore eip
-            # get_ec2_instance(ec2_client, inst_name="", inst_id="")
             curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
             if curr_region_cop_instanceobj == {}:
                 raise AvxError(f"Unable to find copilot {instance_name}")
