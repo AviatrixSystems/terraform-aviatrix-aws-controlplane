@@ -1,3 +1,5 @@
+import time
+
 TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
 def get_task_def(ecs_client):
