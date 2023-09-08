@@ -453,6 +453,9 @@ def handle_copilot_ha():
   if controller_tmp_sg == "":
       controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
+  print(f"Waiting for copilot to be ready")
+  time.sleep(300)
+
   handle_event(copilot_event)
 
   # disable tmp access on the controller

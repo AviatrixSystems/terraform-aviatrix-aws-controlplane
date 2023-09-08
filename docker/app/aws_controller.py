@@ -23,7 +23,7 @@ import aws_utils as aws_utils
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.05"
+VERSION = "0.06"
 
 HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
@@ -1999,6 +1999,8 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
     print(f"environment: {os.environ.items()}")
+    print(f"Waiting for instances to boot")
+    time.sleep(300)
     try:
         # get current region copilot info
         current_region = os.environ.get("SQS_QUEUE_REGION", "")
