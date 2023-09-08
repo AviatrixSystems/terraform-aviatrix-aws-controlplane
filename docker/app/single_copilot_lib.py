@@ -407,7 +407,7 @@ class CoPilotAPI:
     def get_copilot_init_status(self, type) -> Dict[str, Any]:
         if type == "simple":
             return self.v1("GET", "single-node")
-        elif type == "clustered":
+        elif type == "fault-tolerant":
             return self.v1("GET", "cluster")
         else:
             raise Exception(f"get_copilot_init_status: Unexpected type: {type}")
@@ -454,39 +454,42 @@ class CoPilotAPI:
     def get_copilot_restore_status(self):
         return self.v1("GET", "configuration/restore")
     
-    def wait_copilot_restore_complete(self, type) -> None:
-        self._wait_copilot_api("restore", "complete", type)
+    def wait_copilot_restore_complete(self, cop_type, config) -> None:
+        self._wait_copilot_api("restore", "complete", cop_type, config)
         
-    def wait_copilot_restore_ready(self, type) -> None:
-        self._wait_copilot_api("restore", "ready", type)
+    def wait_copilot_restore_ready(self, cop_type) -> None:
+        self._wait_copilot_api("restore", "ready", cop_type)
         
-    def wait_copilot_init_complete(self, type) -> None:
-        self._wait_copilot_api("init", "complete", type)
+    def wait_copilot_init_complete(self, cop_type) -> None:
+        self._wait_copilot_api("init", "complete", cop_type)
         
-    def wait_copilot_init_ready(self, type) -> None:
-        self._wait_copilot_api("init", "ready", type)
+    def wait_copilot_init_ready(self, cop_type) -> None:
+        self._wait_copilot_api("init", "ready", cop_type)
         
-    def _wait_copilot_api(self, api, state, type) -> None:
+    def _wait_copilot_api(self, api, state, cop_type, config={}) -> None:
         for i in range(40):
             if api == "restore":
                 resp = self.get_copilot_restore_status()
             elif api == "init":
-                resp = self.get_copilot_init_status(type)
+                resp = self.get_copilot_init_status(cop_type)
             else:
                 raise Exception(f"Unexpected API: {api}")
             status = resp.get("status")
             if status == "failed":
-                print(f"CoPilot type '{type}' API '{api} status failed, but will recheck: {resp}")
+                print(f"CoPilot type '{cop_type}' API '{api} status failed, but will recheck: {resp}")
+                if api == "restore" and state == "complete" and config:
+                    print(f"Copilot Config Restore attempt failed. Will restore again with config: {config}")
+                    self.restore_copilot(config)
             if state == "ready" and status == "waiting":
-                print(f"CoPilot type '{type}' API '{api}' is ready: {resp}")
+                print(f"CoPilot type '{cop_type}' API '{api}' is ready: {resp}")
                 break
             if state == "complete" and status == "done":
-                print(f"CoPilot type '{type}' API '{api}' completed: {resp}")
+                print(f"CoPilot type '{cop_type}' API '{api}' completed: {resp}")
                 break
-            print(f"Status for API '{api}' for CoPilot type '{type}' and state '{state}' #{i:02d}: {resp}")
+            print(f"Status for API '{api}' for CoPilot type '{cop_type}' and state '{state}' #{i:02d}: {resp}")
             time.sleep(15)
         else:
-            raise Exception(f"Exceed the limitation of CoPilot type '{type}'  API '{api}' checks")
+            raise Exception(f"Exceed the limitation of CoPilot type '{cop_type}'  API '{api}' checks")
 
     def _get_copilot_upgrade_status(self) -> Dict[str, Any]:
         return self.v1("GET", "updateStatus")

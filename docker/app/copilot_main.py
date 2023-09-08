@@ -454,7 +454,7 @@ def handle_copilot_ha():
       controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
   print(f"Waiting for copilot to be ready")
-  time.sleep(300)
+  time.sleep(120)
 
   handle_event(copilot_event)
 
@@ -576,6 +576,9 @@ def handle_event(event):
       cluster_cplt.function_handler(cluster_event)
   else:
     # copilot HA use case
+    # wait for copilot restore api to be ready
+    print(f"Waiting for CoPilot API to be ready")
+    copilot_api.wait_copilot_restore_ready(event['copilot_type'])
     # 1. get saved config from controller
     print(f"Simple CoPilot HA OR Cluster main node HA begin ...")
     print(f"Getting saved CoPilot config from the controller")
@@ -595,7 +598,7 @@ def handle_event(event):
     response = copilot_api.restore_copilot(config)
     print(f"restore_config: {response}")
     print(f"Getting restore_config status")
-    copilot_api.wait_copilot_restore_complete(event['copilot_type'])
+    copilot_api.wait_copilot_restore_complete(event['copilot_type'], config)
     print("CoPilot restore end")
   
   # Post init or HA actions
