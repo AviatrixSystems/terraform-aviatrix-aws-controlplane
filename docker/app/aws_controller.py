@@ -2061,14 +2061,16 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
     finally:
         msg_json = json.loads(event["Message"])
         asg_client = boto3.client("autoscaling")
-        response = asg_client.complete_lifecycle_action(
-            AutoScalingGroupName=msg_json["AutoScalingGroupName"],
-            LifecycleActionResult="CONTINUE",
-            LifecycleActionToken=msg_json["LifecycleActionToken"],
-            LifecycleHookName=msg_json["LifecycleHookName"],
-        )
-
-        print(f"Complete lifecycle action response {response}")
+        try:
+            response = asg_client.complete_lifecycle_action(
+                AutoScalingGroupName=msg_json["AutoScalingGroupName"],
+                LifecycleActionResult="CONTINUE",
+                LifecycleActionToken=msg_json["LifecycleActionToken"],
+                LifecycleHookName=msg_json["LifecycleHookName"],
+            )
+            print(f"Complete lifecycle action response {response}")
+        except Exception as err:  # pylint: disable=broad-except
+            print(f"Complete lifecycle action did not succeed. Lifecycle action may be completed already: {str(err)}")
         print("- Completed function -")
         return
 
