@@ -323,6 +323,9 @@ def handle_copilot_ha():
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
 
+  print(f"Waiting for copilot to be ready")
+  time.sleep(720)
+
   # log controller failover status
   try:
     log_failover_status("controller")
@@ -452,9 +455,6 @@ def handle_copilot_ha():
   controller_tmp_sg = aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_TMP_SG_GRP", "")
   if controller_tmp_sg == "":
       controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
-
-  print(f"Waiting for copilot to be ready")
-  time.sleep(120)
 
   handle_event(copilot_event)
 
