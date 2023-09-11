@@ -293,6 +293,12 @@ def clear_security_group_rules(ec2_client, security_group_id):
     else:
         print(f"Failed to retrieve rules for SG {security_group_id}.")
 
+def copilot_upgrade_check(cp_ip):
+    print(f"copilot_upgrade_check START: {time.strftime('%H:%M:%S', time.localtime())}")
+    copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=cp_ip, cid="")
+    copilot_upgrade_check_api.retry_upgrade_check()
+    print(f"copilot_upgrade_check DONE: {time.strftime('%H:%M:%S', time.localtime())}")
+
 def handle_copilot_ha():
   # use cases:
   # intra-region init
@@ -323,8 +329,7 @@ def handle_copilot_ha():
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
 
-  print(f"Waiting for copilot to be ready")
-  time.sleep(720)
+  print(f"Waiting for copilot to be ready - START: {time.strftime('%H:%M:%S', time.localtime())}")
 
   # log controller failover status
   try:
@@ -448,15 +453,14 @@ def handle_copilot_ha():
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
-  copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=copilot_event['copilot_info']['public_ip'], cid="")
-  copilot_upgrade_check_api.retry_upgrade_check()
-
   # enable tmp access on the controller
   controller_tmp_sg = aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_TMP_SG_GRP", "")
   if controller_tmp_sg == "":
       controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
+  print(f"handle_event - START: {time.strftime('%H:%M:%S', time.localtime())}")
   handle_event(copilot_event)
+  print(f"handle_event - END: {time.strftime('%H:%M:%S', time.localtime())}")
 
   # disable tmp access on the controller
   if aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_RUNNING", "") == "running":
@@ -542,10 +546,13 @@ def handle_event(event):
     if event['copilot_type'] == "simple":
       # simple copilot init
       print("Simple CoPilot Initialization begin ...")
-      response = copilot_api.init_copilot_single_node(event['copilot_info']['user_info']['username'],
-                                                      event['copilot_info']['user_info']['password'])
+      copilot_init_config = {
+        "username": event['copilot_info']['user_info']['username'],
+        "password": event['copilot_info']['user_info']['password']
+      }
+      response = copilot_api.init_copilot_single_node(copilot_init_config)
       print(f"Simple_copilot_init: {response}")
-      copilot_api.wait_copilot_init_complete(event['copilot_type'])
+      copilot_api.wait_copilot_init_complete(event['copilot_type'], copilot_init_config)
     else:
       # Fault Tolerant copilot init
       print("Fault Tolerant CoPilot Initialization begin ...")

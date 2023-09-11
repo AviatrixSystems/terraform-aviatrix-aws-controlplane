@@ -1998,9 +1998,11 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
+    print(f"handle_cop_ha_event - START: {time.strftime('%H:%M:%S', time.localtime())}")
     print(f"environment: {os.environ.items()}")
-    print(f"Waiting for instances to boot")
-    time.sleep(120)
+    print("Waiting 10 mins for copilot to update")
+    time.sleep(600)
+    print(f"First wait DONE: {time.strftime('%H:%M:%S', time.localtime())}")
     try:
         # get current region copilot info
         current_region = os.environ.get("SQS_QUEUE_REGION", "")
@@ -2023,6 +2025,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
                     data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
                     if data_node_instanceobj == {}:
                         raise AvxError(f"Unable to find data node {inst['instance_name']}")
+                    print(f"data_node_instanceobj: {data_node_instanceobj}")
+                    cp_lib.copilot_upgrade_check(data_node_instanceobj["PublicIpAddress"])
+                    print(f"data node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
                     if not assign_eip(client, data_node_instanceobj, node_eip):
                         print(
                             f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
@@ -2034,6 +2039,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
             if curr_region_main_cop_instanceobj == {}:
                 raise AvxError(f"Unable to find main copilot {instance_name}-Main")
+            print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
+            cp_lib.copilot_upgrade_check(curr_region_main_cop_instanceobj["PublicIpAddress"])
+            print(f"main node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
                     print(
@@ -2046,6 +2054,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
             if curr_region_cop_instanceobj == {}:
                 raise AvxError(f"Unable to find copilot {instance_name}")
+            print(f"curr_region_cop_instanceobj: {curr_region_cop_instanceobj}")
+            cp_lib.copilot_upgrade_check(curr_region_cop_instanceobj["PublicIpAddress"])
+            print(f"single node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
             # Assign COP_EIP to current region copilot
             if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
                 if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
