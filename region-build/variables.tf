@@ -404,9 +404,3 @@ variable "existing_copilot_eip" {
   description = "Existing EIP to associate with the Aviatrix CoPilot"
   default     = ""
 }
-
-variable "existing_data_nodes_eips" {
-  type        = list(string)
-  description = "Existing EIP to associate with the Aviatrix CoPilot (Main Node, in a Fault-Tolerant deployment)"
-  default     = [""]
-}

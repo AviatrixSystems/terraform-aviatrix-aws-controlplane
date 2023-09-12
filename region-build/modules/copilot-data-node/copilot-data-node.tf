@@ -16,6 +16,18 @@ data "aws_subnet" "subnet" {
   id    = var.subnet_id
 }
 
+resource "aws_eip" "copilot_eip" {
+  vpc   = true
+  tags = merge(var.tags, {
+    Name = "${var.node_name}-data-${var.node_key}-eip"
+  })
+}
+
+resource "aws_eip_association" "eip_assoc" {
+  instance_id   = aws_instance.aviatrixcopilot.id
+  allocation_id = aws_eip.copilot_eip.id
+}
+
 resource "aws_instance" "aviatrixcopilot" {
   ami                    = var.ami_id
   instance_type          = var.instance_type

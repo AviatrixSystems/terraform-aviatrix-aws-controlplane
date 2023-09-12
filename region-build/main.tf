@@ -60,10 +60,6 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
         },
         {
-          name  = "COP_DATA_NODES_EIPS",
-          value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
-        },
-        {
           name  = "COP_DATA_NODES_DETAILS",
           value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
         },
@@ -232,10 +228,6 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "COP_EIP",
           value = var.use_existing_copilot_eip ? var.existing_copilot_eip : aws_eip.copilot_eip[0].public_ip
-        },
-        {
-          name  = "COP_DATA_NODES_EIPS",
-          value =  var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? join(",", var.existing_data_nodes_eips) : join(",", aws_eip.copilot_data_nodes_eips.*.public_ip) : ""
         },
         {
           name  = "COP_DATA_NODES_DETAILS",

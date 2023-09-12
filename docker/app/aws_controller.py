@@ -280,7 +280,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         "COP_ASG": os.environ.get("COP_ASG"),
         "COP_EIP": os.environ.get("COP_EIP"),
         "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
-        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
         "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
@@ -527,7 +526,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "EIP": eip,
         "COP_EIP": os.environ.get("COP_EIP"),
         "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
-        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
         "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "VPC_ID": vpc_id,
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
@@ -2016,25 +2014,14 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             # get current region copilot to restore eip
             data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
             data_node_details = json.loads(data_node_details)
-            data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
-            data_node_eips = data_node_eips.split(",")
-            # assign EIPs to data nodes
-            if copilot_init:
-                for inst in data_node_details:
-                    node_eip = data_node_eips.pop()
-                    data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
-                    if data_node_instanceobj == {}:
-                        raise AvxError(f"Unable to find data node {inst['instance_name']}")
-                    print(f"data_node_instanceobj: {data_node_instanceobj}")
-                    cp_lib.copilot_upgrade_check(data_node_instanceobj["PublicIpAddress"])
-                    print(f"data node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
-                    if not assign_eip(client, data_node_instanceobj, node_eip):
-                        print(
-                            f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
-                        )
-                        raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
-                # end assigning EIPs to data nodes
-            # only add data node EIPs in cluster copilot init
+            # verify copilot upgrade
+            for inst in data_node_details:
+                data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
+                if data_node_instanceobj == {}:
+                    raise AvxError(f"Unable to find data node {inst['instance_name']}")
+                print(f"data_node_instanceobj: {data_node_instanceobj}")
+                cp_lib.copilot_upgrade_check(data_node_instanceobj["PublicIpAddress"])
+                print(f"data node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
 
             curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
             if curr_region_main_cop_instanceobj == {}:
