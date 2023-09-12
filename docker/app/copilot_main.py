@@ -406,6 +406,7 @@ def handle_copilot_ha():
     "region": restore_region,
     "copilot_init": copilot_init,
     "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
+    "s3_backup_bucket": os.environ.get("S3_BUCKET_BACK", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
     "copilot_type": os.environ.get("COP_DEPLOYMENT", ""),  # values should be "simple" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
@@ -618,3 +619,19 @@ def handle_event(event):
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   controller_copilot_setup(api, event)
+  # 3. login via session
+  response = copilot_api.session_login(username=event['copilot_info']['user_info']['username'],
+                                       password=event['copilot_info']['user_info']['password'])
+  print(f"copilot session login response: {response}")
+  # 4. create a data backup policy
+  print("Creating a data backup policy")
+  backup_policy = {
+    "access_account": event["primary_account_name"],
+    "bucket_name": event["s3_backup_bucket"]
+  }
+  response = copilot_api.set_data_backup_policy(backup_policy)
+  print(f"copilot set backup policy response: {response}")
+  # 5. executing a data backup
+  print("Executing a data backup")
+  response = copilot_api.execute_data_backup_policy()
+  print(f"copilot execute backup policy response: {response}")

@@ -327,6 +327,7 @@ class CoPilotAPI:
     def __init__(self, copilot_ip: str, cid: str) -> None:
         self._copilot_ip: str = copilot_ip
         self._cid: str = cid
+        self._session = requests.Session()
 
     def v1(
         self,
@@ -523,3 +524,51 @@ class CoPilotAPI:
             time.sleep(delay)
         time.sleep(delay)
         return upgrade_done
+
+    def session_login(self, username: str, password: str) -> bool:
+        try:
+            return self._session.post(f"https://{self._copilot_ip}/api/login",
+                                            data={'username': username, 'password': password},
+                                            verify=False)
+        except Exception as err:
+            raise (f"Error logging in via session: {str(err)}")
+
+    def _session_logout(self) -> None:
+        return self._make_session_request("get", "/api/logout")
+
+    def delete_data_backup_policy(self) -> bool:
+        return self._make_session_request("delete", "/api/backup/policy")
+
+    def _make_session_request(self, method: str, endpoint: str, request_data={}):
+        request_url = f"https://{self._copilot_ip}"
+        try:
+            if method == "get":
+                resp = self._session.get(f"{request_url}{endpoint}", verify=False)
+            elif method == "delete":
+                resp = self._session.delete(f"{request_url}{endpoint}", verify=False)
+            elif method == "post":
+                resp = self._session.post(f"{request_url}{endpoint}", data=request_data, verify=False)
+            else:
+                resp = f"Unsupported method: {method}"
+            return resp
+        except Exception as err:
+            raise (f"Error making a '{method}' request to '{endpoint}' in the session: {str(err)}")
+
+    def set_data_backup_policy(self, policy_details) -> bool:
+        backup_policy = {
+            "csp": "Amazon Web Services",
+            "accessAccount": policy_details['access_account'],
+            "S3": policy_details['bucket_name'],
+            "backupRetained": policy_details.get("backup_retained", 30),
+            "time": policy_details.get("backup_time", datetime.datetime.now().isoformat()),
+            "frequencyRepeat": policy_details.get("frequency_repeat", "Weekly"),
+            "frequencyMonth": policy_details.get("frequency_month", "January"),
+            "frequencyDay": policy_details.get("frequency_day", "Sunday"),
+            "frequencyDate": policy_details.get("frequency_date", "1"),
+            "minutes": policy_details.get("frequency_minutes", 0),
+            "hours": policy_details.get("frequency_hours", 1)
+        }
+        return self._make_session_request("post", "/api/backup/policy", backup_policy)
+
+    def execute_data_backup_policy(self) -> bool:
+        return self._make_session_request("post", "/api/backup/policy/execute")
