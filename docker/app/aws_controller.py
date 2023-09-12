@@ -1996,11 +1996,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
-    print(f"handle_cop_ha_event - START: {time.strftime('%H:%M:%S', time.localtime())}")
     print(f"environment: {os.environ.items()}")
-    print("Waiting 10 mins for copilot to update")
+    print("Waiting for copilot to update")
     time.sleep(600)
-    print(f"First wait DONE: {time.strftime('%H:%M:%S', time.localtime())}")
     try:
         # get current region copilot info
         current_region = os.environ.get("SQS_QUEUE_REGION", "")

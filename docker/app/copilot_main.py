@@ -293,12 +293,6 @@ def clear_security_group_rules(ec2_client, security_group_id):
     else:
         print(f"Failed to retrieve rules for SG {security_group_id}.")
 
-def copilot_upgrade_check(cp_ip):
-    print(f"copilot_upgrade_check START: {time.strftime('%H:%M:%S', time.localtime())}")
-    copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=cp_ip, cid="")
-    copilot_upgrade_check_api.retry_upgrade_check()
-    print(f"copilot_upgrade_check DONE: {time.strftime('%H:%M:%S', time.localtime())}")
-
 def handle_copilot_ha():
   # use cases:
   # intra-region init
@@ -328,8 +322,6 @@ def handle_copilot_ha():
   if inter_region and copilot_init and os.environ.get("SQS_QUEUE_REGION", "") == os.environ.get("STANDBY_REGION", ""):
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
-
-  print(f"Waiting for copilot to be ready - START: {time.strftime('%H:%M:%S', time.localtime())}")
 
   # log controller failover status
   try:
@@ -459,9 +451,7 @@ def handle_copilot_ha():
   if controller_tmp_sg == "":
       controller_tmp_sg = manage_tmp_access(restore_client, controller_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
 
-  print(f"handle_event - START: {time.strftime('%H:%M:%S', time.localtime())}")
   handle_event(copilot_event)
-  print(f"handle_event - END: {time.strftime('%H:%M:%S', time.localtime())}")
 
   # disable tmp access on the controller
   if aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_RUNNING", "") == "running":
@@ -619,19 +609,3 @@ def handle_event(event):
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   controller_copilot_setup(api, event)
-  # 3. login via session
-  response = copilot_api.session_login(username=event['copilot_info']['user_info']['username'],
-                                       password=event['copilot_info']['user_info']['password'])
-  print(f"copilot session login response: {response}")
-  # 4. create a data backup policy
-  print("Creating a data backup policy")
-  backup_policy = {
-    "access_account": event["primary_account_name"],
-    "bucket_name": event["s3_backup_bucket"]
-  }
-  response = copilot_api.set_data_backup_policy(backup_policy)
-  print(f"copilot set backup policy response: {response}")
-  # 5. executing a data backup
-  print("Executing a data backup")
-  response = copilot_api.execute_data_backup_policy()
-  print(f"copilot execute backup policy response: {response}")
