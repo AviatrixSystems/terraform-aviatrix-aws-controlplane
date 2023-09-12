@@ -323,9 +323,6 @@ def handle_copilot_ha():
     print(f"Not initializing copilot in the standby region '{os.environ.get('SQS_QUEUE_REGION', '')}' in inter-region init")
     return
 
-  print(f"Waiting for copilot to be ready")
-  time.sleep(720)
-
   # log controller failover status
   try:
     log_failover_status("controller")
@@ -401,6 +398,7 @@ def handle_copilot_ha():
     "region": restore_region,
     "copilot_init": copilot_init,
     "primary_account_name": os.environ.get("PRIMARY_ACC_NAME", ""),
+    "s3_backup_bucket": os.environ.get("S3_BUCKET_BACK", ""),
     "auth_ip": copilot_auth_ip, # values should controller public or private IP
     "copilot_type": os.environ.get("COP_DEPLOYMENT", ""),  # values should be "simple" or "fault-tolerant"
     "copilot_custom_user": copilot_user_info["custom_user"], # true/false based on copilot service account
@@ -447,9 +445,6 @@ def handle_copilot_ha():
 
   # enable tmp access on the copilot
   copilot_tmp_sg = manage_tmp_access(restore_client, copilot_instanceobj['SecurityGroups'][0]['GroupId'], "add_rule")
-
-  copilot_upgrade_check_api = single_cplt.CoPilotAPI(copilot_ip=copilot_event['copilot_info']['public_ip'], cid="")
-  copilot_upgrade_check_api.retry_upgrade_check()
 
   # enable tmp access on the controller
   controller_tmp_sg = aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_TMP_SG_GRP", "")
@@ -542,10 +537,13 @@ def handle_event(event):
     if event['copilot_type'] == "simple":
       # simple copilot init
       print("Simple CoPilot Initialization begin ...")
-      response = copilot_api.init_copilot_single_node(event['copilot_info']['user_info']['username'],
-                                                      event['copilot_info']['user_info']['password'])
+      copilot_init_config = {
+        "username": event['copilot_info']['user_info']['username'],
+        "password": event['copilot_info']['user_info']['password']
+      }
+      response = copilot_api.init_copilot_single_node(copilot_init_config)
       print(f"Simple_copilot_init: {response}")
-      copilot_api.wait_copilot_init_complete(event['copilot_type'])
+      copilot_api.wait_copilot_init_complete(event['copilot_type'], copilot_init_config)
     else:
       # Fault Tolerant copilot init
       print("Fault Tolerant CoPilot Initialization begin ...")

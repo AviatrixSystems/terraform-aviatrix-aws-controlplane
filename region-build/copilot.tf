@@ -22,7 +22,7 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
 
   network_interfaces {
     device_index                = 0
-    associate_public_ip_address = false
+    associate_public_ip_address = true
     security_groups             = [aws_security_group.AviatrixCopilotSecurityGroup.id]
   }
 
@@ -42,6 +42,7 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
 
   depends_on = [ module.data_nodes ]
 }
+
 
 resource "aws_launch_template" "avtx-copilot" {
   count       = var.copilot_deployment == "fault-tolerant" ? 0 : 1
@@ -77,7 +78,7 @@ resource "aws_launch_template" "avtx-copilot" {
 
   network_interfaces {
     device_index                = 0
-    associate_public_ip_address = false
+    associate_public_ip_address = true
     security_groups             = [aws_security_group.AviatrixCopilotSecurityGroup.id]
   }
 

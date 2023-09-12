@@ -280,7 +280,6 @@ def update_env_dict(ecs_client, replace_dict={}):
         "COP_ASG": os.environ.get("COP_ASG"),
         "COP_EIP": os.environ.get("COP_EIP"),
         "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
-        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
         "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
@@ -527,7 +526,6 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "EIP": eip,
         "COP_EIP": os.environ.get("COP_EIP"),
         "COP_DEPLOYMENT": os.environ.get("COP_DEPLOYMENT"),
-        "COP_DATA_NODES_EIPS": os.environ.get("COP_DATA_NODES_EIPS"),
         "COP_DATA_NODES_DETAILS": os.environ.get("COP_DATA_NODES_DETAILS"),
         "VPC_ID": vpc_id,
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
@@ -1999,8 +1997,8 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest):
     # print the info
     print(f"environment: {os.environ.items()}")
-    print(f"Waiting for instances to boot")
-    time.sleep(120)
+    print("Waiting for copilot to update")
+    time.sleep(600)
     try:
         # get current region copilot info
         current_region = os.environ.get("SQS_QUEUE_REGION", "")
@@ -2008,51 +2006,22 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         curr_cop_eip = os.environ.get("COP_EIP", "")
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
         copilot_init = os.environ.get("PRIV_IP", "") == ""
-
         if cop_deployment == "fault-tolerant":
-            # add new vars to env list
-            # get current region copilot to restore eip
-            data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
-            data_node_details = json.loads(data_node_details)
-            data_node_eips = os.environ.get("COP_DATA_NODES_EIPS", "")
-            data_node_eips = data_node_eips.split(",")
-            # assign EIPs to data nodes
-            if copilot_init:
-                for inst in data_node_details:
-                    node_eip = data_node_eips.pop()
-                    data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
-                    if data_node_instanceobj == {}:
-                        raise AvxError(f"Unable to find data node {inst['instance_name']}")
-                    if not assign_eip(client, data_node_instanceobj, node_eip):
-                        print(
-                            f"Could not assign EIP '{node_eip}' to current region '{current_region}' Main Copilot: {data_node_instanceobj}"
-                        )
-                        raise AvxError(f"Could not assign EIP to Data node: {data_node_instanceobj}")
-                # end assigning EIPs to data nodes
-            # only add data node EIPs in cluster copilot init
+            instance_name = f"{instance_name}-Main"
 
-            curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
-            if curr_region_main_cop_instanceobj == {}:
-                raise AvxError(f"Unable to find main copilot {instance_name}-Main")
-            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-                if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
-                    print(
-                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Main Copilot: {curr_region_main_cop_instanceobj}"
-                    )
-                    raise AvxError("Could not assign EIP to primary region Main Copilot")
-
-        else: 
-            # get current region copilot to restore eip
-            curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
-            if curr_region_cop_instanceobj == {}:
-                raise AvxError(f"Unable to find copilot {instance_name}")
-            # Assign COP_EIP to current region copilot
-            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-                if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
-                    print(
-                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
-                    )
-                    raise AvxError("Could not assign EIP to primary region Copilot")
+        # get current region copilot to restore eip
+        curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
+        if curr_region_cop_instanceobj == {}:
+            raise AvxError(f"Unable to find copilot {instance_name}")
+        print(f"curr_region_cop_instanceobj: {curr_region_cop_instanceobj}")
+        print(f"single node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
+        # Assign COP_EIP to current region copilot
+        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+            if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
+                print(
+                    f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
+                )
+                raise AvxError("Could not assign EIP to primary region Copilot")
 
         cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except

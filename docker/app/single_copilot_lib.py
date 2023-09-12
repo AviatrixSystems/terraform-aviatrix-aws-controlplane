@@ -439,12 +439,9 @@ class CoPilotAPI:
         }
         return self.v1("POST", "login", params={}, data=data)
 
-    def init_copilot_single_node(self, username: str, password: str) -> Dict[str, Any]:
+    def init_copilot_single_node(self, init_config) -> Dict[str, Any]:
         data = {
-            "taskserver": {
-                "username": username,
-                "password": password,
-            }
+            "taskserver": init_config
         }
         return self.v1("POST", "single-node", data=data)
     
@@ -460,36 +457,42 @@ class CoPilotAPI:
     def wait_copilot_restore_ready(self, cop_type) -> None:
         self._wait_copilot_api("restore", "ready", cop_type)
         
-    def wait_copilot_init_complete(self, cop_type) -> None:
-        self._wait_copilot_api("init", "complete", cop_type)
+    def wait_copilot_init_complete(self, cop_type, config) -> None:
+        self._wait_copilot_api("init", "complete", cop_type, config)
         
     def wait_copilot_init_ready(self, cop_type) -> None:
         self._wait_copilot_api("init", "ready", cop_type)
         
     def _wait_copilot_api(self, api, state, cop_type, config={}) -> None:
-        for i in range(40):
+        attempts = 0
+        retries = 10
+        delay = 60
+        api_response = False
+        while attempts <= retries:
+            print(f"Retrying api {api} for copilot type {cop_type} and state {state} attempt: {attempts} / {retries}")
             if api == "restore":
                 resp = self.get_copilot_restore_status()
             elif api == "init":
                 resp = self.get_copilot_init_status(cop_type)
             else:
-                raise Exception(f"Unexpected API: {api}")
-            status = resp.get("status")
-            if status == "failed":
-                print(f"CoPilot type '{cop_type}' API '{api} status failed, but will recheck: {resp}")
-                if api == "restore" and state == "complete" and config:
-                    print(f"Copilot Config Restore attempt failed. Will restore again with config: {config}")
+                break
+            resp_status = resp.get("status")
+            print(f"Status for API '{api}' for CoPilot type '{cop_type}' and state '{state}': {resp}")
+            if resp_status == "failed" and attempts < 2 and state == "complete" and config:
+                print(f"Copilot {api} attempt {attempts} failed. Will try again in 10 mins with config: {config}")
+                time.sleep(600)
+                if api == "restore":
                     self.restore_copilot(config)
-            if state == "ready" and status == "waiting":
+                elif api == "init" and cop_type == "simple":
+                    self.init_copilot_single_node(config)
+            elif (state == "ready" and resp_status == "waiting") or (state == "complete" and resp_status == "done"):
                 print(f"CoPilot type '{cop_type}' API '{api}' is ready: {resp}")
+                api_response = True
                 break
-            if state == "complete" and status == "done":
-                print(f"CoPilot type '{cop_type}' API '{api}' completed: {resp}")
-                break
-            print(f"Status for API '{api}' for CoPilot type '{cop_type}' and state '{state}' #{i:02d}: {resp}")
-            time.sleep(15)
-        else:
-            raise Exception(f"Exceed the limitation of CoPilot type '{cop_type}'  API '{api}' checks")
+            attempts += 1
+            print(f"Retrying api check attempt {attempts + 1} in {delay} seconds")
+            time.sleep(delay)
+        return api_response
 
     def _get_copilot_upgrade_status(self) -> Dict[str, Any]:
         return self.v1("GET", "updateStatus")
@@ -513,7 +516,7 @@ class CoPilotAPI:
             except Exception as err:
                 print(f"Checking upgrade status attempt err: {err}")
             attempts += 1
-            print(f"Retrying upgrade check attempt {attempts} in {delay} seconds")
+            print(f"Retrying upgrade check attempt {attempts + 1} in {delay} seconds")
             time.sleep(delay)
         time.sleep(delay)
         return upgrade_done

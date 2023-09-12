@@ -30,6 +30,7 @@ output "instance_details" {
     "instance_name": try(aws_instance.aviatrixcopilot.tags["Name"], ""),
     "sg_id": try(aws_security_group.AviatrixCopilotSecurityGroup.id, ""),
     "sg_name": try(aws_security_group.AviatrixCopilotSecurityGroup.name, ""),
-    "instance_private_ip": try(aws_instance.aviatrixcopilot.private_ip, "")
+    "instance_private_ip": try(aws_instance.aviatrixcopilot.private_ip, ""),
+    "instance_public_ip": try(aws_eip.copilot_eip.public_ip, ""),
   }
 }
