@@ -17,11 +17,12 @@ data "aws_subnet" "subnet" {
 }
 
 resource "aws_eip" "copilot_eip" {
-  vpc   = true
+  domain = "vpc"
   tags = merge(var.tags, {
     Name = "${var.node_name}-data-${var.node_key}-eip"
   })
 }
+
 
 resource "aws_eip_association" "eip_assoc" {
   instance_id   = aws_instance.aviatrixcopilot.id
