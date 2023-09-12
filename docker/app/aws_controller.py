@@ -2008,49 +2008,22 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
         curr_cop_eip = os.environ.get("COP_EIP", "")
         cop_deployment = os.environ.get("COP_DEPLOYMENT", "")
         copilot_init = os.environ.get("PRIV_IP", "") == ""
-
         if cop_deployment == "fault-tolerant":
-            # add new vars to env list
-            # get current region copilot to restore eip
-            data_node_details = os.environ.get("COP_DATA_NODES_DETAILS", "")
-            data_node_details = json.loads(data_node_details)
-            # verify copilot upgrade
-            for inst in data_node_details:
-                data_node_instanceobj = aws_utils.get_ec2_instance(client, inst['instance_name'], "")
-                if data_node_instanceobj == {}:
-                    raise AvxError(f"Unable to find data node {inst['instance_name']}")
-                print(f"data_node_instanceobj: {data_node_instanceobj}")
-                cp_lib.copilot_upgrade_check(data_node_instanceobj["PublicIpAddress"])
-                print(f"data node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
+            instance_name = f"{instance_name}-Main"
 
-            curr_region_main_cop_instanceobj = aws_utils.get_ec2_instance(client, f"{instance_name}-Main", "")
-            if curr_region_main_cop_instanceobj == {}:
-                raise AvxError(f"Unable to find main copilot {instance_name}-Main")
-            print(f"curr_region_main_cop_instanceobj: {curr_region_main_cop_instanceobj}")
-            cp_lib.copilot_upgrade_check(curr_region_main_cop_instanceobj["PublicIpAddress"])
-            print(f"main node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
-            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-                if not assign_eip(client, curr_region_main_cop_instanceobj, curr_cop_eip):
-                    print(
-                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Main Copilot: {curr_region_main_cop_instanceobj}"
-                    )
-                    raise AvxError("Could not assign EIP to primary region Main Copilot")
-
-        else: 
-            # get current region copilot to restore eip
-            curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
-            if curr_region_cop_instanceobj == {}:
-                raise AvxError(f"Unable to find copilot {instance_name}")
-            print(f"curr_region_cop_instanceobj: {curr_region_cop_instanceobj}")
-            cp_lib.copilot_upgrade_check(curr_region_cop_instanceobj["PublicIpAddress"])
-            print(f"single node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
-            # Assign COP_EIP to current region copilot
-            if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
-                if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
-                    print(
-                        f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
-                    )
-                    raise AvxError("Could not assign EIP to primary region Copilot")
+        # get current region copilot to restore eip
+        curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
+        if curr_region_cop_instanceobj == {}:
+            raise AvxError(f"Unable to find copilot {instance_name}")
+        print(f"curr_region_cop_instanceobj: {curr_region_cop_instanceobj}")
+        print(f"single node assign IP: {time.strftime('%H:%M:%S', time.localtime())}")
+        # Assign COP_EIP to current region copilot
+        if json.loads(event["Message"]).get("Destination", "") == "AutoScalingGroup":
+            if not assign_eip(client, curr_region_cop_instanceobj, curr_cop_eip):
+                print(
+                    f"Could not assign EIP '{curr_cop_eip}' to current region '{current_region}' Copilot: {curr_region_cop_instanceobj}"
+                )
+                raise AvxError("Could not assign EIP to primary region Copilot")
 
         cp_lib.handle_copilot_ha()
     except Exception as err:  # pylint: disable=broad-except
