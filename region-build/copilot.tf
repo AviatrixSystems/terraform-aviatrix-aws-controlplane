@@ -121,7 +121,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn
-    role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+    role_arn                = "arn:${local.iam_type}:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
   }
 
   tag {

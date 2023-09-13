@@ -21,9 +21,10 @@ import copilot_main as cp_lib
 import aws_utils as aws_utils
 
 
+
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.08"
+VERSION = "0.09"
 
 HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
@@ -973,9 +974,28 @@ def create_cloud_account(cid, controller_ip, account_name):
 
     print(f"Creating {account_name} account")
     client = boto3.client("sts")
+    ec2_client = boto3.client("ec2")
+    region_list = ec2_client.describe_regions()['Regions']
+ 
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
-    post_data = {
+ 
+    if region_list[0]["RegionName"].startswith("cn-") == True:
+        print("cn- identification is true")
+        post_data = {
+        "action": "setup_account_profile",
+        "account_name": account_name,
+        "aws_china_account_number": aws_acc_num,
+        "aws_china_role_arn": "arn:aws-cn:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
+        "aws_china_role_ec2": "arn:aws-cn:iam::%s:role/%s"
+        % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
+        "cloud_type": "1024",
+        "aws_china_iam": "true",
+    }
+    else:
+        print("cn- identification is false")
+        post_data = {
         "action": "setup_account_profile",
         "account_name": account_name,
         "aws_account_number": aws_acc_num,
@@ -983,10 +1003,10 @@ def create_cloud_account(cid, controller_ip, account_name):
         % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
         "aws_role_ec2": "arn:aws:iam::%s:role/%s"
         % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": 1,
+        "cloud_type": "1",
         "aws_iam": "true",
     }
-
+                    
     print("Trying to create account with data %s\n" % str(post_data))
     post_data["CID"] = cid
 
@@ -1013,10 +1033,15 @@ def create_cloud_account(cid, controller_ip, account_name):
 
 def restore_backup(cid, controller_ip, s3_file, account_name):
     """Restore backup from the s3 bucket"""
-
+    ec2_client = boto3.client("ec2")
+    region_list = ec2_client.describe_regions().get('Regions')
+    if region_list[0]["RegionName"].startswith("cn-"):
+        cloud_type = "1024"
+    else:
+        cloud_type = "1"
     restore_data = {
         "action": "restore_cloudx_config",
-        "cloud_type": "1",
+        "cloud_type": cloud_type,
         "account_name": account_name,
         "file_name": s3_file,
         "bucket_name": os.environ.get("S3_BUCKET_BACK"),
@@ -1135,13 +1160,19 @@ def set_customer_id(cid, controller_api_ip):
 
 def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     """Enable S3 backup"""
+    ec2_client = boto3.client("ec2")
+    region_list = ec2_client.describe_regions().get('Regions')
+    if region_list[0]["RegionName"].startswith("cn-"):
+        cloud_type = "1024"
+    else:
+        cloud_type = "1"
 
     base_url = "https://%s/v1/api" % controller_ip
 
     post_data = {
         "action": "enable_cloudn_backup_config",
         "CID": cid,
-        "cloud_type": "1",
+        "cloud_type": cloud_type,
         "account_name": acc_name,
         "bucket_name": os.environ.get("S3_BUCKET_BACK"),
         "multiple": "true",
