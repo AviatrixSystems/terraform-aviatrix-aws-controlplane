@@ -61,7 +61,7 @@ module "region1" {
   existing_eip                  = var.existing_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_eip
-  ecr_image                     = "public.ecr.aws/d2c1u2d9/controllerha_v5:latest"
+  ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
@@ -132,7 +132,7 @@ module "region2" {
   existing_eip                  = var.existing_dr_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_dr_eip
-  ecr_image                     = "public.ecr.aws/d2c1u2d9/controllerha_v5:latest"
+  ecr_image                     = "public.ecr.aws/n6c6g6k3/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
@@ -316,11 +316,11 @@ locals {
   image_tag  = "latest"
 }
 
-resource "aws_ecr_repository" "repo" {
-  name         = "avx_platform_ha"
-  force_delete = true
-  tags         = local.common_tags
-}
+# resource "aws_ecr_repository" "repo" {
+#   name         = "avx_platform_ha"
+#   force_delete = true
+#   tags         = local.common_tags
+# }
 
 # resource "docker_image" "ecr_image" {
 #   name = local.image_name
