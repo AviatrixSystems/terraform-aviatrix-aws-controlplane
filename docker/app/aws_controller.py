@@ -17,7 +17,6 @@ from urllib3.exceptions import InsecureRequestWarning
 import requests
 import boto3
 import botocore
-import re
 import copilot_main as cp_lib
 import aws_utils as aws_utils
 
@@ -981,7 +980,6 @@ def create_cloud_account(cid, controller_ip, account_name):
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
  
-    # if re.match("^cn-", region_list[0]["RegionName"]) != None:
     if region_list[0]["RegionName"].startswith("cn-") == True:
         print("cn- identification is true")
         post_data = {
