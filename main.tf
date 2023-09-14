@@ -364,6 +364,7 @@ data "aws_caller_identity" "current" {}
 data "aws_route53_zone" "avx_zone" {
   count = var.ha_distribution == "inter-region" ? 1 : 0
   name  = var.zone_name
+  private_zone = var.private_zone
 }
 
 resource "aws_route53_record" "avx_primary" {

@@ -324,6 +324,12 @@ variable "zone_name" {
   default     = true
 }
 
+variable "private_zone" {
+  type        = bool
+  description = "private hostzone definition"
+  default = false 
+}
+
 variable "record_name" {
   type        = string
   description = "The record name to be created under exisitng route 53 zone"

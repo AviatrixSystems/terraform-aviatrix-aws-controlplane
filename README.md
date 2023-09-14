@@ -106,6 +106,29 @@ module "aws_controller_ha" {
 }
 ```
 
+#### China Deployment
+
+```
+module "aws_controller_ha" {
+  source                   = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                  = "keypair1"
+  incoming_ssl_cidr        = ["x.x.x.x/32"]
+  cop_incoming_https_cidr  = ["x.x.x.x/32"]
+  access_account_name      = "AWS-Account"
+  admin_email              = "admin@example.com"
+  asg_notif_email          = "asg@example.com"
+  s3_backup_bucket         = "backup-bucket"
+  s3_backup_region         = "cn-north-1"
+  create_iam_roles         = false
+  controller_version       = "7.1.1710"
+  ha_distribution          = "inter-az"
+  region                   = "cn-north-1" 
+  dr_region = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
+  avx_customer_id_ssm_region = "cn-north-1"
+  avx_password_ssm_region = "cn-north-1"
+}
+```
+
 ### Brownfield Deployment
 
 To deploy Aviatrix Platform HA with an existing Controller, perform the following steps:
@@ -188,6 +211,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
+| private_zone                  | false                                   | The existing Route 53 zone type to set `private`                                                                                                                                             |
 
 ### Additional Information
 
