@@ -1,0 +1,43 @@
+name: Release Please
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release_please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs['tag_name'] }}
+      version_major: ${{ steps.release.outputs['major'] }}
+      version_minor: ${{ steps.release.outputs['minor'] }}
+      version_patch: ${{ steps.release.outputs['patch'] }}
+
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        id: release
+        with:
+          package-name: aviatrix_aws_ha
+          release-type: python
+          extra-files: |
+            docker/app/aws_controller.py
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  call-publish-docker_image:
+    uses: nmanville/Aviatrix_AWS_HA/.github/workflows/publish_docker_image.yml@main
+    needs: [ release_please ]
+    if: ${{ needs.release_please.outputs.release_created }}
+    with:
+      version_major: ${{ needs.release_please.outputs.version_major }}
+      version_minor: ${{ needs.release_please.outputs.version_minor }}
+      version_patch: ${{ needs.release_please.outputs.version_patch }}
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+      aws_access_key_id:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws_secret_access_key:  ${{ secrets.AWS_SECRET_ACCESS_KEY }}
