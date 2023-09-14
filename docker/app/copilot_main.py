@@ -598,7 +598,7 @@ def handle_event(event):
     print(f"Getting restore_config status")
     copilot_api.wait_copilot_restore_complete(event['copilot_type'], config)
     print("CoPilot restore end")
-  
+
   # Post init or HA actions
   # 1. enable copilot config backup on new copilot instances
   print("Enabling CoPilot config backup to the controller")
@@ -609,3 +609,24 @@ def handle_event(event):
   # 2. update the controller syslog server, netflow server, and copilot association
   print("Updating controller Syslog server, Netflow server, and CoPilot association")
   controller_copilot_setup(api, event)
+  # 3. login via session
+  response = copilot_api.session_login(username=event['copilot_info']['user_info']['username'],
+                                       password=event['copilot_info']['user_info']['password'])
+  print(f"copilot session login response: {response}")
+  # 4. create a backup repo
+  response = copilot_api.create_repo(event["s3_backup_bucket"])
+  print(f"Create a data backup repo: {response}")
+  if response and response.status_code == 204:
+    # 5. create a data backup policy
+    print("Creating a data backup policy")
+    backup_policy = {
+      "access_account": event["primary_account_name"],
+      "bucket_name": event["s3_backup_bucket"]
+    }
+    response = copilot_api.set_data_backup_policy(backup_policy)
+    print(f"copilot set backup policy response1: {response}")
+    if response and response.status_code == 204:
+      print(f"The CoPilot Data Backup Policy has been created.")
+  else:
+    print(f"Unable to create a data backup repo: {response}")
+    print("Please create the The CoPilot Data Backup Policy manually")
