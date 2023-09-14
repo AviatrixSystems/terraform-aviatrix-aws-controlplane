@@ -260,6 +260,9 @@ locals {
 
   cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
 
+  ischina           = regexall("^cn-",var.region)
+  iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"
+
   common_tags = merge(
     var.tags, {
       module    = "aviatrix-controller-build"

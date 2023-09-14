@@ -367,7 +367,7 @@ data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
   role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${local.iam_type}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 
@@ -484,7 +484,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
     notification_target_arn = aws_sns_topic.controller_updates.arn
-    role_arn                = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+    role_arn                = "arn:${local.iam_type}:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
   }
 
   tag {

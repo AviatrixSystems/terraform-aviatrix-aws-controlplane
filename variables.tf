@@ -216,7 +216,7 @@ variable "tags" {
 
 variable "controller_version" {
   type        = string
-  default     = ""
+  default     = "latest"
   description = "The initial version of the Aviatrix Controller at launch"
 }
 
@@ -259,6 +259,10 @@ locals {
   cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
   dr_ami_id         = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
+  // identify gloabl or china region
+  ischina           = regexall("^cn-",var.region)
+  iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"
+  ecr_url           = contains(local.ischina,"cn-") ? "amazonaws.com.cn":"amazonaws.com"
 
   common_tags = merge(
     var.tags, {
