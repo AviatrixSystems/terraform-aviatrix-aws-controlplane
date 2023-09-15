@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.0...v0.10.1) (2023-09-15)
+
+
+### Bug Fixes
+
+* Correct the path to Dockerfile for action ([2c05cda](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/commit/2c05cda8b48629c2278a7379af144cf014e7daf1))
+
 ## 0.10.0 (2023-09-15)
 
 
