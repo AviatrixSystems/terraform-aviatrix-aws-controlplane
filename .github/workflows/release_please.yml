@@ -30,7 +30,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   call-publish-docker_image:
-    uses: nmanville/Aviatrix_AWS_HA/.github/workflows/publish_docker_image.yml@main
+    uses: aviatrix-automation/Aviatrix_AWS_HA/.github/workflows/publish_docker_image.yml@main
     needs: [ release_please ]
     if: ${{ needs.release_please.outputs.release_created }}
     with:
