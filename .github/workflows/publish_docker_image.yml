@@ -1,0 +1,63 @@
+name: Publish Aviatrix AWS HA Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      version_major:
+        required: true
+        type: string
+      version_minor:
+        required: true
+        type: string
+      version_patch:
+        required: true
+        type: string
+    secrets:
+      token:
+        required: true
+      aws_access_key_id:
+        required: true
+      aws_secret_access_key:
+        required: true
+
+jobs:
+  build_publish_images:
+    name: Build and Deploy Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.aws_access_key_id }}
+          aws-secret-access-key: ${{ secrets.aws_secret_access_key }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            name=public.ecr.aws/n6c6g6k3/aviatrix_aws_ha,enable=true
+          tags: |
+            # output 0.1.2
+            type=semver,pattern={{version}},value=v${{ inputs.version_major }}.${{ inputs.version_minor }}.${{ inputs.version_patch }}
+            # output 0.1
+            type=semver,pattern={{major}}.{{minor}},value=v${{ inputs.version_major }}.${{ inputs.version_minor }}.${{ inputs.version_patch }}
+            # disabled if major zero
+            type=semver,pattern={{major}},enable=${{ inputs.version_major == '0' }},value=v${{ inputs.version_major }}.${{ inputs.version_minor }}.${{ inputs.version_patch }}
+
+      - name: Docker Build
+        uses: docker/build-push-action@v4
+        with:
+          context: docker/app
+          file: docker/app/Dockerfile.aws
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}

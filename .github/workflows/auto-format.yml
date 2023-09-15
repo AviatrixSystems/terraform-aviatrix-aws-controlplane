@@ -1,0 +1,38 @@
+name: AutoFormat
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  format-code:
+    # Check if the PR is not from a fork
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Black Python Formatting
+        uses: psf/black@stable
+        with:
+          options: "-v"
+          src: "./docker/app/"
+
+      - name: Terraform Format
+        run: terraform fmt -recursive
+
+      - name: Commit Formatting Changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "style: Apply automatic formatting changes"
+          branch: ${{ github.head_ref }}
+

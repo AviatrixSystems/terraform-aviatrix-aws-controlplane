@@ -24,7 +24,7 @@ import aws_utils as aws_utils
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.10"
+VERSION = "0.10.0"  # x-release-please-version
 
 HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
@@ -976,10 +976,10 @@ def create_cloud_account(cid, controller_ip, account_name):
     client = boto3.client("sts")
     ec2_client = boto3.client("ec2")
     region_list = ec2_client.describe_regions()['Regions']
- 
+
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
- 
+
     if region_list[0]["RegionName"].startswith("cn-") == True:
         print("cn- identification is true")
         post_data = {
@@ -1006,7 +1006,7 @@ def create_cloud_account(cid, controller_ip, account_name):
         "cloud_type": "1",
         "aws_iam": "true",
     }
-                    
+
     print("Trying to create account with data %s\n" % str(post_data))
     post_data["CID"] = cid
 
