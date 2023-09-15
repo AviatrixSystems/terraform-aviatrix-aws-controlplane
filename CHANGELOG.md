@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.1...v0.10.2) (2023-09-15)
+
+
+### Bug Fixes
+
+* Parent repo for docker context ([abffef0](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/commit/abffef0dadc5eb528b440aa65145361897ff4e36))
+
 ## [0.10.1](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.0...v0.10.1) (2023-09-15)
 
 
