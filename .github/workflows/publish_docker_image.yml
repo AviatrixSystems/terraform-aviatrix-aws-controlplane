@@ -57,7 +57,7 @@ jobs:
       - name: Docker Build
         uses: docker/build-push-action@v4
         with:
-          context: docker/app
-          file: docker/app/Dockerfile.aws
+          context: "./docker/app"
+          file: Dockerfile.aws
           push: true
           tags: ${{ steps.meta.outputs.tags }}
