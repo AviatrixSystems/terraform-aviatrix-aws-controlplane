@@ -231,7 +231,7 @@ variable "vpc" {
   default     = ""
 }
 
-variable "subnet_names" {
+variable "subnet_ids" {
   type    = list(string)
   default = []
 }

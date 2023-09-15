@@ -39,7 +39,7 @@ module "region1" {
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
   vpc                           = var.vpc
-  subnet_names                  = var.subnet_names
+  subnet_ids                  = var.subnet_ids
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
   iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn
@@ -110,7 +110,7 @@ module "region2" {
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
   vpc                           = var.dr_vpc
-  subnet_names                  = var.dr_subnet_names
+  subnet_ids                  = var.dr_subnet_ids
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
   iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn

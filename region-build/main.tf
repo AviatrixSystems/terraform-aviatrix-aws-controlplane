@@ -468,7 +468,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
     version = "$Latest"
   }
 
-  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
+  vpc_zone_identifier = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
   target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
 
   warm_pool {
@@ -621,7 +621,7 @@ module "aviatrix_eventbridge" {
           task_definition_arn = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}")
           launch_type         = "FARGATE"
           network_configuration = {
-            subnets          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
+            subnets          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
             security_groups  = [aws_security_group.AviatrixSecurityGroup.id]
             assign_public_ip = true
           }

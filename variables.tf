@@ -232,7 +232,7 @@ variable "vpc" {
   default     = ""
 }
 
-variable "subnet_names" {
+variable "subnet_ids" {
   type    = list(string)
   default = []
 }
@@ -302,7 +302,7 @@ variable "dr_vpc" {
   default     = ""
 }
 
-variable "dr_subnet_names" {
+variable "dr_subnet_ids" {
   type    = list(string)
   default = []
 }

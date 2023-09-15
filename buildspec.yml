@@ -41,8 +41,8 @@ phases:
         use_existing_vpc = "$use_existing_vpc"
         vpc = "$vpc"
         dr_vpc = "$dr_vpc"
-        subnet_names = ["$subnet_names"]
-        dr_subnet_names = ["$dr_subnet_names"]
+        subnet_ids = ["$subnet_ids"]
+        dr_subnet_ids = ["$dr_subnet_ids"]
         create_iam_roles = "$create_iam_roles"
         app_role_name = "$app_role_name"
         ec2_role_name = "$ec2_role_name"
