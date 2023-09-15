@@ -58,6 +58,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./docker
-          file: Dockerfile.aws
+          file: ./docker/Dockerfile.aws
           push: true
           tags: ${{ steps.meta.outputs.tags }}
