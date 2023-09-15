@@ -4,7 +4,7 @@ resource "aws_lb" "avtx-controller" {
   load_balancer_type               = "network"
   enable_cross_zone_load_balancing = true
   idle_timeout                     = "300"
-  subnets                          = var.use_existing_vpc ? var.subnet_names : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
+  subnets                          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
 
   tags = {
     Name = "${local.name_prefix}AviatrixControllerLB"

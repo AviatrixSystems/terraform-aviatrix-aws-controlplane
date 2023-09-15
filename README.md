@@ -106,6 +106,29 @@ module "aws_controller_ha" {
 }
 ```
 
+#### China Deployment
+
+```
+module "aws_controller_ha" {
+  source                   = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                  = "keypair1"
+  incoming_ssl_cidr        = ["x.x.x.x/32"]
+  cop_incoming_https_cidr  = ["x.x.x.x/32"]
+  access_account_name      = "AWS-Account"
+  admin_email              = "admin@example.com"
+  asg_notif_email          = "asg@example.com"
+  s3_backup_bucket         = "backup-bucket"
+  s3_backup_region         = "cn-north-1"
+  create_iam_roles         = false
+  controller_version       = "7.1.1710"
+  ha_distribution          = "inter-az"
+  region                   = "cn-north-1" 
+  dr_region = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
+  avx_customer_id_ssm_region = "cn-north-1"
+  avx_password_ssm_region = "cn-north-1"
+}
+```
+
 ### Brownfield Deployment
 
 To deploy Aviatrix Platform HA with an existing Controller, perform the following steps:
@@ -155,7 +178,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | create_iam_roles              | true                                    | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                                                                                                                   |
 | dr_keypair                    | ""                                      | Key pair which should be used by DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                        |
 | dr_region                     | "us-east-2"                             | Region to deploy the DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                                    |
-| dr_subnet_names               |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
+| dr_subnet_ids               |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | dr_vpc                        | ""                                      | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true. Only applicable if `ha_distribution` is "inter-region".                                                                                                           |
 | dr_vpc_cidr                   | 10.0.0.0/24                             | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false.                                                                                                  |
 | dr_vpc_name                   | ""                                      | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false.                                                                                                  |
@@ -177,8 +200,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | root_volume_type              | gp3                                     | Root volume type for Controller                                                                                                                                                                                                                |
 | s3_backup_bucket              |                                         | S3 bucket for Controller DB backup                                                                                                                                                                                                             |
 | s3_backup_region              |                                         | Region S3 backup bucket is in                                                                                                                                                                                                                  |
+| subnet_ids                  |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | subnet_name                   | Aviatrix-Public-Subnet                  | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
-| subnet_names                  |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | tags                          | {}                                      | Map of common tags which should be used for module resources. Example: `{ key1 = "value1", key2 = "value2" }`                                                                                                                                  |
 | termination_protection        | true                                    | Whether to enable termination protection on the Controller and CoPilot instances                                                                                                                                                               |
 | use_existing_eip              | false                                   | Set to true to use the EIP(s) specified by `existing_eip` (and `existing_dr_eip`) for the Aviatrix Controller(s) rather than allocating new EIPs                                                                                               |
@@ -188,6 +211,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
+| private_zone                  | false                                   | The existing Route 53 zone type to set `private`                                                                                                                                             |
 
 ### Additional Information
 

@@ -899,10 +899,10 @@ Resources:
             Value: !Ref ExistingVpcName
           - Name: dr_vpc
             Value: !Ref ExistingDrVpcName
-          - Name: subnet_names
-            Value: !Ref ExistingSubnetNames
-          - Name: dr_subnet_names
-            Value: !Ref ExistingDrSubnetNames
+          - Name: subnet_ids
+            Value: !Ref ExistingSubnetIDs
+          - Name: dr_subnet_ids
+            Value: !Ref ExistingDrSubnetIDs
           # iam roles
           - Name: create_iam_roles
             Value: !Ref CreateIamRoles
