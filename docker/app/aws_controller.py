@@ -24,7 +24,7 @@ import aws_utils as aws_utils
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-VERSION = "0.10.0"  # x-release-please-version
+VERSION = "0.10.1"  # x-release-please-version
 
 HANDLE_HA_TIMEOUT = 1200
 MAX_LOGIN_TIMEOUT = 800
