@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.4](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.3...v0.10.4) (2023-09-15)
+
+
+### Bug Fixes
+
+* Change registry type to public ([59106b6](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/commit/59106b687ae7fcfdb4cbdb648d39386eebc21be3))
+* mask docker password for ecr login ([3293414](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/commit/32934149eec200e85e5d69c92c5d69c2c02ddac9))
+
 ## [0.10.3](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.2...v0.10.3) (2023-09-15)
 
 
