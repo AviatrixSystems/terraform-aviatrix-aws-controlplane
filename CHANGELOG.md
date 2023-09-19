@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.5](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.4...v0.10.5) (2023-09-19)
+
+
+### Miscellaneous Chores
+
+* release 0.10.5 ([dab8b1e](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/commit/dab8b1ead2bba49ad4231907f82b71b34fdea698))
+
 ## [0.10.4](https://github.com/aviatrix-automation/Aviatrix_AWS_HA/compare/v0.10.3...v0.10.4) (2023-09-15)
 
 
