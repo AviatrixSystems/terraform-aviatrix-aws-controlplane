@@ -32,7 +32,7 @@ jobs:
           flavor: |
             latest=false
           images: |
-            name=public.ecr.aws/n6c6g6k3/aviatrix_aws_ha,enable=true
+            name=public.ecr.aws/n9d6j0n9/aviatrix_aws_ha,enable=true
           tags: |
             # Git Sha
             type=sha,prefix=build-,format=short,enable=true
