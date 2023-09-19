@@ -48,7 +48,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            name=public.ecr.aws/n6c6g6k3/aviatrix_aws_ha,enable=true
+            name=public.ecr.aws/n9d6j0n9/aviatrix_aws_ha,enable=true
           tags: |
             # output 0.1.2
             type=semver,pattern={{version}},value=v${{ inputs.version_major }}.${{ inputs.version_minor }}.${{ inputs.version_patch }}
