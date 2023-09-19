@@ -37,7 +37,7 @@ jobs:
             # Git Sha
             type=sha,prefix=build-,format=short,enable=true
             # Ref Tag
-            type=ref,event=workflow_dispatch,enable=true
+            type=ref,event=branch,enable=true
 
 
       - name: Docker Build
