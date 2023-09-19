@@ -119,8 +119,6 @@ module "aws_controller_ha" {
   asg_notif_email          = "asg@example.com"
   s3_backup_bucket         = "backup-bucket"
   s3_backup_region         = "cn-north-1"
-  create_iam_roles         = false
-  controller_version       = "7.1.1710"
   ha_distribution          = "inter-az"
   region                   = "cn-north-1" 
   dr_region = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
@@ -194,6 +192,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | keypair                       |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
 | license_type                  | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
 | name_prefix                   | avx                                     | Additional name prefix for resources created by this module                                                                                                                                                                                    |
+| private_zone                  | false                                   | Set to ` true`  if Route 53 zone is private type                                                                                                                                              |
 | record_name                   | true                                    | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.                                                                                                      |
 | region                        | "us-east-1"                             | Region to deploy the Controller and CoPilot                                                                                                                                                                                                    |
 | root_volume_size              | 64                                      | Root volume disk size for Controller                                                                                                                                                                                                           |
@@ -211,7 +210,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
-| private_zone                  | false                                   | The existing Route 53 zone type to set `private`                                                                                                                                             |
+
 
 ### Additional Information
 
