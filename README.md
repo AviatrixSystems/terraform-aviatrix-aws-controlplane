@@ -119,8 +119,6 @@ module "aws_controller_ha" {
   asg_notif_email          = "asg@example.com"
   s3_backup_bucket         = "backup-bucket"
   s3_backup_region         = "cn-north-1"
-  create_iam_roles         = false
-  controller_version       = "7.1.1710"
   ha_distribution          = "inter-az"
   region                   = "cn-north-1" 
   dr_region = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
