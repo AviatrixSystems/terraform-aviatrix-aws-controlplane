@@ -288,7 +288,7 @@ data "http" "copilot_iam_id" {
 variable "dr_region" {
   type        = string
   description = "DR Region for Aviatrix Controller"
-  default     = null
+  default     = "us-east-2"
 }
 
 variable "dr_vpc_name" {
