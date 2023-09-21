@@ -48,7 +48,11 @@ The following resources should be created before running Terraform. The module w
 
 - If `ha_distribution` is set to "inter-region", the hosted zone specified by `zone_name` must already exist in Route 53.
 
-- Boto3 should be [installed](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#installation) and authentication for AWS should be [configured](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) so that helper Python scripts can run on `terraform destroy`.
+- Boto3 should be [installed](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#installation) and authentication for AWS should be [configured](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) so that helper Python scripts can run on `terraform destroy`. The following privileges are required to run the scripts:
+  - ecs:ListTasks
+  - ecs:StopTask
+  - ec2:DescribeSecurityGroups
+  - ec2:DeleteSecurityGroup
 
 ### Usage Example
 
