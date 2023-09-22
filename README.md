@@ -258,3 +258,9 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 #### HA in an inter-region deplyoment - Controller AND CoPilot
 
 - In this case of an HA event occurring for both the Controller and the CoPilot in an inter-region HA deployment, both the Controller and the CoPilot will restored in the DR region. This case assumes a regional outage, because both the Controller and the CoPilot have an HA event.
+
+#### Private Mode Support
+
+- Private-mode with controller HA is supported 7.1 onwards.
+- Inter-region HA is not supported with private-mode.
+- Controller has to be launched with a public IP address.
