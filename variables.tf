@@ -218,6 +218,10 @@ variable "controller_version" {
   type        = string
   default     = "latest"
   description = "The initial version of the Aviatrix Controller at launch"
+  validation {
+    condition = var.controller_version == "latest" ? true : (length(regexall("^7\\.[0-9]\\.\\d{4}$",var.controller_version)) != 0 ? true : false)
+    error_message = " The controller version is only supported major release 7.x.xxxx"
+  }
 }
 
 variable "use_existing_vpc" {
