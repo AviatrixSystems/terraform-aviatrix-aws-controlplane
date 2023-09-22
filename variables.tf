@@ -218,6 +218,10 @@ variable "controller_version" {
   type        = string
   default     = "latest"
   description = "The initial version of the Aviatrix Controller at launch"
+  validation {
+    condition = var.controller_version == "latest" ? true : (tonumber(tostring(split(".",var.controller_version)[0])) >= 7 ? true : false)
+    error_message = "Aviatrix Platform HA supports controllers running version 7.0 and later"
+  }
 }
 
 variable "use_existing_vpc" {

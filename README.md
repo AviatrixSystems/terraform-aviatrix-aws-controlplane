@@ -22,6 +22,9 @@ This Terraform module will create the following:
   - The resources listed above will also be deployed in a second region
   - A Route 53 record specified by `record_name` will be created in the zone specified by `zone_name`
 
+### Controller Version Support 
+Aviatrix Platform HA supports controllers running version 7.0 and later
+
 ### Prerequisites
 
 The following resources should be created before running Terraform. The module will not create these resources.
