@@ -2,8 +2,8 @@ resource "null_resource" "region_conflict" {
   count                         = var.ha_distribution == "inter-region" ? 1 : 0
   lifecycle {
     precondition {
-      condition = var.region != var.dr_region ? true : false
-      error_message = "dr_region name is conflicted with region name"
+      condition                 = var.region != var.dr_region ? true : false
+      error_message             = "dr_region name is conflicted with region name"
     }
   }
 }
