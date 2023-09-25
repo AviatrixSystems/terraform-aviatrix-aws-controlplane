@@ -1,4 +1,5 @@
 resource "null_resource" "region_conflict" {
+  count                         = var.ha_distribution == "inter-region" ? 1 : 0
   lifecycle {
     precondition {
       condition = var.region != var.dr_region ? true : false
