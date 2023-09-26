@@ -3,7 +3,7 @@ resource "null_resource" "region_conflict" {
   lifecycle {
     precondition {
       condition                 = var.region != var.dr_region ? true : false
-      error_message             = "dr_region name is conflicted with region name"
+      error_message             = "region and dr_region should be different regions"
     }
   }
 }
