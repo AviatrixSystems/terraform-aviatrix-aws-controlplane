@@ -136,6 +136,8 @@ module "aws_controller_ha" {
 
 ### Brownfield Deployment
 
+### Aviatrix Controller
+
 To deploy Aviatrix Platform HA with an existing Controller, perform the following steps:
 
 1. Perform a [Controller backup](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-backup-restore.html#backing-up-your-configuration).
@@ -144,6 +146,14 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 4. If the [previous HA solution](https://github.com/AviatrixSystems/Controller-HA-for-AWS/) was used, [disable Controller High Availability](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-ha-aws.html#disabling-aws-controller-high-availability) by deleting the CloudFormation stack.
 5. Terminate the previous Controller instance.
 6. Perform a [Controller restore](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-backup-restore.html#restoring-your-configuration) using the file noted in step 2.
+
+### Aviatrix CoPilot
+
+1. Perform a [CoPilot Configuration Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-configuration.html#backup-copilot-configuration). This will store the CoPilot configuration on the current, active controller.
+2. Optionally, perform a [CoPilot Index Data Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-index.html)
+3. Deploy the new Aviatrix Platform HA solution, and restore the controller configuration as described in the previous section. This will restore the controller configuration from the previously active controller (with the saved CoPilot configuration), into the new active controller, managed by the AWS Platform HA solution.
+4. Manually trigger an HA event for the new CoPilot instance launched by AWS Platform HA, by stopping the VM. A new CoPilot VM will be launched, and its configuration will be restored from the saved CoPilot configuration on the controller
+
 
 ### Logging and Email Notifications
 
