@@ -22,7 +22,8 @@ This Terraform module will create the following:
   - The resources listed above will also be deployed in a second region
   - A Route 53 record specified by `record_name` will be created in the zone specified by `zone_name`
 
-### Controller Version Support 
+### Controller Version Support
+
 Aviatrix Platform HA supports controllers running version 7.0 and later
 
 ### Prerequisites
@@ -75,6 +76,8 @@ module "aws_controller_ha" {
 }
 ```
 
+![Single-AZ](images/single-az.png)
+
 #### Inter-AZ
 
 ```
@@ -91,6 +94,8 @@ module "aws_controller_ha" {
   ha_distribution         = "inter-az"
 }
 ```
+
+![Inter-AZ](images/inter-az.png)
 
 #### Inter-Region
 
@@ -112,6 +117,8 @@ module "aws_controller_ha" {
   inter_region_backup_enabled = true
 }
 ```
+
+![Inter-Region](images/inter-region.png)
 
 #### China Deployment
 
@@ -153,7 +160,6 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 2. Optionally, perform a [CoPilot Index Data Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-index.html)
 3. Deploy the new Aviatrix Platform HA solution, and restore the controller configuration as described in the previous section. This will restore the controller configuration from the previously active controller (with the saved CoPilot configuration), into the new active controller, managed by the AWS Platform HA solution.
 4. Manually trigger an HA event for the new CoPilot instance launched by AWS Platform HA, by stopping the VM. A new CoPilot VM will be launched, and its configuration will be restored from the saved CoPilot configuration on the controller
-
 
 ### Logging and Email Notifications
 
