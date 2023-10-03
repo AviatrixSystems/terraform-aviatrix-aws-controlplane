@@ -152,6 +152,7 @@ The Auto Scaling Groups use both EC2 and Elastic Load Balancing health checks to
   - `terminated`
 - For [Elastic Load Balancing health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html#elastic-load-balancing-health-checks), the instance is considered unhealthy when the following health check fails:
   - Protocol: TCP
+  - Port: 443
   - Unhealthy threshold: 2
   - Timeout: 10 seconds
   - Interval: 30 seconds
