@@ -11,6 +11,11 @@ variable "ha_distribution" {
   }
 }
 
+variable "ha_enable" {
+  type        = bool
+  description = "AWS autoscale group functions suspending"
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
