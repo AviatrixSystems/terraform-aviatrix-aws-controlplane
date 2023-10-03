@@ -22,7 +22,8 @@ This Terraform module will create the following:
   - The resources listed above will also be deployed in a second region
   - A Route 53 record specified by `record_name` will be created in the zone specified by `zone_name`
 
-### Controller Version Support 
+### Controller Version Support
+
 Aviatrix Platform HA supports controllers running version 7.0 and later
 
 ### Prerequisites
@@ -75,6 +76,8 @@ module "aws_controller_ha" {
 }
 ```
 
+![Single-AZ](images/single-az.png)
+
 #### Inter-AZ
 
 ```
@@ -91,6 +94,8 @@ module "aws_controller_ha" {
   ha_distribution         = "inter-az"
 }
 ```
+
+![Inter-AZ](images/inter-az.png)
 
 #### Inter-Region
 
@@ -113,6 +118,8 @@ module "aws_controller_ha" {
 }
 ```
 
+![Inter-Region](images/inter-region.png)
+
 #### China Deployment
 
 ```
@@ -134,9 +141,33 @@ module "aws_controller_ha" {
 }
 ```
 
+### Health Checks
+
+The Auto Scaling Groups use both EC2 and Elastic Load Balancing health checks to check whether the Controller and CoPilot instances are healthy.
+
+- For [EC2 health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html#instance-health-detection), the instance is considered unhealthy if it is in any state other than `running`. This includes when the instance has any of the following states:
+  - `stopping`
+  - `stopped`
+  - `shutting-down`
+  - `terminated`
+- For [Elastic Load Balancing health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html#elastic-load-balancing-health-checks), the instance is considered unhealthy when the following health check fails:
+  - Protocol: TCP
+  - Unhealthy threshold: 2
+  - Timeout: 10 seconds
+  - Interval: 30 seconds
+
+### Interactions Between Components
+
+- When the Auto Scaling Group (ASG) determines that an EC2 instance is unhealthy, the ASG launches a new replacement instance and terminates the unhealthy instance.
+- A Simple Notification Service (SNS) topic is configured as the notification target of the ASG. When there is a new EC2 instance launched, SNS is notified of this event. There are two subscriptions to this SNS topic:
+  - The customer specified email address - The customer will receive an email when there is an instance launched.
+  - A Simple Queue Service (SQS) queue - The event will be stored as a message in the SQS queue to be retrieved when the container launches and the HA code is run.
+- An EventBridge rule looks for `EC2_INSTANCE_LAUNCHING` events from the Controller and CoPilot Auto Scaling Groups. If there is a matching event, the Elastic Container Service (ECS) target is notified to take action.
+- The ECS cluster runs a task that launches a container using the latest image from the container registry. The HA code in the container reads the message from the SQS queue and takes the appropriate action depending on what the event is (e.g. upgrades the Controller and restores the latest backup).
+
 ### Brownfield Deployment
 
-### Aviatrix Controller
+#### Aviatrix Controller
 
 To deploy Aviatrix Platform HA with an existing Controller, perform the following steps:
 
@@ -147,13 +178,12 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 5. Terminate the previous Controller instance.
 6. Perform a [Controller restore](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-backup-restore.html#restoring-your-configuration) using the file noted in step 2.
 
-### Aviatrix CoPilot
+#### Aviatrix CoPilot
 
 1. Perform a [CoPilot Configuration Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-configuration.html#backup-copilot-configuration). This will store the CoPilot configuration on the current, active controller.
 2. Optionally, perform a [CoPilot Index Data Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-index.html)
 3. Deploy the new Aviatrix Platform HA solution, and restore the controller configuration as described in the previous section. This will restore the controller configuration from the previously active controller (with the saved CoPilot configuration), into the new active controller, managed by the AWS Platform HA solution.
 4. Manually trigger an HA event for the new CoPilot instance launched by AWS Platform HA, by stopping the VM. A new CoPilot VM will be launched, and its configuration will be restored from the saved CoPilot configuration on the controller
-
 
 ### Logging and Email Notifications
 
