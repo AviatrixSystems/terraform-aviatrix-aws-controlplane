@@ -141,9 +141,24 @@ module "aws_controller_ha" {
 }
 ```
 
+### Health Checks
+
+The Auto Scaling Groups use both EC2 and Elastic Load Balancing health checks to check whether the Controller and CoPilot instances are healthy.
+
+- For [EC2 health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html#instance-health-detection), the instance is considered unhealthy if it is in any state other than `running`. This includes when the instance has any of the following states:
+  - `stopping`
+  - `stopped`
+  - `shutting-down`
+  - `terminated`
+- For [Elastic Load Balancing health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html#elastic-load-balancing-health-checks), the instance is considered unhealthy when the following health check fails:
+  - Protocol: TCP
+  - Unhealthy threshold: 2
+  - Timeout: 10 seconds
+  - Interval: 30 seconds
+
 ### Brownfield Deployment
 
-### Aviatrix Controller
+#### Aviatrix Controller
 
 To deploy Aviatrix Platform HA with an existing Controller, perform the following steps:
 
@@ -154,7 +169,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 5. Terminate the previous Controller instance.
 6. Perform a [Controller restore](https://docs.aviatrix.com/documentation/latest/platform-administration/controller-backup-restore.html#restoring-your-configuration) using the file noted in step 2.
 
-### Aviatrix CoPilot
+#### Aviatrix CoPilot
 
 1. Perform a [CoPilot Configuration Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-configuration.html#backup-copilot-configuration). This will store the CoPilot configuration on the current, active controller.
 2. Optionally, perform a [CoPilot Index Data Backup](https://docs.aviatrix.com/copilot/latest/platform-administration/copilot-backup-index.html)
