@@ -161,7 +161,7 @@ The Auto Scaling Groups use both EC2 and Elastic Load Balancing health checks to
 
 - When the Auto Scaling Group (ASG) determines that an EC2 instance is unhealthy, the ASG launches a new replacement instance and terminates the unhealthy instance.
 - A Simple Notification Service (SNS) topic is configured as the notification target of the ASG. When there is a new EC2 instance launched, SNS is notified of this event. There are two subscriptions to this SNS topic:
-  - The customer specified email address - The customer will receive an email when there is an instance launched.
+  - The email address specified in `asg_notif_email` - The user will be notified by email when there is an instance launched.
   - A Simple Queue Service (SQS) queue - The event will be stored as a message in the SQS queue to be retrieved when the container launches and the HA code is run.
 - An EventBridge rule looks for `EC2_INSTANCE_LAUNCHING` events from the Controller and CoPilot Auto Scaling Groups. If there is a matching event, the Elastic Container Service (ECS) target is notified to take action.
 - The ECS cluster runs a task that launches a container using the latest image from the container registry. The HA code in the container reads the message from the SQS queue and takes the appropriate action depending on what the event is (e.g. upgrades the Controller and restores the latest backup).
