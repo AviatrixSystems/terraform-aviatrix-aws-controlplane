@@ -17,6 +17,12 @@ variable "ha_enable" {
   default     = true
 }
 
+variable "suspended_processes" {
+  type        = list
+  description = "ASG process types suspending"
+  default     = ["Terminate"]
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"

@@ -16,6 +16,11 @@ variable "ha_enable" {
   description = "AWS autoscale group functions suspending"
 }
 
+variable "suspended_processes" {
+  type        = list
+  description = "ASG process types suspending"
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
