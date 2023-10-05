@@ -19,6 +19,7 @@ variable "ha_enable" {
 variable "suspended_processes" {
   type        = list
   description = "ASG process types suspending"
+  default     = ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
 }
 
 variable "keypair" {

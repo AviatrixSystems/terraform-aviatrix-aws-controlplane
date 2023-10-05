@@ -10,17 +10,10 @@ variable "ha_distribution" {
     error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
   }
 }
-
 variable "ha_enable" {
   type        = bool
   description = "AWS autoscale group functions suspending"
   default     = true
-}
-
-variable "suspended_processes" {
-  type        = list
-  description = "ASG process types suspending"
-  default     = ["Terminate"]
 }
 
 variable "keypair" {
