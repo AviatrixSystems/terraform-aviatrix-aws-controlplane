@@ -71,7 +71,7 @@ module "region1" {
   existing_eip                  = var.existing_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_eip
-  ctr_ha_enable                     = var.ctr_ha_enable
+  ctr_ha_enable                 = var.ctr_ha_enable
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
