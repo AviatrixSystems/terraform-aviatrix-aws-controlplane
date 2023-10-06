@@ -10,7 +10,7 @@ variable "ha_distribution" {
     error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
   }
 }
-variable "ha_enable" {
+variable "ctr_ha_enable" {
   type        = bool
   description = "AWS autoscale group functions suspending"
   default     = true

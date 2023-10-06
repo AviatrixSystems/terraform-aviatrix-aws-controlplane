@@ -11,7 +11,7 @@ variable "ha_distribution" {
   }
 }
 
-variable "ha_enable" {
+variable "ctr_ha_enable" {
   type        = bool
   description = "AWS autoscale group functions suspending"
 }
