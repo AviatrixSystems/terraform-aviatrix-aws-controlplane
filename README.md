@@ -235,7 +235,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | existing_eip                  | ""                                      | The existing EIP to use for the Controller. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_eip` is true.                                                                                               |
 | ha_distribution               | single-az                               | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                                                                                                                               |
 
-| ctr_ha_enable               | true                               | Controller HA detection. It can be disable for temporary operation requirement   
+| ctr_ha_enable               | true                               | Controller HA detection. It can be disable for temporary operation requirement   |
 
 | incoming_ssl_cidr             |                                         | Incoming CIDR for security group used by Controller                                                                                                                                                                                            |
 | instance_type                 | t3.xlarge                               | Controller instance size                                                                                                                                                                                                                       |
