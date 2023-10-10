@@ -29,8 +29,8 @@ Metadata:
           - UseExistingVpc
           - ExistingVpcName
           - ExistingDrVpcName
-          - ExistingSubnetNames
-          - ExistingDrSubnetNames
+          - ExistingSubnetIDs
+          - ExistingDrSubnetIDs
       - Label:
           default: IAM roles
         Parameters:
@@ -140,10 +140,10 @@ Metadata:
         default: Existing Primary VPC Name
       ExistingDrVpcName:
         default: Existing DR VPC Name
-      ExistingSubnetNames:
-        default: Existing Subnet Names
-      ExistingDrSubnetNames:
-        default: Existing DR VPC Subnet Names
+      ExistingSubnetIDs:
+        default: Existing Subnet IDs
+      ExistingDrSubnetIDs:
+        default: Existing DR VPC Subnet IDs
       # iam roles
       CreateIamRoles:
         default: Create IAM Roles?
@@ -321,11 +321,11 @@ Parameters:
     Type: String
     Description: Name of the new DR VPC for the Aviatrix resources
     Default: ""
-  ExistingSubnetNames:
+  ExistingSubnetIDs:
     Type: String
     Description: Comma-separated list of subnets for Aviatrix resources in the existing primary VPC
     Default: ""
-  ExistingDrSubnetNames:
+  ExistingDrSubnetIDs:
     Type: String
     Description: Comma-separated list of subnets for Aviatrix resources in the existing DR VPC
     Default: ""
@@ -516,10 +516,10 @@ Parameters:
   CoPilotDeployment:
     Type: String
     Description: CoPilot Deployment Type
-    Default: "Simple"
+    Default: "simple"
     AllowedValues:
-      - Simple
-      - Fault Tolerant
+      - simple
+      - fault-tolerant
   CoPilotDataNodeCount:
     Type: Number
     Description: >-
@@ -1047,7 +1047,7 @@ Resources:
         Auth:
           Type: OAUTH
           Resource: CodeBuildSourceCredential
-      SourceVersion: main
+      SourceVersion: ACS-4268-add-vars-in-cft
       TimeoutInMinutes: 60
       Tags:
         - Key: Name
