@@ -72,6 +72,7 @@ Metadata:
           default: Inter-region HA Details
         Parameters:
           - ZoneName
+          - PrivateZone
           - RecordName
           - InterRegionBackupEnabled
       - Label:
@@ -80,6 +81,8 @@ Metadata:
           default: Aviatrix CoPilot Instance Details
         Parameters:
           - CoPilotName
+          - CoPilotDeployment
+          - CoPilotDataNodeCount
           - CoPilotInstanceTypeParam
           - CoPilotRootVolType
           - CoPilotRootVolSize
@@ -198,6 +201,8 @@ Metadata:
       # inter-region HA details
       ZoneName:
         default: Exisitng Route53 Zone Name
+      PrivateZone:
+        default: Existing Route53 Zone is private
       RecordName:
         default: Record Name to Be Created Under Route53 Zone
       InterRegionBackupEnabled:
@@ -205,6 +210,10 @@ Metadata:
       # copilot instance details
       CoPilotName:
         default: CoPilot Instance Name
+      CoPilotDeployment:
+        default: CoPilot Deployment Type
+      CoPilotDataNodeCount:
+        default: Number of CoPilot Data Nodes in a Fault Tolerant deployment
       CoPilotInstanceTypeParam:
         default: CoPilot Instance EC2 Type
       CoPilotRootVolType:
@@ -479,11 +488,18 @@ Parameters:
   # inter-region HA details
   ZoneName:
     Type: String
-    Description: The exisitng route 53 zone name
+    Description: The exisitng Route53 zone name
     Default: ""
+  PrivateZone:
+    Type: String
+    Description: Existing Route53 zone is private
+    Default: "false"
+    AllowedValues:
+      - true
+      - false
   RecordName:
     Type: String
-    Description: The record name to be created under exisitng route 53 zone
+    Description: The record name to be created under exisitng Route53 zone
     Default: ""
   InterRegionBackupEnabled:
     Type: String
@@ -497,6 +513,22 @@ Parameters:
     Type: String
     Description: CoPilot Instance Name
     Default: ""
+  CoPilotDeployment:
+    Type: String
+    Description: CoPilot Deployment Type
+    Default: "Simple"
+    AllowedValues:
+      - Simple
+      - Fault Tolerant
+  CoPilotDataNodeCount:
+    Type: Number
+    Description: >-
+      Desired number of CoPilot data nodes in a Fault-Tolerant deployment
+      Default: 3.
+    Default: 3
+    MinValue: 3
+    MaxValue: 9
+    ConstraintDescription: Number of CoPilot data nodes can be between 3 and 9.
   CoPilotInstanceTypeParam:
     Type: String
     Default: m5.2xlarge
@@ -960,6 +992,8 @@ Resources:
           # inter-region HA details
           - Name: zone_name
             Value: !Ref ZoneName
+          - Name: private_zone
+            Value: !Ref PrivateZone
           - Name: record_name
             Value: !Ref RecordName
           - Name: inter_region_backup_enabled
@@ -967,6 +1001,10 @@ Resources:
           # copilot instance details
           - Name: copilot_name
             Value: !Ref CoPilotName
+          - Name: copilot_deployment
+            Value: !Ref CoPilotDeployment
+          - Name: copilot_data_node_count
+            Value: !Ref CoPilotDataNodeCount
           - Name: cop_instance_type
             Value: !Ref CoPilotInstanceTypeParam
           - Name: cop_root_volume_type
