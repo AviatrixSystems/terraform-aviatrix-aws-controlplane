@@ -11,9 +11,16 @@ variable "ha_distribution" {
   }
 }
 
-variable "ctr_ha_enable" {
+variable "controller_ha_enabled" {
   type        = bool
-  description = "AWS autoscale group functions suspending"
+  description = "AWS autoscale group functions suspending for controller ASG"
+  default     = true
+}
+
+variable "copilot_ha_enabled" {
+  type        = bool
+  description = "AWS autoscale group functions suspending for controller copilot"
+  default     = true
 }
 
 variable "suspended_processes" {

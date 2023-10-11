@@ -208,7 +208,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
-| ctr_ha_enable               | true                              | Controller HA detection. It can be temporay disabled by operation requirement.                                                                                                                                |
+| controller_ha_enabled               | true                              | Controller HA detection. It can be temporay disabled by operation requirement.                                                                                                                                |
+| copilot_ha_enabled               | true                              | Copilot HA detection. It can be temporay disabled by operation requirement.                                                                                                                                |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
 | cop_incoming_https_cidr       | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
 | cop_incoming_syslog_cidr      | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
@@ -310,3 +311,16 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 - Private-mode with controller HA is supported 7.1 onwards.
 - Inter-region HA is not supported with private-mode.
 - Controller has to be launched with a public IP address.
+
+### HA disable for maintanenace operation 
+- In the case of maintenance operation, controller and copilot can be temporarily HA disabled.
+- The disable setsp can be also via UI u
+   . EC2 -> Auto Scaling -> Auto Scaling Groups 
+   . Select the name of Auto scaling group (default is avtx-xxx)
+   . Advanced configurations -> Edit -> Suspended processes 
+   . Select functions "Launch", "Terminate", "HealthCheck", "Replace Unhealthy", then update the configuration
+- Remove the disable setps
+   . EC2 -> Auto Scaling -> Auto Scaling Groups 
+   . Select the name of Auto scaling group (default is avtx-xxx)
+   . Advanced configurations -> Edit -> Suspended processes 
+   . Remove all functions, then update the configuration
