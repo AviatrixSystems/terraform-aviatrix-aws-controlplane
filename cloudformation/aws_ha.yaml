@@ -1047,7 +1047,7 @@ Resources:
         Auth:
           Type: OAUTH
           Resource: CodeBuildSourceCredential
-      SourceVersion: ACS-4268-add-vars-in-cft
+      SourceVersion: main
       TimeoutInMinutes: 60
       Tags:
         - Key: Name
