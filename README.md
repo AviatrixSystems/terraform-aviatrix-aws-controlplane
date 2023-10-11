@@ -314,13 +314,13 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 
 ### HA disable for maintanenace operation 
 - In the case of maintenance operation, controller and copilot can be temporarily HA disabled.
-- The disable setsp can be also via UI u
-   . EC2 -> Auto Scaling -> Auto Scaling Groups 
-   . Select the name of Auto scaling group (default is avtx-xxx)
-   . Advanced configurations -> Edit -> Suspended processes 
-   . Select functions "Launch", "Terminate", "HealthCheck", "Replace Unhealthy", then update the configuration
+- The disable setsp can be also via UI
+    - EC2 -> Auto Scaling -> Auto Scaling Groups
+    - Select the name of Auto scaling group (default is avtx-xxx)
+    - Advanced configurations -> Edit -> Suspended processes 
+    - Select functions "Launch", "Terminate", "HealthCheck", "Replace Unhealthy", then update the configuration
 - Remove the disable setps
-   . EC2 -> Auto Scaling -> Auto Scaling Groups 
-   . Select the name of Auto scaling group (default is avtx-xxx)
-   . Advanced configurations -> Edit -> Suspended processes 
-   . Remove all functions, then update the configuration
+   - EC2 -> Auto Scaling -> Auto Scaling Groups 
+   - Select the name of Auto scaling group (default is avtx-xxx)
+   - Advanced configurations -> Edit -> Suspended processes 
+   - Remove all functions, then update the configuration
