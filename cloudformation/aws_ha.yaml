@@ -11,6 +11,7 @@ Metadata:
           - Region
           - DrRegion
           - S3BackupRegion
+          - S3BackupBucketName
           - HaDistribution
           - NamePrefix          
       - Label:
@@ -27,8 +28,8 @@ Metadata:
           default: Use Existing Network
         Parameters:
           - UseExistingVpc
-          - ExistingVpcName
-          - ExistingDrVpcName
+          - ExistingVpcID
+          - ExistingDrVpcID
           - ExistingSubnetIDs
           - ExistingDrSubnetIDs
       - Label:
@@ -52,7 +53,6 @@ Metadata:
         Parameters:
           - LicenseType
           - AsgNotificationEmail
-          - S3BackupBucketName
           - AdminEmail
           - AccessAccountName
           - ControllerVersion
@@ -84,10 +84,10 @@ Metadata:
           - CoPilotDeployment
           - CoPilotDataNodeCount
           - CoPilotInstanceTypeParam
-          - CoPilotRootVolType
-          - CoPilotRootVolSize
-          - CoPilotDefaultDataVolType
-          - CoPilotDefaultDataVolSize
+          - CoPilotRootVolumeType
+          - CoPilotRootVolumeSize
+          - CoPilotDefaultDataVolumeType
+          - CoPilotDefaultDataVolumeSize
           - CoPilotIncomingHttpsCidr
           - CoPilotIncomingNetflowCidr
           - CoPilotIncomingSyslogCidr
@@ -136,10 +136,10 @@ Metadata:
       # existing network details
       UseExistingVpc:
         default: Use Existing VPC?
-      ExistingVpcName:
-        default: Existing Primary VPC Name
-      ExistingDrVpcName:
-        default: Existing DR VPC Name
+      ExistingVpcID:
+        default: Existing Primary VPC ID
+      ExistingDrVpcID:
+        default: Existing DR VPC ID
       ExistingSubnetIDs:
         default: Existing Subnet IDs
       ExistingDrSubnetIDs:
@@ -216,13 +216,13 @@ Metadata:
         default: Number of CoPilot Data Nodes in a Fault Tolerant deployment
       CoPilotInstanceTypeParam:
         default: CoPilot Instance EC2 Type
-      CoPilotRootVolType:
+      CoPilotRootVoumelType:
         default: CoPilot Root Disk Volume Type
-      CoPilotRootVolSize:
+      CoPilotRootVolumeSize:
         default: CoPilot Root Disk Volume Size
-      CoPilotDefaultDataVolType:
+      CoPilotDefaultDataVolumeType:
         default: CoPilot Default Data Disk Volume Type
-      CoPilotDefaultDataVolSize:
+      CoPilotDefaultDataVolumeSize:
         default: CoPilot Default Data Disk Volume Size
       CoPilotIncomingHttpsCidr:
         default: CoPilot Incoming HTTPS CIDR
@@ -313,13 +313,13 @@ Parameters:
     AllowedValues:
       - true
       - false
-  ExistingVpcName:
+  ExistingVpcID:
     Type: String
-    Description: Name of the existing primary VPC for the Aviatrix resources
+    Description: ID of the existing primary VPC for the Aviatrix resources
     Default: ""
-  ExistingDrVpcName:
+  ExistingDrVpcID:
     Type: String
-    Description: Name of the new DR VPC for the Aviatrix resources
+    Description: ID of the new DR VPC for the Aviatrix resources
     Default: ""
   ExistingSubnetIDs:
     Type: String
@@ -564,7 +564,7 @@ Parameters:
       - m5n.16xlarge
       - m5n.24xlarge
     Description: Select an instance size for the CoPilot. Default is m5.2xlarge
-  CoPilotRootVolType:
+  CoPilotRootVolumeType:
     Type: String
     Description: CoPilot Root Volume Type
     Default: "gp3"
@@ -576,14 +576,14 @@ Parameters:
       - io2
       - sc1
       - st1
-  CoPilotRootVolSize:
+  CoPilotRootVolumeSize:
     Type: Number
     Description: >-
       Root volume size for the CoPilot instance. The minimum data volume size is 25GB.
       Default: 25GB.
     Default: 25
     MinValue: 25
-  CoPilotDefaultDataVolType:
+  CoPilotDefaultDataVolumeType:
     Type: String
     Description: CoPilot Default Data Volume Type
     Default: "gp3"
@@ -595,7 +595,7 @@ Parameters:
       - io2
       - sc1
       - st1
-  CoPilotDefaultDataVolSize:
+  CoPilotDefaultDataVolumeSize:
     Type: Number
     Description: >-
       Data volume size for the CoPilot default data disk. The minimum data volume size is 100GB.
@@ -928,9 +928,9 @@ Resources:
             Value: !Ref UseExistingVpc
           # existing network details
           - Name: vpc
-            Value: !Ref ExistingVpcName
+            Value: !Ref ExistingVpcID
           - Name: dr_vpc
-            Value: !Ref ExistingDrVpcName
+            Value: !Ref ExistingDrVpcID
           - Name: subnet_ids
             Value: !Ref ExistingSubnetIDs
           - Name: dr_subnet_ids
@@ -1008,13 +1008,13 @@ Resources:
           - Name: cop_instance_type
             Value: !Ref CoPilotInstanceTypeParam
           - Name: cop_root_volume_type
-            Value: !Ref CoPilotRootVolType
+            Value: !Ref CoPilotRootVolumeType
           - Name: cop_root_volume_size
-            Value: !Ref CoPilotRootVolSize
+            Value: !Ref CoPilotRootVolumeSize
           - Name: cop_default_data_volume_type
-            Value: !Ref CoPilotDefaultDataVolType
+            Value: !Ref CoPilotDefaultDataVolumeType
           - Name: cop_default_data_volume_size
-            Value: !Ref CoPilotDefaultDataVolSize
+            Value: !Ref CoPilotDefaultDataVolumeSize
           - Name: cop_incoming_https_cidr
             Value: !Ref CoPilotIncomingHttpsCidr
           - Name: cop_incoming_netflow_cidr
