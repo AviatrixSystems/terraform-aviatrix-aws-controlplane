@@ -106,10 +106,6 @@ Metadata:
           - CoPilotUseExistingEip
           - CoPilotExistingIp
           - CoPilotExistingDrIp
-      - Label:
-          default: Development Stage Setup
-        Parameters:
-          - PersonalAccessToken
     ParameterLabels:
       # general details
       Region:
@@ -248,8 +244,6 @@ Metadata:
         default: Existing EIP for Primary CoPilot
       CoPilotExistingDrIp:
         default: Existing EIP for DR CoPilot
-      PersonalAccessToken:
-        default: Github Personal Access Token
 Parameters:
   # general details
   Region:
@@ -673,12 +667,6 @@ Parameters:
     Type: String
     Description: Existing EIP for DR CoPilot instance
     Default: ""
-  # TODO: Remove PersonalAccessToken after https://aviatrix.atlassian.net/browse/AVX-40126 done
-  PersonalAccessToken:
-    Description: Required during development stage. Token that can be used to access the GitHub API.
-    Type: String
-    NoEcho: 'true'
-    MinLength: 1
 Resources:
   HADistributionSSM:
     Type: AWS::SSM::Parameter
@@ -859,12 +847,6 @@ Resources:
                   response["result"] = errmsg
                   cfnresponse.send(event, context, cfnresponse.FAILED, response)
               return response
-  CodeBuildSourceCredential:
-    Type: AWS::CodeBuild::SourceCredential
-    Properties:
-      AuthType: PERSONAL_ACCESS_TOKEN
-      ServerType: GITHUB
-      Token: !Ref PersonalAccessToken
   CodeBuildWaitHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
   CodeBuildWaitCondition:
