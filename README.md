@@ -208,8 +208,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
-| controller_ha_enabled               | true                              | Controller HA detection. It can be temporay disabled by operation requirement.                                                                                                                                |
-| copilot_ha_enabled               | true                              | Copilot HA detection. It can be temporay disabled by operation requirement.                                                                                                                                |
+| controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
+| copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.Copilot HA detection.                                                                                                                                |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
 | cop_incoming_https_cidr       | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
 | cop_incoming_syslog_cidr      | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
@@ -236,7 +236,6 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | existing_dr_eip               | ""                                      | The existing EIP to use for the DR Controller. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_eip` is true.                                                                                            |
 | existing_eip                  | ""                                      | The existing EIP to use for the Controller. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_eip` is true.                                                                                               |
 | ha_distribution               | single-az                               | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                                                                                                                               |
-
 | incoming_ssl_cidr             |                                         | Incoming CIDR for security group used by Controller                                                                                                                                                                                            |
 | instance_type                 | t3.xlarge                               | Controller instance size                                                                                                                                                                                                                       |
 | inter_region_backup_enabled   | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
@@ -312,15 +311,41 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 - Inter-region HA is not supported with private-mode.
 - Controller has to be launched with a public IP address.
 
-### HA disable for maintanenace operation 
-- In the case of maintenance operation, controller and copilot can be temporarily HA disabled.
-- The disable setsp can be also via UI
-    - EC2 -> Auto Scaling -> Auto Scaling Groups
-    - Select the name of Auto scaling group (default is avtx-xxx)
-    - Advanced configurations -> Edit -> Suspended processes 
-    - Select functions "Launch", "Terminate", "HealthCheck", "Replace Unhealthy", then update the configuration
-- Remove the disable setps
-   - EC2 -> Auto Scaling -> Auto Scaling Groups 
-   - Select the name of Auto scaling group (default is avtx-xxx)
-   - Advanced configurations -> Edit -> Suspended processes 
-   - Remove all functions, then update the configuration
+### Temporarily Disabling HA
+HA can be temporarily disabled if needed. This can be done via Terraform or by directly modifying the Auto Scaling Groups.
+
+Disable HA using Terraform:
+	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
+	- Run `terraform apply`.
+	
+Enable HA using Terraform:
+	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
+	- Run `terraform apply`.
+
+Disable HA by updating the Auto Scaling Group(s):
+	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+	Go to Advanced configurations -> Edit.
+	Click on Suspended processes and check the following processes:
+
+	 - Launch
+	 - Terminate
+	 - HealthCheck
+	 - Replace Unhealthy
+	
+  Click on Update to save the changes.
+	Repeat this process for the other Auto Scaling Group if necessary.
+
+Enable HA by updating the Auto Scaling Group(s):
+	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+	Go to Advanced configurations -> Edit.
+	Under Suspended processes, remove the following processes:
+
+	- Launch
+	- Terminate
+	- HealthCheck
+	- Replace Unhealthy
+	
+  Click on Update to save the changes.
+	Repeat this process for the other Auto Scaling Group if necessary.
