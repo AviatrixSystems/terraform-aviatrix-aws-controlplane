@@ -114,6 +114,8 @@ Metadata:
         default: DR Region
       S3BackupRegion:
         default: S3 Backup Region
+      S3BackupBucketName:
+        default: S3 Bucket for Controller Backups
       HaDistribution:
         default: HA Distribution Type
       NamePrefix:
@@ -167,8 +169,6 @@ Metadata:
         default: Controller License Type
       AsgNotificationEmail:
         default: ASG Notification Email
-      S3BackupBucketName:
-        default: S3 Bucket for Controller Backups
       AdminEmail:
         default: Access Account Administration Email
       AccessAccountName:
@@ -253,11 +253,14 @@ Parameters:
   DrRegion:
     Type: String
     Description: Region for DR Controller
-    Default: us-east-1
+    Default: us-east-2
   S3BackupRegion:
     Type: String
     Description: Region for S3 Bucket for Controller Backups
     Default: us-east-1
+  S3BackupBucketName:
+    Type: String
+    Description: Name of the S3 bucket to store controller backups
   HaDistribution:
     Type: String
     Description: Desired Controller high availability distribution
@@ -418,9 +421,6 @@ Parameters:
       Email address to which the ASG event notifications should be sent
     AllowedPattern: '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     ConstraintDescription: Must be a valid email address.
-  S3BackupBucketName:
-    Type: String
-    Description: Name of the S3 bucket to store controller backups
   AdminEmail:
     Type: String
     Description: >-
@@ -891,6 +891,8 @@ Resources:
             Value: !Ref DrRegion
           - Name: s3_backup_region
             Value: !Ref S3BackupRegion
+          - Name: s3_backup_bucket
+            Value: !Ref S3BackupBucketName
           - Name: ha_distribution
             Value: !Ref HaDistribution
           - Name: name_prefix
@@ -944,8 +946,6 @@ Resources:
             Value: !Ref LicenseType
           - Name: asg_notif_email
             Value: !Ref AsgNotificationEmail
-          - Name: s3_backup_bucket
-            Value: !Ref S3BackupBucketName
           - Name: admin_email
             Value: !Ref AdminEmail
           - Name: access_account_name
