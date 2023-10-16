@@ -473,7 +473,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
 
   warm_pool {
-    pool_state                  = var.ha_distribution == "inter-az" ? "Running" : null
+    pool_state                  = var.ha_distribution == "inter-az" ? var.standby_instance_state : null
     min_size                    = var.ha_distribution == "inter-az" ? 1 : null
     max_group_prepared_capacity = var.ha_distribution == "inter-az" ? 1 : null
   }

@@ -10,6 +10,17 @@ variable "ha_distribution" {
     error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
   }
 }
+
+variable "standby_instance_state" {
+  type            = string
+  description     = "Standby instance state definition"
+  default         = "Running"
+  validation {
+    condition     = contains (["Running", "Stopped", "Hibernated"], var.standby_instance_state)
+    error_message = "Valid values for var: ha_distribution are (Running, Stopped and Hibernated)."
+  }
+}
+
 variable "controller_ha_enabled" {
   type        = bool
   description = "AWS autoscale group functions suspending for controller ASG"

@@ -73,6 +73,7 @@ module "region1" {
   existing_copilot_eip          = var.existing_copilot_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
+  standby_instance_state         = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -146,6 +147,7 @@ module "region2" {
   existing_copilot_eip          = var.existing_copilot_dr_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
+  standby_instance_state         = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [ null_resource.region_conflict ]

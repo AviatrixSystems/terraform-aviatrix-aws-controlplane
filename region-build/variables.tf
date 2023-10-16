@@ -11,6 +11,11 @@ variable "ha_distribution" {
   }
 }
 
+variable "standby_instance_state" {
+  type        = string
+  description = "Standby instance state definition"
+}
+
 variable "controller_ha_enabled" {
   type        = bool
   description = "AWS autoscale group functions suspending for controller ASG"
