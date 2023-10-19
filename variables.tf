@@ -123,10 +123,16 @@ variable "root_volume_size" {
   default     = 64
 }
 
-variable "copilot_name" {
+variable "controller_name" {
   default     = ""
   type        = string
   description = "Name of controller that will be launched"
+}
+
+variable "copilot_name" {
+  default     = ""
+  type        = string
+  description = "Name of copilot that will be launched"
 }
 
 variable "copilot_username" {

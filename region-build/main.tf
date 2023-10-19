@@ -442,13 +442,13 @@ resource "aws_launch_template" "avtx-controller" {
   tag_specifications {
     resource_type = "instance"
 
-    tags = { Name = "AviatrixController" }
+    tags = { Name = local.ctr_tag }
   }
 
   tag_specifications {
     resource_type = "volume"
 
-    tags = { Name = "AvxController" }
+    tags = { Name = local.ctr_tag }
   }
 }
 

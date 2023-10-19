@@ -236,6 +236,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "controller_name" {
+  default     = ""
+  type        = string
+  description = "Name of controller that will be launched"
+}
+
 variable "controller_version" {
   type        = string
   default     = ""
@@ -282,6 +288,7 @@ locals {
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
 
   cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
+  ctr_tag = var.controller_name != "" ? var.controller_name : "${local.name_prefix}AviatrixController"
 
   ischina           = regexall("^cn-",var.region)
   iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"

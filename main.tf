@@ -27,6 +27,7 @@ module "region1" {
   ha_distribution               = var.ha_distribution
   vpc_name                      = var.vpc_name
   subnet_name                   = var.subnet_name
+  controller_name               = var.controller_name
   instance_type                 = var.instance_type
   copilot_deployment            = var.copilot_deployment
   copilot_data_node_count       = var.copilot_data_node_count
@@ -101,6 +102,7 @@ module "region2" {
   ha_distribution               = var.ha_distribution
   vpc_name                      = var.dr_vpc_name
   subnet_name                   = var.subnet_name
+  controller_name               = var.controller_name
   instance_type                 = var.instance_type
   copilot_deployment            = var.copilot_deployment
   copilot_data_node_count       = var.copilot_data_node_count
