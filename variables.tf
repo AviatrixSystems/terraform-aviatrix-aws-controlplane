@@ -17,7 +17,7 @@ variable "standby_instance_state" {
   default         = "Running"
   validation {
     condition     = contains (["Running", "Stopped", "Hibernated"], var.standby_instance_state)
-    error_message = "Valid values for var: ha_distribution are (Running, Stopped and Hibernated)."
+    error_message = "Valid values for var: standby_instance_state are (Running, Stopped and Hibernated)."
   }
 }
 
