@@ -462,7 +462,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
-  suspended_processes       = var.controller_ha_enabled ? null : var.suspended_processes
+  suspended_processes       = var.controller_ha_enabled ? null : ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
 
   launch_template {
     id      = aws_launch_template.avtx-controller.id

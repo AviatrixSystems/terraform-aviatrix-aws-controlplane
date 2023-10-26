@@ -18,20 +18,14 @@ variable "standby_instance_state" {
 
 variable "controller_ha_enabled" {
   type        = bool
-  description = "AWS autoscale group functions suspending for controller ASG"
+  description = "Whether HA is enabled for the Controller"
   default     = true
 }
 
 variable "copilot_ha_enabled" {
   type        = bool
-  description = "AWS autoscale group functions suspending for controller copilot"
+  description = "Whether HA is enabled for CoPilot"
   default     = true
-}
-
-variable "suspended_processes" {
-  type        = list
-  description = "ASG process types suspending"
-  default     = ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
 }
 
 variable "keypair" {
