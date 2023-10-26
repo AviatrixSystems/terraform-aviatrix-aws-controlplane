@@ -16,8 +16,8 @@ variable "standby_instance_state" {
   description     = "Standby instance state definition"
   default         = "Running"
   validation {
-    condition     = contains (["Running", "Stopped", "Hibernated"], var.standby_instance_state)
-    error_message = "Valid values for var: standby_instance_state are (Running, Stopped and Hibernated)."
+    condition     = contains (["Running", "Stopped"], var.standby_instance_state)
+    error_message = "Valid values for var: standby_instance_state are (Running and Stopped)."
   }
 }
 
