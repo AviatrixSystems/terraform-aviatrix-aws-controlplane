@@ -11,6 +11,28 @@ variable "ha_distribution" {
   }
 }
 
+variable "standby_instance_state" {
+  type            = string
+  description     = "Standby instance state definition"
+  default         = "Running"
+  validation {
+    condition     = contains (["Running", "Stopped"], var.standby_instance_state)
+    error_message = "Valid values for var: standby_instance_state are (Running and Stopped)."
+  }
+}
+
+variable "controller_ha_enabled" {
+  type        = bool
+  description = "Whether HA is enabled for the Controller"
+  default     = true
+}
+
+variable "copilot_ha_enabled" {
+  type        = bool
+  description = "Whether HA is enabled for CoPilot"
+  default     = true
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
@@ -101,10 +123,16 @@ variable "root_volume_size" {
   default     = 64
 }
 
-variable "copilot_name" {
+variable "controller_name" {
   default     = ""
   type        = string
   description = "Name of controller that will be launched"
+}
+
+variable "copilot_name" {
+  default     = ""
+  type        = string
+  description = "Name of copilot that will be launched"
 }
 
 variable "copilot_username" {

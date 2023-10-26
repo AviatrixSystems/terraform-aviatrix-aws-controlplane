@@ -11,6 +11,23 @@ variable "ha_distribution" {
   }
 }
 
+variable "standby_instance_state" {
+  type        = string
+  description = "Standby instance state definition"
+}
+
+variable "controller_ha_enabled" {
+  type        = bool
+  description = "Whether HA is enabled for the Controller"
+  default     = true
+}
+
+variable "copilot_ha_enabled" {
+  type        = bool
+  description = "Whether HA is enabled for CoPilot"
+  default     = true
+}
+
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
@@ -213,6 +230,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "controller_name" {
+  default     = ""
+  type        = string
+  description = "Name of controller that will be launched"
+}
+
 variable "controller_version" {
   type        = string
   default     = ""
@@ -259,6 +282,7 @@ locals {
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
 
   cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
+  ctr_tag = var.controller_name != "" ? var.controller_name : "${local.name_prefix}AviatrixController"
 
   ischina           = regexall("^cn-",var.region)
   iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"

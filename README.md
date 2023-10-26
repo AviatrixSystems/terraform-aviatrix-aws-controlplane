@@ -208,7 +208,10 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
+| controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
+| copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
+| controller_name            |                                 | Name of Controller.                                                                                                                                                                                       |
 | cop_incoming_https_cidr       | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
 | cop_incoming_syslog_cidr      | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
 | cop_incoming_netflow_cidr     | CoPilot Netflow (UDP port 31283) access | CoPilot allowed CIDRs for Netflow acccess                                                                                                                                                                                                      |
@@ -247,6 +250,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | root_volume_type              | gp3                                     | Root volume type for Controller                                                                                                                                                                                                                |
 | s3_backup_bucket              |                                         | S3 bucket for Controller DB backup                                                                                                                                                                                                             |
 | s3_backup_region              |                                         | Region S3 backup bucket is in                                                                                                                                                                                                                  |
+| standby_instance_state              |    Running                                     |  Instance state in Warm Pool of AWS autoscaling group.                                                                                                                                                                                                                  |
 | subnet_ids                    |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | subnet_name                   | Aviatrix-Public-Subnet                  | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
 | tags                          | {}                                      | Map of common tags which should be used for module resources. Example: `{ key1 = "value1", key2 = "value2" }`                                                                                                                                  |
@@ -308,3 +312,45 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 - Private-mode with controller HA is supported 7.1 onwards.
 - Inter-region HA is not supported with private-mode.
 - Controller has to be launched with a public IP address.
+
+### Temporarily Disabling HA
+HA can be temporarily disabled if needed. This can be done via Terraform or by directly modifying the Auto Scaling Groups.
+
+Disable HA using Terraform:
+	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
+	- Run `terraform apply`.
+	
+Enable HA using Terraform:
+	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
+	- Run `terraform apply`.
+
+Disable HA by updating the Auto Scaling Group(s):
+	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+	Go to Advanced configurations -> Edit.
+	Click on Suspended processes and check the following processes:
+
+	 - Launch
+	 - Terminate
+	 - HealthCheck
+	 - Replace Unhealthy
+	
+  Click on Update to save the changes.
+	Repeat this process for the other Auto Scaling Group if necessary.
+
+Enable HA by updating the Auto Scaling Group(s):
+	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+	Go to Advanced configurations -> Edit.
+	Under Suspended processes, remove the following processes:
+
+	- Launch
+	- Terminate
+	- HealthCheck
+	- Replace Unhealthy
+	
+  Click on Update to save the changes.
+	Repeat this process for the other Auto Scaling Group if necessary.
+
+  ### Warm Pool instance state of AWS Autoscaling Group
+  The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.

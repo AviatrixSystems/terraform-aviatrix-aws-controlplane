@@ -27,6 +27,7 @@ module "region1" {
   ha_distribution               = var.ha_distribution
   vpc_name                      = var.vpc_name
   subnet_name                   = var.subnet_name
+  controller_name               = var.controller_name
   instance_type                 = var.instance_type
   copilot_deployment            = var.copilot_deployment
   copilot_data_node_count       = var.copilot_data_node_count
@@ -71,6 +72,9 @@ module "region1" {
   existing_eip                  = var.existing_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_eip
+  controller_ha_enabled         = var.controller_ha_enabled
+  copilot_ha_enabled            = var.copilot_ha_enabled
+  standby_instance_state         = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -98,6 +102,7 @@ module "region2" {
   ha_distribution               = var.ha_distribution
   vpc_name                      = var.dr_vpc_name
   subnet_name                   = var.subnet_name
+  controller_name               = var.controller_name
   instance_type                 = var.instance_type
   copilot_deployment            = var.copilot_deployment
   copilot_data_node_count       = var.copilot_data_node_count
@@ -142,6 +147,9 @@ module "region2" {
   existing_eip                  = var.existing_dr_eip
   use_existing_copilot_eip      = var.use_existing_copilot_eip
   existing_copilot_eip          = var.existing_copilot_dr_eip
+  controller_ha_enabled         = var.controller_ha_enabled
+  copilot_ha_enabled            = var.copilot_ha_enabled
+  standby_instance_state         = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [ null_resource.region_conflict ]
