@@ -154,7 +154,8 @@ resource "aws_autoscaling_group" "avtx_copilot" {
 resource "aws_lb_listener" "avtx-copilot" {
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "8443"
-  protocol          = "TCP"
+  protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
+  certificate_arn   = var.load_balancer_type == "application" ? data.aws_acm_certificate.avtx_ctrl[0].arn : null 
 
   default_action {
     target_group_arn = aws_lb_target_group.avtx-copilot.arn
@@ -165,7 +166,7 @@ resource "aws_lb_listener" "avtx-copilot" {
 resource "aws_lb_target_group" "avtx-copilot" {
   name     = "${local.name_prefix}copilot"
   port     = 443
-  protocol = "TCP"
+  protocol = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
   vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   depends_on = [aws_lb.avtx-controller]
@@ -213,6 +214,16 @@ resource "aws_security_group_rule" "copilot_netflow_ingress_rule" {
   cidr_blocks       = var.cop_incoming_netflow_cidr
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot Netflow Ingress - DO NOT DELETE"
+}
+
+resource "aws_security_group_rule" "copilot_alb_ingress_rule" {
+  type              = "ingress"
+  from_port         = 8443
+  to_port           = 8443
+  protocol          = "tcp"
+  cidr_blocks       = concat(var.cop_incoming_https_cidr, tolist([var.vpc_cidr]))
+  security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
+  description       = "CoPilot ALB Ingress - DO NOT DELETE"
 }
 
 resource "aws_security_group_rule" "copilot_egress_rule" {

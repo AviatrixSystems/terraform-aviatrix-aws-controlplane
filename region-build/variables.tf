@@ -431,3 +431,17 @@ variable "existing_copilot_eip" {
   description = "Existing EIP to associate with the Aviatrix CoPilot"
   default     = ""
 }
+
+variable "load_balancer_type" {
+  type        = string 
+  description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
+  validation {
+    condition     = contains(["network", "application"], var.load_balancer_type)
+    error_message = "Valid values for var: load_balancer_type are (network, application)."
+}
+}
+
+variable "cert_domain_name" {
+  type        = string
+  description = "The domain name for certificate for Load Balancer"
+}

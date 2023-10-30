@@ -1,7 +1,8 @@
 resource "aws_lb" "avtx-controller" {
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
-  load_balancer_type               = "network"
+  load_balancer_type               = var.load_balancer_type
+  security_groups                  = var.load_balancer_type == "application" ? tolist([aws_security_group.AviatrixSecurityGroup.id,aws_security_group.AviatrixCopilotSecurityGroup.id]) : null
   enable_cross_zone_load_balancing = true
   idle_timeout                     = "300"
   subnets                          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
@@ -16,10 +17,17 @@ resource "aws_lb" "avtx-controller" {
 }
 
 # Define a listener
+data "aws_acm_certificate" "avtx_ctrl" {
+  count             = var.load_balancer_type == "application" ? 1 : 0
+  domain            = var.cert_domain_name
+  statuses          = ["ISSUED"]
+}
+
 resource "aws_lb_listener" "avtx-ctrl" {
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "443"
-  protocol          = "TCP"
+  protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
+  certificate_arn   = var.load_balancer_type == "application" ? data.aws_acm_certificate.avtx_ctrl[0].arn : null 
 
   default_action {
     target_group_arn = aws_lb_target_group.avtx-controller.arn
@@ -30,7 +38,7 @@ resource "aws_lb_listener" "avtx-ctrl" {
 resource "aws_lb_target_group" "avtx-controller" {
   name     = "${local.name_prefix}controller"
   port     = 443
-  protocol = "TCP"
+  protocol = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
   vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   depends_on = [aws_lb.avtx-controller]
