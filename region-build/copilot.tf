@@ -105,6 +105,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
+  suspended_processes       = var.copilot_ha_enabled ? null : ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
 
   launch_template {
     id      = var.copilot_deployment == "fault-tolerant" ? aws_launch_template.avtx-copilot-cluster-main[0].id : aws_launch_template.avtx-copilot[0].id
