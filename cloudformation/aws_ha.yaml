@@ -868,174 +868,210 @@ Resources:
       ServiceRole: !Ref Adminrole
       Artifacts:
         Type: NO_ARTIFACTS
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              commands:
+                - echo "getting OS updates and installing packages"
+                - apt-get update
+                - apt-get install -y curl jq
+                - echo "downloading terraform"
+                - wget -nv https://releases.hashicorp.com/terraform/1.4.0/terraform_1.4.0_linux_amd64.zip
+                - unzip terraform_1.4.0_linux_amd64.zip
+                - sudo mv terraform /usr/local/bin/
+                - rm terraform_1.4.0_linux_amd64.zip
+                - curl 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | jq 'to_entries | [ .[] | select(.key | (contains("Expiration") or contains("RoleArn"))  | not) ] |  map(if .key == "AccessKeyId" then . + {"key":"AWS_ACCESS_KEY_ID"} else . end) | map(if .key == "SecretAccessKey" then . + {"key":"AWS_SECRET_ACCESS_KEY"} else . end) | map(if .key == "Token" then . + {"key":"AWS_SESSION_TOKEN"} else . end) | map("export \(.key)=\(.value)") | .[]' -r > /tmp/aws_cred_export.txt # work around https://github.com/hashicorp/terraform/issues/8746
+                - echo "printing CodeBuildWaitHandle - ${CodeBuildWaitHandle}"
+                - echo "Prepare tfexec.py"
+                - |
+                  cat >> tfexec.py << EOF
+                  import sys
+                  import subprocess
+                  import boto3
+                  import requests
+                  import json
+
+                  def cfn_signal_response(success_resp: bool = True):
+                      signal_resp = {
+                          'Status': 'SUCCESS' if success_resp else 'FAILURE',
+                          'Reason': 'Configuration Complete' if success_resp else 'Configuration Failed',
+                          'UniqueId': 'ID1234' if success_resp else 'ID5678',
+                          'Data': 'Terraform apply complete' if success_resp else 'Terraform apply failed'
+                      }
+                      return json.dumps(signal_resp)
+
+                  def send_cfn_signal(success_signal: bool = True):
+                      print(f"send_cfn_signal signal URL: ${CodeBuildWaitHandle}")
+                      cfn_params = cfn_signal_response(success_signal)
+                      headers = {"Content-Type": "application/json"}
+                      try:
+                          cfn_resp = requests.put(url="${CodeBuildWaitHandle}", data=cfn_params, headers=headers)
+                          print(f"CFN Signal response: {cfn_resp.status_code}")
+                      except Exception as err:
+                          print(f"Error sending signal to CFN: {str(err)}")
+
+                  def get_terraform_output():
+                      command = "terraform output -json"
+                      try:
+                          output = subprocess.check_output(command, shell=True)
+                          output = output.decode('utf-8')  # Decode the byte string to UTF-8
+                          output_json = json.loads(output) # Parse the output as JSON
+                          return output_json
+                      except subprocess.CalledProcessError as e:
+                          print(f"Failed to run 'terraform output'. Error: {e}")
+
+                  def save_ssm_parameter(parameter_name, parameter_value, parameter_type='String', description=''):
+                      ssm_client = boto3.client('ssm')
+                      response = ssm_client.put_parameter(
+                          Name=parameter_name,
+                          Value=parameter_value,
+                          Type=parameter_type,
+                          Description=description,
+                          Overwrite=True
+                      )
+                      if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                          print(f"SSM parameter '{parameter_name}' saved successfully.")
+                      else:
+                          print(f"Failed to save SSM parameter '{parameter_name}'.")
+
+                  def save_tf_outputs():
+                      tf_output = get_terraform_output()
+                      print(f"tf_output: {tf_output}")
+                      for op_key in tf_output.keys():
+                          if tf_output[op_key]['value'] == '':
+                              print(f"skipping output {op_key} with empty value: {tf_output[op_key]['value']}")
+                          else:
+                              print(f"saving output {op_key} with value {tf_output[op_key]['value']}")
+                              save_ssm_parameter(f"/aviatrix/controller/{op_key}", tf_output[op_key]['value'])
+
+                  def main():
+                      try:
+                          destroy = sys.argv[1]
+                          action = "apply"
+                          if destroy.lower() == "true":
+                              action = "destroy"
+                          cmd = ["terraform", action, "-auto-approve"]
+                          print(cmd)
+                          subprocess.call(cmd)
+                          if action == 'apply':
+                              save_tf_outputs()
+                              send_cfn_signal(True)
+                          else:
+                              s3 = boto3.resource("s3")
+                              bucket = s3.Bucket("${AWS::StackName}.${AWS::AccountId}.terraform-state-software")
+                              bucket.objects.all().delete()
+                      except Exception as err:
+                          print(f"Error {str(err)}")
+                          send_cfn_signal(False)
+                          raise err
+
+                  main()
+                  EOF
+                - cat tfexec.py
+                - echo "Prepare main.tf"
+                - |
+                  cat >> main.tf << EOF
+                  terraform {
+                    required_providers {
+                      aws = {
+                        source = "hashicorp/aws"
+                      }
+                    }
+                    backend "s3" {
+                      bucket = "${AWS::StackName}.${AWS::AccountId}.terraform-state-software"
+                      key    = "${AWS::StackName}/terraform.tfstate"
+                      region = "${Region}"
+                    }
+                  }
+                  module "aws_controller_ha" {
+                    source = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+                    region = "${Region}"
+                    dr_region = "${DrRegion}"
+                    s3_backup_region = "${S3BackupRegion}"
+                    ha_distribution = "${HaDistribution}"
+                    name_prefix = "${NamePrefix}"
+                    vpc_name = "${VpcName}"
+                    dr_vpc_name = "${DrVpcName}"
+                    subnet_name = "${SubnetName}"
+                    vpc_cidr = "${VpcCidr}"
+                    dr_vpc_cidr = "${DrVpcCidr}"
+                    use_existing_vpc = "${UseExistingVpc}"
+                    vpc = "${ExistingVpcID}"
+                    dr_vpc = "${ExistingDrVpcID}"
+                    subnet_ids = ["${ExistingSubnetIDs}"]
+                    dr_subnet_ids = ["${ExistingDrSubnetIDs}"]
+                    create_iam_roles = "${CreateIamRoles}"
+                    app_role_name = "${AppRoleName}"
+                    ec2_role_name = "${Ec2RoleName}"
+                    keypair = "${Keypair}"
+                    dr_keypair = "${DrKeypair}"
+                    instance_type = "${ControllerInstanceType}"
+                    root_volume_type = "${ControllerRootVolumeType}"
+                    root_volume_size = "${ControllerRootVolumeSize}"
+                    incoming_ssl_cidr = ["${ControllerIncomingSslCidr}"]
+                    termination_protection = "${ControllerTerminationProtection}"
+                    license_type = "${LicenseType}"
+                    asg_notif_email = "${AsgNotificationEmail}"
+                    s3_backup_bucket = "${S3BackupBucketName}"
+                    admin_email = "${AdminEmail}"
+                    access_account_name = "${AccessAccountName}"
+                    controller_version = "${ControllerVersion}"
+                    avx_customer_id = "${CustomerId}"
+                    avx_customer_id_ssm_path = "${CustomerIdSsmPath}"
+                    avx_customer_id_ssm_region = "${CustomerIdSsmRegion}"
+                    avx_password = "${AdminPassword}"
+                    avx_password_ssm_path = "${AdminPasswordSsmPath}"
+                    avx_password_ssm_region = "${AdminPasswordSsmRegion}"
+                    use_existing_eip = "${UseExistingEip}"
+                    existing_eip = "${ExistingIp}"
+                    existing_dr_eip = "${ExistingDrIp}"
+                    zone_name = "${ZoneName}"
+                    private_zone = "${PrivateZone}"
+                    record_name = "${RecordName}"
+                    inter_region_backup_enabled = "${InterRegionBackupEnabled}"
+                    copilot_name = "${CoPilotName}"
+                    copilot_deployment = "${CoPilotDeployment}"
+                    copilot_data_node_count = "${CoPilotDataNodeCount}"
+                    cop_instance_type = "${CoPilotInstanceTypeParam}"
+                    cop_root_volume_type = "${CoPilotRootVolumeType}"
+                    cop_root_volume_size = "${CoPilotRootVolumeSize}"
+                    cop_default_data_volume_type = "${CoPilotDefaultDataVolumeType}"
+                    cop_default_data_volume_size = "${CoPilotDefaultDataVolumeSize}"
+                    cop_incoming_https_cidr = ["${CoPilotIncomingHttpsCidr}"]
+                    cop_incoming_netflow_cidr = ["${CoPilotIncomingNetflowCidr}"]
+                    cop_incoming_syslog_cidr = ["${CoPilotIncomingSyslogCidr}"]
+                    cop_type = "${CoPilotType}"
+                    copilot_username = "${CoPilotUsername}"
+                    copilot_email = "${CoPilotEmail}"
+                    avx_copilot_password = "${CoPilotPassword}"
+                    avx_copilot_password_ssm_path = "${CoPilotPasswordSsmPath}"
+                    cop_controller_auth_ip = "${CoPilotControllerAuthIpType}"
+                    use_existing_copilot_eip = "${CoPilotUseExistingEip}"
+                    existing_copilot_eip = "${CoPilotExistingIp}"
+                    existing_copilot_dr_eip = "${CoPilotExistingDrIp}"
+                  }
+                  EOF
+                - pwd
+                - ls ./
+                - cat main.tf
+                - . /tmp/aws_cred_export.txt && terraform init
+            build:
+              commands:
+                - . /tmp/aws_cred_export.txt && python3 tfexec.py $destroy
+            post_build:
+              commands:
+                - echo "Nothing to do in the post_build for now"
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_LARGE
         Image: aws/codebuild/standard:6.0
         PrivilegedMode: true
         EnvironmentVariables:
-          - Name: tf_version
-            Value: 1.4.0
-          - Name: aws_account_id
-            Value: !Ref AWS::AccountId
-          - Name: stack_name
-            Value: !Ref AWS::StackName
           - Name: destroy
             Value: "False"
-          - Name: cfn_url
-            Value: !Ref CodeBuildWaitHandle
-          # general details
-          - Name: region
-            Value: !Ref Region
-          - Name: dr_region
-            Value: !Ref DrRegion
-          - Name: s3_backup_region
-            Value: !Ref S3BackupRegion
-          - Name: s3_backup_bucket
-            Value: !Ref S3BackupBucketName
-          - Name: ha_distribution
-            Value: !Ref HaDistribution
-          - Name: name_prefix
-            Value: !Ref NamePrefix
-          # new network details
-          - Name: vpc_name
-            Value: !Ref VpcName
-          - Name: dr_vpc_name
-            Value: !Ref DrVpcName
-          - Name: subnet_name
-            Value: !Ref SubnetName
-          - Name: vpc_cidr
-            Value: !Ref VpcCidr
-          - Name: dr_vpc_cidr
-            Value: !Ref DrVpcCidr
-          - Name: use_existing_vpc
-            Value: !Ref UseExistingVpc
-          # existing network details
-          - Name: vpc
-            Value: !Ref ExistingVpcID
-          - Name: dr_vpc
-            Value: !Ref ExistingDrVpcID
-          - Name: subnet_ids
-            Value: !Ref ExistingSubnetIDs
-          - Name: dr_subnet_ids
-            Value: !Ref ExistingDrSubnetIDs
-          # iam roles
-          - Name: create_iam_roles
-            Value: !Ref CreateIamRoles
-          - Name: app_role_name
-            Value: !Ref AppRoleName
-          - Name: ec2_role_name
-            Value: !Ref Ec2RoleName
-          # controller instance details
-          - Name: keypair
-            Value: !Ref Keypair
-          - Name: dr_keypair
-            Value: !Ref DrKeypair
-          - Name: instance_type
-            Value: !Ref ControllerInstanceType
-          - Name: root_volume_type
-            Value: !Ref ControllerRootVolumeType
-          - Name: root_volume_size
-            Value: !Ref ControllerRootVolumeSize
-          - Name: incoming_ssl_cidr
-            Value: !Ref ControllerIncomingSslCidr
-          - Name: termination_protection
-            Value: !Ref ControllerTerminationProtection
-          # controller details
-          - Name: license_type
-            Value: !Ref LicenseType
-          - Name: asg_notif_email
-            Value: !Ref AsgNotificationEmail
-          - Name: admin_email
-            Value: !Ref AdminEmail
-          - Name: access_account_name
-            Value: !Ref AccessAccountName
-          - Name: controller_version
-            Value: !Ref ControllerVersion
-          - Name: avx_customer_id
-            Value: !Ref CustomerId
-          - Name: avx_customer_id_ssm_region
-            Value: !Ref CustomerIdSsmRegion
-          - Name: avx_customer_id_ssm_path
-            Value: !Ref CustomerIdSsmPath          
-          - Name: avx_password
-            Value: !Ref AdminPassword
-          - Name: avx_password_ssm_region
-            Value: !Ref AdminPasswordSsmRegion
-          - Name: avx_password_ssm_path
-            Value: !Ref AdminPasswordSsmPath
-          # existing EIP details
-          - Name: use_existing_eip
-            Value: !Ref UseExistingEip
-          - Name: existing_eip
-            Value: !Ref ExistingIp
-          - Name: existing_dr_eip
-            Value: !Ref ExistingDrIp
-          # inter-region HA details
-          - Name: zone_name
-            Value: !Ref ZoneName
-          - Name: private_zone
-            Value: !Ref PrivateZone
-          - Name: record_name
-            Value: !Ref RecordName
-          - Name: inter_region_backup_enabled
-            Value: !Ref InterRegionBackupEnabled
-          # copilot instance details
-          - Name: copilot_name
-            Value: !Ref CoPilotName
-          - Name: copilot_deployment
-            Value: !Ref CoPilotDeployment
-          - Name: copilot_data_node_count
-            Value: !Ref CoPilotDataNodeCount
-          - Name: cop_instance_type
-            Value: !Ref CoPilotInstanceTypeParam
-          - Name: cop_root_volume_type
-            Value: !Ref CoPilotRootVolumeType
-          - Name: cop_root_volume_size
-            Value: !Ref CoPilotRootVolumeSize
-          - Name: cop_default_data_volume_type
-            Value: !Ref CoPilotDefaultDataVolumeType
-          - Name: cop_default_data_volume_size
-            Value: !Ref CoPilotDefaultDataVolumeSize
-          - Name: cop_incoming_https_cidr
-            Value: !Ref CoPilotIncomingHttpsCidr
-          - Name: cop_incoming_netflow_cidr
-            Value: !Ref CoPilotIncomingNetflowCidr
-          - Name: cop_incoming_syslog_cidr
-            Value: !Ref CoPilotIncomingSyslogCidr
-          # copilot details
-          - Name: cop_type
-            Value: !Ref CoPilotType
-          - Name: copilot_username
-            Value: !Ref CoPilotUsername
-          - Name: copilot_email
-            Value: !Ref CoPilotEmail
-          - Name: avx_copilot_password
-            Value: !Ref CoPilotPassword
-          - Name: avx_copilot_password_ssm_path
-            Value: !Ref CoPilotPasswordSsmPath
-          - Name: cop_controller_auth_ip
-            Value: !Ref CoPilotControllerAuthIpType
-          # copilot existing EIP details
-          - Name: use_existing_copilot_eip
-            Value: !Ref CoPilotUseExistingEip
-          - Name: existing_copilot_eip
-            Value: !Ref CoPilotExistingIp
-          - Name: existing_copilot_dr_eip
-            Value: !Ref CoPilotExistingDrIp
-      Source:
-        Location: https://github.com/aviatrix-automation/Aviatrix_AWS_HA.git
-        Type: GITHUB
-        Auth:
-          Type: OAUTH
-          Resource: CodeBuildSourceCredential
-      SourceVersion: main
-      TimeoutInMinutes: 60
-      Tags:
-        - Key: Name
-          Value: AviatrixCodebuild
-        - Key: Project
-          Value: Aviatrix
 Outputs:
   HADistribution:
     Description: HA Distribution Details
