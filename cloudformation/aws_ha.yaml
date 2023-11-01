@@ -13,7 +13,8 @@ Metadata:
           - S3BackupRegion
           - S3BackupBucketName
           - HaDistribution
-          - NamePrefix          
+          - NamePrefix
+          - TerminationProtection
       - Label:
           default: Network Configuration
       - Label:
@@ -43,11 +44,12 @@ Metadata:
         Parameters:
           - Keypair
           - DrKeypair
+          - ControllerInstanceName
           - ControllerInstanceType
           - ControllerRootVolumeType
           - ControllerRootVolumeSize
           - ControllerIncomingSslCidr
-          - ControllerTerminationProtection
+          - ControllerHaEnabled
       - Label:
           default: Aviatrix Controller Details
         Parameters:
@@ -98,6 +100,7 @@ Metadata:
           - CoPilotUsername
           - CoPilotEmail
           - CoPilotPassword
+          - CoPilotHaEnabled
           - CoPilotPasswordSsmPath
           - CoPilotControllerAuthIpType
       - Label:
@@ -120,6 +123,8 @@ Metadata:
         default: HA Distribution Type
       NamePrefix:
         default: VM Name Prefix
+      TerminationProtection:
+        default: Enable Termination Protection for Controller and CoPilot?
       # new network details
       VpcName:
         default: New Primary VPC Name
@@ -154,6 +159,8 @@ Metadata:
         default: Primary Instance SSH Key Name
       DrKeypair:
         default: DR Instance SSH Key Name
+      ControllerInstanceName:
+        default: Controller Instance Name
       ControllerInstanceType:
         default: Controller Instance EC2 Type
       ControllerRootVolumeType:
@@ -162,8 +169,8 @@ Metadata:
         default: Controller Root Volume Size
       ControllerIncomingSslCidr:
         default: Incoming CIDR for HTTPS Access
-      ControllerTerminationProtection:
-        default: Controller Termination Protection
+      ControllerHaEnabled:
+        default: Enable Controller HA?
       # controller details
       LicenseType:
         default: Controller License Type
@@ -234,6 +241,8 @@ Metadata:
         default: (Optional) CoPilot Service Account Email
       CoPilotPassword:
         default: (Optional) CoPilot Service Account Password
+      CoPilotHaEnabled:
+        default: Enable CoPilot HA?
       CoPilotPasswordSsmPath:
         default: (Optional) SSM Path for the CoPilot Service Account Password
       CoPilotControllerAuthIpType:
@@ -350,6 +359,10 @@ Parameters:
     Type: String
     Description: Key pair used by the DR Controller
     Default: ""
+  ControllerInstanceName:
+    Type: String
+    Description: Name of the Controller
+    Default: ""
   ControllerInstanceType:
     Type: String
     Description: Select an instance size for the Controller. Default is t3.xlarge
@@ -399,10 +412,17 @@ Parameters:
     MinLength: 1
     AllowedPattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
     ConstraintDescription: Please provide an non-empty and valid IPv4 CIDR for HTTPS ingress
-  ControllerTerminationProtection:
+  ControllerHaEnabled:
     Type: String
-    Description: Enabel Termination Protection on the Controller EC2 VM
-    Default: "false"
+    Description: Enable Controller HA? Set to False to temporarily disable Controller HA functionality
+    Default: "true"
+    AllowedValues:
+      - true
+      - false
+  TerminationProtection:
+    Type: String
+    Description: Enable Termination Protection for the Controller and CoPilot EC2 VMs
+    Default: "true"
     AllowedValues:
       - true
       - false
@@ -640,6 +660,13 @@ Parameters:
     Description: >-
       The password for a custom Service Account on the CoPilot may be provided here. Please note that this is NOT a secure method, and NOT intended for production deployments. If you want to provide a password for a Service Account for production deployments, please use the next field to indicate the SSM parameter for the password. If the password is provided via this field, it will take precedence over the password specificed via SSM. The region for the SSM parameter must be same as the controller Admin password SSM region specified above.
     Default: ""
+  CoPilotHaEnabled:
+    Type: String
+    Description: Enable CoPilot HA? Set to False to temporarily disable CoPilot HA functionality
+    Default: "true"
+    AllowedValues:
+      - true
+      - false
   CoPilotPasswordSsmPath:
     Type: String
     Description: SSM Path for the CoPilot Service Account Password
@@ -987,7 +1014,7 @@ Resources:
                     }
                   }
                   module "aws_controller_ha" {
-                    source = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+                    source = "github.com/aviatrix-automation/Aviatrix_AWS_HA?ref=dev"
                     region = "${Region}"
                     dr_region = "${DrRegion}"
                     s3_backup_region = "${S3BackupRegion}"
@@ -1008,11 +1035,13 @@ Resources:
                     ec2_role_name = "${Ec2RoleName}"
                     keypair = "${Keypair}"
                     dr_keypair = "${DrKeypair}"
+                    controller_name = "${ControllerInstanceName}"
                     instance_type = "${ControllerInstanceType}"
                     root_volume_type = "${ControllerRootVolumeType}"
                     root_volume_size = "${ControllerRootVolumeSize}"
                     incoming_ssl_cidr = ["${ControllerIncomingSslCidr}"]
-                    termination_protection = "${ControllerTerminationProtection}"
+                    controller_ha_enabled = "${ControllerHaEnabled}"
+                    termination_protection = "${TerminationProtection}"
                     license_type = "${LicenseType}"
                     asg_notif_email = "${AsgNotificationEmail}"
                     s3_backup_bucket = "${S3BackupBucketName}"
@@ -1046,6 +1075,7 @@ Resources:
                     cop_type = "${CoPilotType}"
                     copilot_username = "${CoPilotUsername}"
                     copilot_email = "${CoPilotEmail}"
+                    copilot_ha_enabled = "${CoPilotHaEnabled}"
                     avx_copilot_password = "${CoPilotPassword}"
                     avx_copilot_password_ssm_path = "${CoPilotPasswordSsmPath}"
                     cop_controller_auth_ip = "${CoPilotControllerAuthIpType}"
