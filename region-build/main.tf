@@ -442,13 +442,13 @@ resource "aws_launch_template" "avtx-controller" {
   tag_specifications {
     resource_type = "instance"
 
-    tags = { Name = "AviatrixController" }
+    tags = { Name = local.ctr_tag }
   }
 
   tag_specifications {
     resource_type = "volume"
 
-    tags = { Name = "AvxController" }
+    tags = { Name = local.ctr_tag }
   }
 }
 
@@ -462,6 +462,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
+  suspended_processes       = var.controller_ha_enabled ? null : ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
 
   launch_template {
     id      = aws_launch_template.avtx-controller.id
@@ -472,7 +473,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   target_group_arns   = [aws_lb_target_group.avtx-controller.arn]
 
   warm_pool {
-    pool_state                  = var.ha_distribution == "inter-az" ? "Running" : null
+    pool_state                  = var.ha_distribution == "inter-az" ? var.standby_instance_state : null
     min_size                    = var.ha_distribution == "inter-az" ? 1 : null
     max_group_prepared_capacity = var.ha_distribution == "inter-az" ? 1 : null
   }
