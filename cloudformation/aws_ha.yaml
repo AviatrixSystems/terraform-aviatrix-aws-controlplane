@@ -801,6 +801,7 @@ Resources:
             - Ref: AWS::AccountId
             - terraform-state-software
   Adminrole:
+    DeletionPolicy: Retain
     Type: AWS::IAM::Role
     Properties:
       RoleName:
@@ -830,9 +831,78 @@ Resources:
           PolicyName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Project'
   AviatrixPlatformInitResource:
     Type: 'Custom::AviatrixPlatformInitTriggerPoint'
-    DeletionPolicy: Retain
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
     Properties:
       ServiceToken: !GetAtt AviatrixPlatformInitTriggerPoint.Arn
+      GithubSource: "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+      Region: !Ref Region
+      DrRegion: !Ref DrRegion
+      S3BackupRegion: !Ref S3BackupRegion
+      HaDistribution: !Ref HaDistribution
+      NamePrefix: !Ref NamePrefix
+      VpcName: !Ref VpcName
+      DrVpcName: !Ref DrVpcName
+      SubnetName: !Ref SubnetName
+      VpcCidr: !Ref VpcCidr
+      DrVpcCidr: !Ref DrVpcCidr
+      UseExistingVpc: !Ref UseExistingVpc
+      ExistingVpcID: !Ref ExistingVpcID
+      ExistingDrVpcID: !Ref ExistingDrVpcID
+      ExistingSubnetIDs: !Ref ExistingSubnetIDs
+      ExistingDrSubnetIDs: !Ref ExistingDrSubnetIDs
+      CreateIamRoles: !Ref CreateIamRoles
+      AppRoleName: !Ref AppRoleName
+      Ec2RoleName: !Ref Ec2RoleName
+      Keypair: !Ref Keypair
+      DrKeypair: !Ref DrKeypair
+      ControllerInstanceName: !Ref ControllerInstanceName
+      ControllerInstanceType: !Ref ControllerInstanceType
+      ControllerRootVolumeType: !Ref ControllerRootVolumeType
+      ControllerRootVolumeSize: !Ref ControllerRootVolumeSize
+      ControllerIncomingSslCidr: !Ref ControllerIncomingSslCidr
+      ControllerHaEnabled: !Ref ControllerHaEnabled
+      TerminationProtection: !Ref TerminationProtection
+      LicenseType: !Ref LicenseType
+      AsgNotificationEmail: !Ref AsgNotificationEmail
+      S3BackupBucketName: !Ref S3BackupBucketName
+      AdminEmail: !Ref AdminEmail
+      AccessAccountName: !Ref AccessAccountName
+      ControllerVersion: !Ref ControllerVersion
+      CustomerId: !Ref CustomerId
+      CustomerIdSsmPath: !Ref CustomerIdSsmPath
+      CustomerIdSsmRegion: !Ref CustomerIdSsmRegion
+      AdminPassword: !Ref AdminPassword
+      AdminPasswordSsmPath: !Ref AdminPasswordSsmPath
+      AdminPasswordSsmRegion: !Ref AdminPasswordSsmRegion
+      UseExistingEip: !Ref UseExistingEip
+      ExistingIp: !Ref ExistingIp
+      ExistingDrIp: !Ref ExistingDrIp
+      ZoneName: !Ref ZoneName
+      PrivateZone: !Ref PrivateZone
+      RecordName: !Ref RecordName
+      InterRegionBackupEnabled: !Ref InterRegionBackupEnabled
+      CoPilotName: !Ref CoPilotName
+      CoPilotDeployment: !Ref CoPilotDeployment
+      CoPilotDataNodeCount: !Ref CoPilotDataNodeCount
+      CoPilotInstanceTypeParam: !Ref CoPilotInstanceTypeParam
+      CoPilotRootVolumeType: !Ref CoPilotRootVolumeType
+      CoPilotRootVolumeSize: !Ref CoPilotRootVolumeSize
+      CoPilotDefaultDataVolumeType: !Ref CoPilotDefaultDataVolumeType
+      CoPilotDefaultDataVolumeSize: !Ref CoPilotDefaultDataVolumeSize
+      CoPilotIncomingHttpsCidr: !Ref CoPilotIncomingHttpsCidr
+      CoPilotIncomingNetflowCidr: !Ref CoPilotIncomingNetflowCidr
+      CoPilotIncomingSyslogCidr: !Ref CoPilotIncomingSyslogCidr
+      CoPilotType: !Ref CoPilotType
+      CoPilotUsername: !Ref CoPilotUsername
+      CoPilotEmail: !Ref CoPilotEmail
+      CoPilotHaEnabled: !Ref CoPilotHaEnabled
+      CoPilotPassword: !Ref CoPilotPassword
+      CoPilotPasswordSsmPath: !Ref CoPilotPasswordSsmPath
+      CoPilotControllerAuthIpType: !Ref CoPilotControllerAuthIpType
+      CoPilotUseExistingEip: !Ref CoPilotUseExistingEip
+      CoPilotExistingIp: !Ref CoPilotExistingIp
+      CoPilotExistingDrIp: !Ref CoPilotExistingDrIp
   AviatrixPlatformInitTriggerPoint:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -846,7 +916,7 @@ Resources:
         Variables:
           codebuild_name: !Ref AviatrixCodeBuild
       Code:
-        ZipFile: |
+        ZipFile: !Sub |
           import boto3
           import cfnresponse
           import json
@@ -859,20 +929,38 @@ Resources:
           urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
           def lambda_handler(event, context):
-              response = {}
               try:
+                  print(f"event: {event}")
+                  print(f"context: {context}")
+                  response = {}
+                  if event.get('RequestType') == 'Delete':
+                      cb_env_vars = [{'name': 'destroy', 'value': 'true'}]
+                  else:
+                      cb_env_vars = [{'name': 'destroy', 'value': 'false'}]
+                  env_var_exclude = ['ServiceToken', 'OldResourceProperties']
+                  for name in event['ResourceProperties']:
+                      if name not in env_var_exclude:
+                          cb_env_vars.append({'name': name, 'value': event['ResourceProperties'][name]})
+                  print(f"cb_env_vars: {cb_env_vars}")
                   codebuild_name = os.environ['codebuild_name']
                   print(f"starting lambda with codebuild_name: {codebuild_name}")
                   client = boto3.client('codebuild')
-                  client.start_build(projectName=codebuild_name)
+                  client.start_build(projectName=codebuild_name, environmentVariablesOverride=cb_env_vars)
                   print(f"started codebuild project build")
                   response["result"] = "Aviatrix HA Platform Init Trigger Success"
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
+                  print(f"test: {event.get('PhysicalResourceId')}")
+                  if event.get('PhysicalResourceId'):
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, response, event['PhysicalResourceId'])
+                  else:
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
               except Exception as err:
                   errmsg = f"Aviatrix platform init trigger failed: {traceback.format_exc()}"
                   print(errmsg)
                   response["result"] = errmsg
-                  cfnresponse.send(event, context, cfnresponse.FAILED, response)
+                  if event.get('PhysicalResourceId'):
+                      cfnresponse.send(event, context, cfnresponse.FAILED, response, event['PhysicalResourceId'])
+                  else:
+                      cfnresponse.send(event, context, cfnresponse.FAILED, response)
               return response
   CodeBuildWaitHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
@@ -884,6 +972,7 @@ Resources:
       Timeout: 1800
   AviatrixCodeBuild:
     Type: AWS::CodeBuild::Project
+    DeletionPolicy: Retain
     Properties:
       Name:
         Fn::Join:
@@ -946,6 +1035,7 @@ Resources:
                           output = subprocess.check_output(command, shell=True)
                           output = output.decode('utf-8')  # Decode the byte string to UTF-8
                           output_json = json.loads(output) # Parse the output as JSON
+                          print(f"ouput_json: {output_json}")
                           return output_json
                       except subprocess.CalledProcessError as e:
                           print(f"Failed to run 'terraform output'. Error: {e}")
@@ -982,9 +1072,9 @@ Resources:
                               action = "destroy"
                           cmd = ["terraform", action, "-auto-approve"]
                           print(cmd)
-                          subprocess.call(cmd)
+                          # subprocess.call(cmd)
                           if action == 'apply':
-                              save_tf_outputs()
+                              # save_tf_outputs()
                               send_cfn_signal(True)
                           else:
                               s3 = boto3.resource("s3")
@@ -1014,79 +1104,143 @@ Resources:
                     }
                   }
                   module "aws_controller_ha" {
-                    source = "github.com/aviatrix-automation/Aviatrix_AWS_HA?ref=dev"
-                    region = "${Region}"
-                    dr_region = "${DrRegion}"
-                    s3_backup_region = "${S3BackupRegion}"
-                    ha_distribution = "${HaDistribution}"
-                    name_prefix = "${NamePrefix}"
-                    vpc_name = "${VpcName}"
-                    dr_vpc_name = "${DrVpcName}"
-                    subnet_name = "${SubnetName}"
-                    vpc_cidr = "${VpcCidr}"
-                    dr_vpc_cidr = "${DrVpcCidr}"
-                    use_existing_vpc = "${UseExistingVpc}"
-                    vpc = "${ExistingVpcID}"
-                    dr_vpc = "${ExistingDrVpcID}"
-                    subnet_ids = ["${ExistingSubnetIDs}"]
-                    dr_subnet_ids = ["${ExistingDrSubnetIDs}"]
-                    create_iam_roles = "${CreateIamRoles}"
-                    app_role_name = "${AppRoleName}"
-                    ec2_role_name = "${Ec2RoleName}"
-                    keypair = "${Keypair}"
-                    dr_keypair = "${DrKeypair}"
-                    controller_name = "${ControllerInstanceName}"
-                    instance_type = "${ControllerInstanceType}"
-                    root_volume_type = "${ControllerRootVolumeType}"
-                    root_volume_size = "${ControllerRootVolumeSize}"
-                    incoming_ssl_cidr = ["${ControllerIncomingSslCidr}"]
-                    controller_ha_enabled = "${ControllerHaEnabled}"
-                    termination_protection = "${TerminationProtection}"
-                    license_type = "${LicenseType}"
-                    asg_notif_email = "${AsgNotificationEmail}"
-                    s3_backup_bucket = "${S3BackupBucketName}"
-                    admin_email = "${AdminEmail}"
-                    access_account_name = "${AccessAccountName}"
-                    controller_version = "${ControllerVersion}"
-                    avx_customer_id = "${CustomerId}"
-                    avx_customer_id_ssm_path = "${CustomerIdSsmPath}"
-                    avx_customer_id_ssm_region = "${CustomerIdSsmRegion}"
-                    avx_password = "${AdminPassword}"
-                    avx_password_ssm_path = "${AdminPasswordSsmPath}"
-                    avx_password_ssm_region = "${AdminPasswordSsmRegion}"
-                    use_existing_eip = "${UseExistingEip}"
-                    existing_eip = "${ExistingIp}"
-                    existing_dr_eip = "${ExistingDrIp}"
-                    zone_name = "${ZoneName}"
-                    private_zone = "${PrivateZone}"
-                    record_name = "${RecordName}"
-                    inter_region_backup_enabled = "${InterRegionBackupEnabled}"
-                    copilot_name = "${CoPilotName}"
-                    copilot_deployment = "${CoPilotDeployment}"
-                    copilot_data_node_count = "${CoPilotDataNodeCount}"
-                    cop_instance_type = "${CoPilotInstanceTypeParam}"
-                    cop_root_volume_type = "${CoPilotRootVolumeType}"
-                    cop_root_volume_size = "${CoPilotRootVolumeSize}"
-                    cop_default_data_volume_type = "${CoPilotDefaultDataVolumeType}"
-                    cop_default_data_volume_size = "${CoPilotDefaultDataVolumeSize}"
-                    cop_incoming_https_cidr = ["${CoPilotIncomingHttpsCidr}"]
-                    cop_incoming_netflow_cidr = ["${CoPilotIncomingNetflowCidr}"]
-                    cop_incoming_syslog_cidr = ["${CoPilotIncomingSyslogCidr}"]
-                    cop_type = "${CoPilotType}"
-                    copilot_username = "${CoPilotUsername}"
-                    copilot_email = "${CoPilotEmail}"
-                    copilot_ha_enabled = "${CoPilotHaEnabled}"
-                    avx_copilot_password = "${CoPilotPassword}"
-                    avx_copilot_password_ssm_path = "${CoPilotPasswordSsmPath}"
-                    cop_controller_auth_ip = "${CoPilotControllerAuthIpType}"
-                    use_existing_copilot_eip = "${CoPilotUseExistingEip}"
-                    existing_copilot_eip = "${CoPilotExistingIp}"
-                    existing_copilot_dr_eip = "${CoPilotExistingDrIp}"
+                    source = "$GithubSource"
+                    region = "$Region"
+                    dr_region = "$DrRegion"
+                    s3_backup_region = "$S3BackupRegion"
+                    ha_distribution = "$HaDistribution"
+                    name_prefix = "$NamePrefix"
+                    vpc_name = "$VpcName"
+                    dr_vpc_name = "$DrVpcName"
+                    subnet_name = "$SubnetName"
+                    vpc_cidr = "$VpcCidr"
+                    dr_vpc_cidr = "$DrVpcCidr"
+                    use_existing_vpc = "$UseExistingVpc"
+                    vpc = "$ExistingVpcID"
+                    dr_vpc = "$ExistingDrVpcID"
+                    subnet_ids = ["$ExistingSubnetIDs"]
+                    dr_subnet_ids = ["$ExistingDrSubnetIDs"]
+                    create_iam_roles = "$CreateIamRoles"
+                    app_role_name = "$AppRoleName"
+                    ec2_role_name = "$Ec2RoleName"
+                    keypair = "$Keypair"
+                    dr_keypair = "$DrKeypair"
+                    controller_name = "$ControllerInstanceName"
+                    instance_type = "$ControllerInstanceType"
+                    root_volume_type = "$ControllerRootVolumeType"
+                    root_volume_size = "$ControllerRootVolumeSize"
+                    incoming_ssl_cidr = ["$ControllerIncomingSslCidr"]
+                    controller_ha_enabled = "$ControllerHaEnabled"
+                    termination_protection = "$TerminationProtection"
+                    license_type = "$LicenseType"
+                    asg_notif_email = "$AsgNotificationEmail"
+                    s3_backup_bucket = "$S3BackupBucketName"
+                    admin_email = "$AdminEmail"
+                    access_account_name = "$AccessAccountName"
+                    controller_version = "$ControllerVersion"
+                    avx_customer_id = "$CustomerId"
+                    avx_customer_id_ssm_path = "$CustomerIdSsmPath"
+                    avx_customer_id_ssm_region = "$CustomerIdSsmRegion"
+                    avx_password = "$AdminPassword"
+                    avx_password_ssm_path = "$AdminPasswordSsmPath"
+                    avx_password_ssm_region = "$AdminPasswordSsmRegion"
+                    use_existing_eip = "$UseExistingEip"
+                    existing_eip = "$ExistingIp"
+                    existing_dr_eip = "$ExistingDrIp"
+                    zone_name = "$ZoneName"
+                    private_zone = "$PrivateZone"
+                    record_name = "$RecordName"
+                    inter_region_backup_enabled = "$InterRegionBackupEnabled"
+                    copilot_name = "$CoPilotName"
+                    copilot_deployment = "$CoPilotDeployment"
+                    copilot_data_node_count = "$CoPilotDataNodeCount"
+                    cop_instance_type = "$CoPilotInstanceTypeParam"
+                    cop_root_volume_type = "$CoPilotRootVolumeType"
+                    cop_root_volume_size = "$CoPilotRootVolumeSize"
+                    cop_default_data_volume_type = "$CoPilotDefaultDataVolumeType"
+                    cop_default_data_volume_size = "$CoPilotDefaultDataVolumeSize"
+                    cop_incoming_https_cidr = ["$CoPilotIncomingHttpsCidr"]
+                    cop_incoming_netflow_cidr = ["$CoPilotIncomingNetflowCidr"]
+                    cop_incoming_syslog_cidr = ["$CoPilotIncomingSyslogCidr"]
+                    cop_type = "$CoPilotType"
+                    copilot_username = "$CoPilotUsername"
+                    copilot_email = "$CoPilotEmail"
+                    copilot_ha_enabled = "$CoPilotHaEnabled"
+                    avx_copilot_password = "$CoPilotPassword"
+                    avx_copilot_password_ssm_path = "$CoPilotPasswordSsmPath"
+                    cop_controller_auth_ip = "$CoPilotControllerAuthIpType"
+                    use_existing_copilot_eip = "$CoPilotUseExistingEip"
+                    existing_copilot_eip = "$CoPilotExistingIp"
+                    existing_copilot_dr_eip = "$CoPilotExistingDrIp"
+                  }
+                  output "ha_distribution" {
+                    value = module.aws_controller_ha.ha_distribution
+                  }
+
+                  output "zone_name" {
+                    value = module.aws_controller_ha.zone_name
+                  }
+
+                  output "record_name" {
+                    value = module.aws_controller_ha.record_name
+                  }
+
+                  output "s3_backup_region" {
+                    value = module.aws_controller_ha.s3_backup_region
+                  }
+
+                  output "s3_backup_bucket" {
+                    value = module.aws_controller_ha.s3_backup_bucket
+                  }
+
+                  output "log_group_name" {
+                    value = module.aws_controller_ha.log_group_name
+                  }
+
+                  output "controller_name" {
+                    value = module.aws_controller_ha.controller_name
+                  }
+
+                  output "copilot_name" {
+                    value = module.aws_controller_ha.copilot_name
+                  }
+
+                  output "region" {
+                    value = module.aws_controller_ha.region
+                  }
+
+                  output "dr_region" {
+                    value = module.aws_controller_ha.dr_region
+                  }
+
+                  output "controller_public_ip" {
+                    value = module.aws_controller_ha.controller_public_ip
+                  }
+
+                  output "dr_controller_public_ip" {
+                    value = module.aws_controller_ha.dr_controller_public_ip
+                  }
+
+                  output "copilot_public_ip" {
+                    value = module.aws_controller_ha.copilot_public_ip
+                  }
+
+                  output "dr_copilot_public_ip" {
+                    value = module.aws_controller_ha.dr_copilot_public_ip
+                  }
+
+                  output "lb_dns_name" {
+                    value = module.aws_controller_ha.lb_dns_name
+                  }
+
+                  output "dr_lb_dns_name" {
+                    value = module.aws_controller_ha.dr_lb_dns_name
                   }
                   EOF
                 - pwd
                 - ls ./
                 - cat main.tf
+                - printenv
                 - . /tmp/aws_cred_export.txt && terraform init
             build:
               commands:
