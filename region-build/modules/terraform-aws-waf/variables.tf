@@ -1,4 +1,10 @@
-variable scope {
+variable "configure_waf" {
+  type = bool
+  description = "Weather WAF is enabled for the controller"
+  default = false
+}
+
+variable "scope" {
   type        = string
   description = "Deployment WAF deployment scope"
   default     = "REGIONAL"
@@ -7,7 +13,7 @@ variable scope {
     error_message = "Valid values for var: scope is (REGIONAL)"
   }
 }
-variable default_action {
+variable "default_action" {
   type        = string
   description = " Action to perform if none of the rules contained in the WebACL match"
   default     = "allow"
@@ -17,7 +23,7 @@ variable default_action {
   }
 }
 
-variable managed_rules {
+variable "managed_rules" {
   type        = list(any)
   default     = []
   description = <<EOF
@@ -37,7 +43,7 @@ variable managed_rules {
 EOF
 }
 
-variable ip_set_rules {
+variable "ip_set_rules" {
   type        = list(any)
   default     = []
   description = <<EOF
@@ -62,7 +68,7 @@ variable ip_set_rules {
 EOF
 }
 
-variable geo_match_rules {
+variable "geo_match_rules" {
   type        = list(any)
   default     = []
   description = <<EOF
@@ -90,43 +96,37 @@ variable "delimiter" {
   default     = "_"
 }
 
-variable visibility_config_cloudwatch_metrics_enabled {
+variable "visibility_config_cloudwatch_metrics_enabled" {
   type = bool
   description = "Whether the associated resource sends metrics to CloudWatch"
   default     = true
 }
 
-variable visibility_config_sampled_requests_enabled {
+variable "visibility_config_sampled_requests_enabled" {
   type = bool
   description = "Whether AWS WAF should store a sampling of the web requests that match the rules"
   default     = true
 }
 
-variable visibility_config_metric_name {
+variable "visibility_config_metric_name" {
   type = string
   description = "A friendly name of the CloudWatch metric"
   default     = "aviatrix_controller_waf_logs"
 }
 
-variable configure_waf {
-  type = bool
-  description = "Weather WAF is enabled for the controller"
-  default = false
-}
-
-variable alb_waf_name {
+variable "alb_waf_name" {
   type = string
   description = "Name of WAF that will be launched"
   default = "aviatrix_controller_waf"
 }
 
-variable alb_arn {
+variable "alb_arn" {
   type = string
   description = "AWS ALB ARN id for WAF association"
   default = null
 }
 
-variable tags {
+variable "tags" {
   type = map
   description = "Tags of WAF resource"
   default = {

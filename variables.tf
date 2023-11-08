@@ -473,3 +473,9 @@ variable "cert_domain_name" {
   description = "The domain name for certificate for Load Balancer"
   default     = null
 }
+
+variable "configure_waf" {
+  type = bool
+  description = "Weather WAF is enabled for the controller"
+  default = false
+}
