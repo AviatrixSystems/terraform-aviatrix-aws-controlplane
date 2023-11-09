@@ -1041,8 +1041,9 @@ Resources:
                           if destroy.lower() == "true":
                               action = "destroy"
                           cmd = ["terraform", action, "-auto-approve"]
-                          print(cmd)
-                          subprocess.call(cmd)
+                          return_code = subprocess.call(cmd)
+                          if return_code != 0:
+                              sys.exit(return_code)
                           if action == 'apply':
                               save_tf_outputs()
                           else:
