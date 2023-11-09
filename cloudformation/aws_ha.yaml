@@ -1070,7 +1070,7 @@ Resources:
                     backend "s3" {
                       bucket = "${S3StateAndSoftware}"
                       key    = "${AWS::StackName}/terraform.tfstate"
-                      region = "${Region}"
+                      region = "${AWS::Region}"
                     }
                   }
                   module "aws_controller_ha" {
