@@ -289,23 +289,23 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
    - Restore configuration from backup.
    - Update environment variables in Lambda.
 
-## Cloudformation
+## CloudFormation
 
 ### Description
-Aviatrix Platform HA for AWS is also available via Cloudformation. Users can create, update, and delete the Platform HA infrastructure using the provided ![Cloudformation Template](cloudformation/aws_ha.yaml). Al the functionalities available via Terraform are similarly available via Cloudformation.
+Aviatrix Platform HA for AWS is also available via CloudFormation. Users can create, update, and delete the Platform HA infrastructure using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml). Al the functionalities available via Terraform are similarly available via CloudFormation.
 
 ### Flow
-The Cloudformation stack will gather the input parameters from the user, and then provision the HA infrastructure using a Codebuild instance, which is managed by a Lambda function. Along with a Codebuild project, a Lambda function, the Cloudformation stack will also create an S3 bucket, several SSM parameters to save output values, as well as necessary IAM roles and policies.
+The CloudFormation stack will gather the input parameters from the user, and then provision the HA infrastructure using a Codebuild instance, which is managed by a Lambda function. Along with a Codebuild project, a Lambda function, the CloudFormation stack will also create an S3 bucket, several SSM parameters to save output values, as well as necessary IAM roles and policies.
 
 ### Deployment
-To create the HA infrastructure using Cloudformation:
-1. Create a stack using the provided ![Cloudformation Template](cloudformation/aws_ha.yaml)
+To create the HA infrastructure using CloudFormation:
+1. Create a stack using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml)
 2. Provide the required inputs, as required by the selected HA deployment
 3. Review the inputs, and create the stack
 
 ### Troubleshooting and inspection
-There are several different resources avaiable for deeper inspection of the Cloudformation deployment status
-- Cloudformation stack `Events` tab will have information regarding the Cloudformation resources, and the stack status
+There are several different resources avaiable for deeper inspection of the CloudFormation deployment status
+- CloudFormation stack `Events` tab will have information regarding the CloudFormation resources, and the stack status
 - Cloudwatch will have the following Log streams:
   - Log stream for the Lambda function
   - Log stream for the Codebuild project (sourced from the Codebuild project)
