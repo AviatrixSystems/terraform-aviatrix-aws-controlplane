@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  Aviatrix Systems - <BYOL> - Creates the necessary IAM policies, roles,
-  security group and launches Aviatrix Controller EC2 instance.
+  Aviatrix Platform HA - Provisions the necessary infrastructure to deploy the Aviatrix Platform (Controller, and CoPilot), and provide HA
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -698,117 +697,107 @@ Resources:
   HADistributionSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/ha_distribution
+      Name: /aviatrix/platform_ha/ha_distribution
       Type: String
       Value: "HA Distribution Type - currently NA"
   ZoneNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/zone_name
+      Name: /aviatrix/platform_ha/zone_name
       Type: String
       Value: "Route53 Zone Name - currently NA"
   RecordNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/record_name
+      Name: /aviatrix/platform_ha/record_name
       Type: String
       Value: "Route53 Record Name - currently NA"
   S3BackupRegionSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/s3_backup_region
+      Name: /aviatrix/platform_ha/s3_backup_region
       Type: String
       Value: "S3 Backup Region Name - currently NA"
   S3BackupBucketSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/s3_backup_bucket
+      Name: /aviatrix/platform_ha/s3_backup_bucket
       Type: String
       Value: "S3 Backup Bucket Name - currently NA"
   LogGroupSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/log_group_name
+      Name: /aviatrix/platform_ha/log_group_name
       Type: String
       Value: "Cloudwatch Log Group Name - currently NA"
   ControllerNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/controller_name
+      Name: /aviatrix/platform_ha/controller_name
       Type: String
       Value: "Controller Name - currently NA"
   CopilotNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/copilot_name
+      Name: /aviatrix/platform_ha/copilot_name
       Type: String
       Value: "CoPilot Name - currently NA"
   RegionSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/region
+      Name: /aviatrix/platform_ha/region
       Type: String
       Value: "Primary Region - currently NA"
   DrRegionSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/dr_region
+      Name: /aviatrix/platform_ha/dr_region
       Type: String
       Value: "DR Region - currently NA"
   ControllerPublicIpSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/controller_public_ip
+      Name: /aviatrix/platform_ha/controller_public_ip
       Type: String
       Value: "Controller Public IP - currently NA"
   DrControllerPublicIpSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/dr_controller_public_ip
+      Name: /aviatrix/platform_ha/dr_controller_public_ip
       Type: String
       Value: "DR Controller Public IP - currently NA"
   CopilotPublicIpSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/copilot_public_ip
+      Name: /aviatrix/platform_ha/copilot_public_ip
       Type: String
       Value: "CoPilot Public IP - currently NA"
   DrCopilotPublicIpSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/dr_copilot_public_ip
+      Name: /aviatrix/platform_ha/dr_copilot_public_ip
       Type: String
       Value: "DR CoPilot Public IP - currently NA"
   LbDnsNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/lb_dns_name
+      Name: /aviatrix/platform_ha/lb_dns_name
       Type: String
       Value: "Loadbalancer DNS name - currently NA"
   DrLbDnsNameSSM:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /aviatrix/controller/dr_lb_dns_name
+      Name: /aviatrix/platform_ha/dr_lb_dns_name
       Type: String
       Value: "DR Loadbalancer DNS name - currently NA"
   S3StateAndSoftware:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName:
-        Fn::Join:
-          - .
-          - - Ref: AWS::StackName
-            - Ref: AWS::AccountId
-            - terraform-state-software
+      BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}-avx-platform-ha-tfs'
   Adminrole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName:
-        Fn::Join:
-          - .
-          - - Ref: AWS::StackName
-            - Ref: AWS::Region
-            - codebuild
+      RoleName: !Sub '${AWS::StackName}-${AWS::Region}-AvxPlatformHA-codebuild'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -905,8 +894,8 @@ Resources:
   AviatrixPlatformInitTriggerPoint:
     Type: 'AWS::Lambda::Function'
     Properties:
-      Description: Aviatrix Platform Init - Trigger Point
-      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-Avx-HA-Init'
+      Description: Aviatrix Platform HA - Trigger the Codebuild project with the user parameters from CFN
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-AvxPlatformHA'
       Role: !GetAtt Adminrole.Arn
       Timeout: 900
       Handler: index.lambda_handler
@@ -960,13 +949,8 @@ Resources:
   AviatrixCodeBuild:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name:
-        Fn::Join:
-          - _
-          - - Ref: AWS::StackName
-            - Ref: AWS::Region
-            - TF_Apply
-      Description: build the application part for codes using terraform
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-AvxPlatformHA'
+      Description: Aviatrix Platform HA - Run the Terraform code based on user parameters from the CFN
       ServiceRole: !Ref Adminrole
       Artifacts:
         Type: NO_ARTIFACTS
@@ -1032,7 +1016,7 @@ Resources:
                               print(f"skipping output {op_key} with empty value: {tf_output[op_key]['value']}")
                           else:
                               print(f"saving output {op_key} with value {tf_output[op_key]['value']}")
-                              save_ssm_parameter(f"/aviatrix/controller/{op_key}", tf_output[op_key]['value'])
+                              save_ssm_parameter(f"/aviatrix/platform_ha/{op_key}", tf_output[op_key]['value'])
 
                   def main():
                       try:
