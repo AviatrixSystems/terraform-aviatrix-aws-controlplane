@@ -49,7 +49,7 @@ resource "aws_wafv2_web_acl" "waf_acl" {
             dynamic "rule_action_override" {
               for_each = lookup(rule.value, "name", null) == null ? [] : [rule]
               content {
-                name = rule.value.excluded_rule # the name must give
+                name = rule.value.name # the name must give
                 action_to_use {
                   count {}
                 }

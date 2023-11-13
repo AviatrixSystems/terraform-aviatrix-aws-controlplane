@@ -47,3 +47,15 @@ resource "aws_lb_target_group" "avtx-controller" {
     create_before_destroy = true
   }
 }
+
+module "controller_alb_waf" {
+  source = "./modules/terraform-aws-waf"
+
+  configure_waf                                = true
+  alb_waf_name                                 =  "aviatrix_controller_waf"
+  alb_arn                                      = aws_lb.avtx-controller.arn
+  managed_rules                                = var.managed_rules
+  ip_set_rules                                 = var.ip_set_rules
+  geo_match_rules                              = var.geo_match_rules
+  depends_on = [ aws_lb.avtx-controller ]
+}
