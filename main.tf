@@ -78,6 +78,9 @@ module "region1" {
   load_balancer_type            = var.load_balancer_type
   cert_domain_name              = var.load_balancer_type == "application" ? var.cert_domain_name : null
   configure_waf                 = var.load_balancer_type == "application" ? (var.configure_waf == true ? var.configure_waf : null): "WAF is only configured When LB type is application"
+  waf_managed_rules             = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_managed_rules : null
+  waf_ip_set_rules              = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_ip_set_rules : null
+  waf_geo_match_rules           = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_geo_match_rules : null
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -152,11 +155,14 @@ module "region2" {
   existing_copilot_eip          = var.existing_copilot_dr_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
-  standby_instance_state         = var.standby_instance_state
+  standby_instance_state        = var.standby_instance_state
   load_balancer_type            = var.load_balancer_type
   cert_domain_name              = var.load_balancer_type == "application" ? var.cert_domain_name : null
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   configure_waf                 = var.load_balancer_type == "application" ? (var.configure_waf == true ? var.configure_waf : null): "WAF is only configured When LB type is application"
+  waf_managed_rules             = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_managed_rules : null
+  waf_ip_set_rules              = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_ip_set_rules : null
+  waf_geo_match_rules           = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_geo_match_rules : null
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
 }

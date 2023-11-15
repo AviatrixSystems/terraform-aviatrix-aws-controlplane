@@ -1,4 +1,4 @@
-variable "managed_rules" {
+variable "waf_managed_rules" {
     type = list
     default = [
         {
@@ -75,12 +75,12 @@ variable "managed_rules" {
 ]
 }
 
-variable "ip_set_rules" {
+variable "waf_ip_set_rules" {
     type = list 
     default = []
 } 
 
-variable "geo_match_rules" {
+variable "waf_geo_match_rules" {
     type = list 
     default = []
 }

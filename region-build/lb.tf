@@ -54,8 +54,8 @@ module "controller_alb_waf" {
   configure_waf                                = true
   alb_waf_name                                 =  "aviatrix_controller_waf"
   alb_arn                                      = aws_lb.avtx-controller.arn
-  managed_rules                                = var.managed_rules
-  ip_set_rules                                 = var.ip_set_rules
-  geo_match_rules                              = var.geo_match_rules
+  managed_rules                                = var.waf_managed_rules
+  ip_set_rules                                 = var.waf_ip_set_rules
+  geo_match_rules                              = var.waf_geo_match_rules
   depends_on = [ aws_lb.avtx-controller ]
 }

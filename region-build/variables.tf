@@ -450,3 +450,21 @@ variable "configure_waf" {
   type = bool
   description = "Weather WAF is enabled for the controller"
 }
+
+variable "waf_managed_rules" {
+    type = list
+    description = "aws waf rule policies"
+    default = null
+}
+
+variable "waf_ip_set_rules" {
+    type = list 
+    description = "aws waf rule for ipset"
+    default = []
+} 
+
+variable "waf_geo_match_rules" {
+    type = list 
+    description = "aws waf rule for geo location"
+    default = []
+}
