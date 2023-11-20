@@ -1,5 +1,5 @@
 resource "aws_wafv2_web_acl" "waf_acl" {
-  count       = var.configure_waf ? 1 : 0
+  count       = var.configure_waf == true ? 1 : 0
   name        = var.alb_waf_name
   scope       = var.scope
   description = join(" ", ["Aviatrix MGMT", var.scope, "WAF"])
@@ -23,18 +23,19 @@ resource "aws_wafv2_web_acl" "waf_acl" {
   }
 
   dynamic "rule" {
-    for_each = var.managed_rules
+    for_each = var.waf_managed_rules
     content {
       name     = rule.value.name
       priority = rule.value.priority
 
+
       override_action {
         dynamic "count" {
-          for_each = lookup(rule.value, "override_action", "none") == "count" ? ["count"] : []
+          for_each = lookup(rule.value, "rule_override_action", "none") == "count" ? ["count"] : []
           content {}
         }
         dynamic "none" {
-          for_each = lookup(rule.value, "override_action", "none") == "none" ? ["none"] : []
+          for_each = lookup(rule.value, "rule_override_action", "none") == "none" ? ["none"] : []
           content {}
         }
       }
@@ -45,13 +46,31 @@ resource "aws_wafv2_web_acl" "waf_acl" {
           content {
             name        = rule.value.name
             vendor_name = rule.value.vendor_name
-
             dynamic "rule_action_override" {
               for_each = lookup(rule.value, "name", null) == null ? [] : [rule]
               content {
                 name = rule.value.name # the name must give
                 action_to_use {
-                  count {}
+                  dynamic "count" {
+                    for_each = lookup(rule.value,"rule_group_override_action",null) == "count" ? ["count"] : []
+                    content{} 
+                  }
+                  dynamic "block" {
+                    for_each = lookup(rule.value,"rule_group_override_action",null) == "block" ? ["block"] : []
+                    content{} 
+                  }
+                  dynamic "allow" {
+                    for_each = lookup(rule.value,"rule_group_override_action",null) == "allow" ? ["allow"] : []
+                    content{} 
+                  }
+                  dynamic "captcha" {
+                    for_each = lookup(rule.value,"rule_group_override_action",null) == "captcha" ? ["captcha"] : []
+                    content{} 
+                  }
+                  dynamic "challenge" {
+                    for_each = lookup(rule.value,"rule_group_override_action",null) == "challenge" ? ["block"] : []
+                    content{} 
+                  }
                 }
               }
             }
@@ -102,7 +121,7 @@ resource "aws_wafv2_web_acl" "waf_acl" {
   }
 
   dynamic "rule" {
-    for_each = var.ip_set_rules
+    for_each = var.waf_ip_set_rules
     content {
       name     = join(var.delimiter, [var.alb_waf_name, rule.value.name, lookup(rule.value, "action", "count")])
       priority = rule.value.priority
@@ -148,7 +167,7 @@ resource "aws_wafv2_web_acl" "waf_acl" {
   }
 
   dynamic "rule" {
-    for_each = var.geo_match_rules
+    for_each = var.waf_geo_match_rules
     content {
       name     = join(var.delimiter, [var.alb_waf_name, "geo-match", rule.value.priority, lookup(rule.value, "action", "count")])
       priority = rule.value.priority
@@ -194,13 +213,13 @@ resource "aws_wafv2_web_acl" "waf_acl" {
 }
 
 resource "aws_wafv2_ip_set" "default" {
-  count = var.configure_waf && var.ip_set_rules != [] ? length(var.ip_set_rules) : 0
-  name  = join(var.delimiter, [var.alb_waf_name, var.ip_set_rules[count.index].name])
+  count = var.configure_waf == true ? length(var.waf_ip_set_rules) : 0
+  name  = join(var.delimiter, [var.alb_waf_name, var.waf_ip_set_rules[count.index].name])
   tags  = var.tags
 
   scope              = var.scope
-  ip_address_version = lookup(var.ip_set_rules[count.index], "ip_address_version", "IPV4")
-  addresses          = var.ip_set_rules[count.index].addresses
+  ip_address_version = lookup(var.waf_ip_set_rules[count.index], "ip_address_version", "IPV4")
+  addresses          = var.waf_ip_set_rules[count.index].addresses
 
   lifecycle {
     create_before_destroy = true

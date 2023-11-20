@@ -474,8 +474,3 @@ variable "cert_domain_name" {
   default     = null
 }
 
-variable "configure_waf" {
-  type = bool
-  description = "Weather WAF is enabled for the controller"
-  default = false
-}

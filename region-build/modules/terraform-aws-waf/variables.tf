@@ -23,7 +23,7 @@ variable "default_action" {
   }
 }
 
-variable "managed_rules" {
+variable "waf_managed_rules" {
   type        = list(any)
   default     = []
   description = <<EOF
@@ -43,9 +43,9 @@ variable "managed_rules" {
 EOF
 }
 
-variable "ip_set_rules" {
+variable "waf_ip_set_rules" {
   type        = list(any)
-  default     = []
+  # default     = []
   description = <<EOF
   A rule statement used to detect web requests coming from particular IP addresses or address ranges. A list of maps with the following syntax:
 
@@ -68,9 +68,9 @@ variable "ip_set_rules" {
 EOF
 }
 
-variable "geo_match_rules" {
+variable "waf_geo_match_rules" {
   type        = list(any)
-  default     = []
+  # default     = []
   description = <<EOF
   A rule statement used to identify web requests based on country of origin. A list of maps with the following syntax:
 

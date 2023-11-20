@@ -51,11 +51,11 @@ resource "aws_lb_target_group" "avtx-controller" {
 module "controller_alb_waf" {
   source = "./modules/terraform-aws-waf"
 
-  configure_waf                                = true
+  configure_waf                                = var.configure_waf
   alb_waf_name                                 =  "aviatrix_controller_waf"
   alb_arn                                      = aws_lb.avtx-controller.arn
-  managed_rules                                = var.waf_managed_rules
-  ip_set_rules                                 = var.waf_ip_set_rules
-  geo_match_rules                              = var.waf_geo_match_rules
+  waf_managed_rules                                = var.waf_managed_rules
+  waf_ip_set_rules                                 = var.waf_ip_set_rules
+  waf_geo_match_rules                              = var.waf_geo_match_rules
   depends_on = [ aws_lb.avtx-controller ]
 }
