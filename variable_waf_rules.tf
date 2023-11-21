@@ -38,55 +38,81 @@ variable "waf_managed_rules" {
             cloudwatch_metrics_enabled = true
             sampled_requests_enabled   = true
         },
-        # {
-        #     name                       = "AWSManagedRulesAnonymousIpList"
-        #     vendor_name                = "AWS"
-        #     priority                   = 40
-        #     rule_override_action       = "none"
-        #     rule_group_override_action = "block"
-        #     saml_endpoint_name_bypass  = null
-        #     cloudwatch_metrics_enabled = true
-        #     sampled_requests_enabled   = true
-        # },
-        # {
-        #     name                       = "AWSManagedRulesSQLiRuleSet"
-        #     vendor_name                = "AWS"
-        #     priority                   = 50
-        #     rule_override_action       = "none"
-        #     rule_group_override_action = "block"
-        #     saml_endpoint_name_bypass  = null
-        #     cloudwatch_metrics_enabled = true
-        #     sampled_requests_enabled   = true
-        # },
-        # {
-        #     name                       = "AWSManagedRulesLinuxRuleSet"
-        #     vendor_name                = "AWS"
-        #     priority                   = 60
-        #     rule_override_action       = "none"
-        #     rule_group_override_action = "block"
-        #     saml_endpoint_name_bypass  = null
-        #     cloudwatch_metrics_enabled = true
-        #     sampled_requests_enabled   = true
-        # },
-        # {
-        #     name                       = "AWSManagedRulesUnixRuleSet"
-        #     vendor_name                = "AWS"
-        #     priority                   = 70
-        #     rule_override_action       = "none"
-        #     rule_group_override_action = "block"
-        #     saml_endpoint_name_bypass  = null
-        #     cloudwatch_metrics_enabled = true
-        #     sampled_requests_enabled   = true
-        # }
+        {
+            name                       = "AWSManagedRulesAnonymousIpList"
+            vendor_name                = "AWS"
+            priority                   = 40
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesSQLiRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 50
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesLinuxRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 60
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesUnixRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 70
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        }
 ]
 }
 
 variable "waf_ip_set_rules" {
-    type = list 
-    default = []
+    type = list
+    default = [
+        {
+            name = "ipser1"
+            priority = 0
+            action = "allow"
+            ip_address_version = "IPV4"
+            addresses = ["60.251.116.2/32"] # taipei office address
+            forwarded_ip_config = {
+                fallback_behavior = "MATCH"
+                header_name = "Header"
+            }
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled = true
+        }
+    ]
 } 
 
 variable "waf_geo_match_rules" {
     type = list 
-    default = []
+    default = [
+        {
+            country_codes = ["TW"]
+            priority = 1
+            action = "block"
+            forwarded_ip_config = {
+                fallback_behavior = "MATCH"
+                header_name = "Header"
+            }
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled = true
+        }
+    ]
 }
