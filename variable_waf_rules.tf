@@ -84,35 +84,35 @@ variable "waf_managed_rules" {
 variable "waf_ip_set_rules" {
     type = list
     default = [
-        {
-            name = "ipser1"
-            priority = 0
-            action = "allow"
-            ip_address_version = "IPV4"
-            addresses = ["60.251.116.2/32"] # taipei office address
-            forwarded_ip_config = {
-                fallback_behavior = "MATCH"
-                header_name = "Header"
-            }
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled = true
-        }
+        # {
+        #     name = "ipser1"
+        #     priority = 0
+        #     action = "allow"
+        #     ip_address_version = "IPV4"
+        #     addresses = ["60.251.116.2/32"] # taipei office address
+        #     forwarded_ip_config = {
+        #         fallback_behavior = "MATCH"
+        #         header_name = "Header"
+        #     }
+        #     cloudwatch_metrics_enabled = true
+        #     sampled_requests_enabled = true
+        # }
     ]
 } 
 
 variable "waf_geo_match_rules" {
     type = list 
     default = [
-        {
-            country_codes = ["TW"]
-            priority = 1
-            action = "block"
-            forwarded_ip_config = {
-                fallback_behavior = "MATCH"
-                header_name = "Header"
-            }
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled = true
-        }
+        # {
+        #     country_codes = ["TW"]
+        #     priority = 1
+        #     action = "block"
+        #     forwarded_ip_config = {
+        #         fallback_behavior = "MATCH"
+        #         header_name = "Header"
+        #     }
+        #     cloudwatch_metrics_enabled = true
+        #     sampled_requests_enabled = true
+        # }
     ]
 }
