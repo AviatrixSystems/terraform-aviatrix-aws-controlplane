@@ -208,7 +208,9 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
+| cert_domain_name               | none                              | Certificate for the domain of the application load balancer. It is mandantory to configure when load balancer type is `application`.                                                                                                                                |
 | controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
+| configure_waf               | false                              | Whether AWS WAF is enabled for the Controller access.                                                                                                                                 |
 | copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
 | controller_name            |                                 | Name of Controller.                                                                                                                                                                                       |
@@ -242,6 +244,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | inter_region_backup_enabled   | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
 | keypair                       |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
 | license_type                  | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
+| load_balance_type                  | network                                    | Type of load balancer, can be `network` or `application`                                                                                                                                                                                  |
 | name_prefix                   | avx                                     | Additional name prefix for resources created by this module                                                                                                                                                                                    |
 | private_zone                  | false                                   | Set to ` true` if Route 53 zone is private type                                                                                                                                                                                                |
 | record_name                   | true                                    | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.                                                                                                      |
@@ -261,6 +264,9 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | vpc                           | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
+| waf_managed_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of managed rule group.                                                                                                                                              |
+| waf_ip_set_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of IP Set policy rule.                                                                                                                                              |
+| waf_geo_match_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of Geo IP Set policy rule.                                                                                                                                              |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
 
 ### Additional Information
@@ -377,3 +383,100 @@ Enable HA by updating the Auto Scaling Group(s):
 
   ### Warm Pool instance state of AWS Autoscaling Group
   The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
+
+  ### WAF support for Front End Protection in Aviatrix Controller
+  WAF can be enabled for basic front end access protection. There are 2 scenarios case 
+
+  ## Using default WAF rules 
+  Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
+  - AWS Managed Rules - Common Ruleset 
+  - AWS Managed Rules - Known Bad Inputs Ruleset 
+  - AWS Managed Rules - Amazon IP Reputation List 
+  - AWS Managed Rules - Anonymous IP List
+  - AWS Managed Rules - SQLite Ruleset 
+  - AWS Managed Rules - Linux Ruleset
+  - AWS Managed Rules - Unix Ruleset
+
+## Using custimized WAF rules
+Customer can define his own preferred rules upon specific data strucure format
+
+# Example for managed rules
+
+```
+variable "waf_managed_rules" {
+    type = list
+    default = [
+        {
+            name                       = "AWSManagedRulesCommonRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 10
+            rule_override_action       = "none" #rule_override_action
+            rule_group_override_action = "block" # rule_group_override_action 
+            saml_endpoint_name_bypass  = "avx_controller"
+            saml_bypass_rule_label     = "awswaf:managed:aws:core-rule-set:SizeRestrictions_Body" # ref.: https://repost.aws/knowledge-center/waf-http-request-body-inspection
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesKnownBadInputsRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 20
+            rule_override_action       = "none"
+            rule_group_override_action = "challenge"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesAmazonIpReputationList"
+            vendor_name                = "AWS"
+            priority                   = 30
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesAnonymousIpList"
+            vendor_name                = "AWS"
+            priority                   = 40
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesSQLiRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 50
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesLinuxRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 60
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        },
+        {
+            name                       = "AWSManagedRulesUnixRuleSet"
+            vendor_name                = "AWS"
+            priority                   = 70
+            rule_override_action       = "none"
+            rule_group_override_action = "block"
+            saml_endpoint_name_bypass  = null
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled   = true
+        }
+]
+}
+```
