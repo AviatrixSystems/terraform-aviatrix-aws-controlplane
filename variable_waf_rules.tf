@@ -89,7 +89,7 @@ variable "waf_ip_set_rules" {
         #     priority = 0
         #     action = "allow"
         #     ip_address_version = "IPV4"
-        #     addresses = ["60.251.116.2/32"] # taipei office address
+        #     addresses = ["x.x.x.x./32"] 
         #     forwarded_ip_config = {
         #         fallback_behavior = "MATCH"
         #         header_name = "Header"
@@ -104,7 +104,7 @@ variable "waf_geo_match_rules" {
     type = list 
     default = [
         # {
-        #     country_codes = ["TW"]
+        #     country_codes = ["US"]
         #     priority = 1
         #     action = "block"
         #     forwarded_ip_config = {

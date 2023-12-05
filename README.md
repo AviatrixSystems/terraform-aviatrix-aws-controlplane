@@ -387,7 +387,7 @@ Enable HA by updating the Auto Scaling Group(s):
   ### WAF support for Front End Protection in Aviatrix Controller
   WAF can be enabled for basic front end access protection. There are 2 scenarios case 
 
-  ## Using default WAF rules 
+  ### Using default WAF rules 
   Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
   - AWS Managed Rules - Common Ruleset 
   - AWS Managed Rules - Known Bad Inputs Ruleset 
@@ -397,10 +397,10 @@ Enable HA by updating the Auto Scaling Group(s):
   - AWS Managed Rules - Linux Ruleset
   - AWS Managed Rules - Unix Ruleset
 
-#### Using custimized WAF rules
-Customer can define his own preferred rules upon specific data strucure format
+  ### Using custimized WAF rules
+  Customer can define his own preferred rules upon specific data strucure format
 
-#### Example for managed rules
+  #### Example for managed rules
 
 ```
 variable "waf_managed_rules" {
@@ -478,5 +478,47 @@ variable "waf_managed_rules" {
             sampled_requests_enabled   = true
         }
 ]
+}
+```
+
+#### Example for IP Set rules
+```
+variable "waf_ip_set_rules" {
+    type = list
+    default = [
+        {
+            name = "ipser1"
+            priority = 0
+            action = "allow"
+            ip_address_version = "IPV4"
+            addresses = ["x.x.x.x./32"] # the maks length /0 is not supported
+            forwarded_ip_config = {
+                fallback_behavior = "MATCH"
+                header_name = "Header"
+            }
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled = true
+        }
+    ]
+} 
+```
+
+#### Example for Geo Match rules
+```
+variable "waf_geo_match_rules" {
+    type = list 
+    default = [
+        {
+            country_codes = ["US"]
+            priority = 1
+            action = "block"
+            forwarded_ip_config = {
+                fallback_behavior = "MATCH"
+                header_name = "Header"
+            }
+            cloudwatch_metrics_enabled = true
+            sampled_requests_enabled = true
+        }
+    ]
 }
 ```
