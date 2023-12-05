@@ -398,7 +398,7 @@ Enable HA by updating the Auto Scaling Group(s):
   - AWS Managed Rules - Unix Ruleset
 
   ### Using custimized WAF rules
-  Customer can define his own preferred rules upon specific data strucure format
+  Customer can define his own preferred rules upon specific data strucure format. 
   The detail of variable value can refer [here](https://registry.terraform.io/providers/hashicorp/aws/5.16.1/docs/resources/wafv2_web_acl)
 
   #### Example for managed rules
