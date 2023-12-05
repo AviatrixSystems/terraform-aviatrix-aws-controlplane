@@ -4,7 +4,7 @@ resource "aws_lb" "avtx-controller" {
   load_balancer_type               = var.load_balancer_type
   security_groups                  = var.load_balancer_type == "application" ? tolist([aws_security_group.AviatrixSecurityGroup.id,aws_security_group.AviatrixCopilotSecurityGroup.id]) : null
   enable_cross_zone_load_balancing = true
-  idle_timeout                     = "300"
+  idle_timeout                     = var.load_balancer_type == "application" ? "900" : "300"
   subnets                          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
 
   tags = {
