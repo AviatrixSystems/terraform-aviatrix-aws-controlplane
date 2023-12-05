@@ -385,7 +385,11 @@ Enable HA by updating the Auto Scaling Group(s):
   The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
 
   ### WAF support for Front End Protection in Aviatrix Controller
-  WAF can be enabled for basic front end access protection. There are 2 scenarios case 
+  WAF can be enabled for basic front-end access protection. To support this function, there are a few requirements:  
+  - The WAF deployment needs to be on an AWS application load balancer. Please ensure that the `load_balancer_type` is configured as `application`
+  - Certificate signing via AWS Certificate Manager is required for ALB support. Please ensure that your certificate's state is set to 'ISSUED' in AWS Certificate Manager."
+  
+  There are 2 scenarios case 
 
   ### Using default WAF rules 
   Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
