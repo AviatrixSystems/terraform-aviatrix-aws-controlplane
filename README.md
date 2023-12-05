@@ -397,10 +397,10 @@ Enable HA by updating the Auto Scaling Group(s):
   - AWS Managed Rules - Linux Ruleset
   - AWS Managed Rules - Unix Ruleset
 
-## Using custimized WAF rules
+#### Using custimized WAF rules
 Customer can define his own preferred rules upon specific data strucure format
 
-# Example for managed rules
+#### Example for managed rules
 
 ```
 variable "waf_managed_rules" {
