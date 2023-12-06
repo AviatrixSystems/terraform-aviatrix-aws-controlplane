@@ -1,6 +1,6 @@
 variable "configure_waf" {
   type = bool
-  description = "Weather WAF is enabled for the controller"
+  description = "Whether WAF is enabled for the controller"
   default = false
 }
 

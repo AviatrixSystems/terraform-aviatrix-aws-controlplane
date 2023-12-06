@@ -208,7 +208,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
-| cert_domain_name               | none                              | Certificate for the domain of the application load balancer. It is mandantory to configure when load balancer type is `application`.                                                                                                                                |
+| cert_domain_name               | none                              | Certificate for the domain of the application load balancer. It is mandantory to configure when `load_balancer_type` is `application`.                                                                                                                                |
 | controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
 | configure_waf               | false                              | Whether AWS WAF is enabled for the Controller access.                                                                                                                                 |
 | copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                |
@@ -244,7 +244,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | inter_region_backup_enabled   | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
 | keypair                       |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
 | license_type                  | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
-| load_balance_type                  | network                                    | Type of load balancer, can be `network` or `application`                                                                                                                                                                                  |
+| load_balancer_type                  | network                                    | Type of load balancer, can be `network` or `application`                                                                                                                                                                                  |
 | name_prefix                   | avx                                     | Additional name prefix for resources created by this module                                                                                                                                                                                    |
 | private_zone                  | false                                   | Set to ` true` if Route 53 zone is private type                                                                                                                                                                                                |
 | record_name                   | true                                    | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.                                                                                                      |
@@ -384,15 +384,15 @@ Enable HA by updating the Auto Scaling Group(s):
   ### Warm Pool instance state of AWS Autoscaling Group
   The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
 
-  ### WAF support for Front End Protection in Aviatrix Controller
-  WAF can be enabled for basic front-end access protection. To support this function, there are a few requirements:  
+  ### WAF support for Aviatrix Controller
+  WAF can be enabled for basic protection. To support this function, there are a few requirements:  
   - The WAF deployment needs to be on an AWS application load balancer. Please ensure that the `load_balancer_type` is configured as `application`
   - Certificate signing via AWS Certificate Manager is required for ALB support. Please ensure that your certificate's state is set to 'ISSUED' in AWS Certificate Manager."
   
   There are 2 scenarios case 
 
   ### Using default WAF rules 
-  Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
+  If user doesnt specify WAF rule, Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
   - AWS Managed Rules - Common Ruleset 
   - AWS Managed Rules - Known Bad Inputs Ruleset 
   - AWS Managed Rules - Amazon IP Reputation List 
