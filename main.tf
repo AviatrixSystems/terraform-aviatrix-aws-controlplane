@@ -406,4 +406,9 @@ resource "aws_route53_record" "avx_primary" {
   #   type = "PRIMARY"
   # }
   # health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
+  lifecycle {
+    ignore_changes = [ 
+      alias
+      ]
+  }
 }
