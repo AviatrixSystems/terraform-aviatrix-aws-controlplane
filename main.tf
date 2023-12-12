@@ -1,9 +1,9 @@
 resource "null_resource" "region_conflict" {
-  count                         = var.ha_distribution == "inter-region" ? 1 : 0
+  count = var.ha_distribution == "inter-region" ? 1 : 0
   lifecycle {
     precondition {
-      condition                 = var.region != var.dr_region ? true : false
-      error_message             = "region and dr_region should be different regions"
+      condition     = var.region != var.dr_region ? true : false
+      error_message = "region and dr_region should be different regions"
     }
   }
 }
@@ -50,7 +50,7 @@ module "region1" {
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
   vpc                           = var.vpc
-  subnet_ids                  = var.subnet_ids
+  subnet_ids                    = var.subnet_ids
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
   iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn
@@ -74,7 +74,7 @@ module "region1" {
   existing_copilot_eip          = var.existing_copilot_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
-  standby_instance_state         = var.standby_instance_state
+  standby_instance_state        = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -125,7 +125,7 @@ module "region2" {
   controller_version            = var.controller_version
   use_existing_vpc              = var.use_existing_vpc
   vpc                           = var.dr_vpc
-  subnet_ids                  = var.dr_subnet_ids
+  subnet_ids                    = var.dr_subnet_ids
   name_prefix                   = var.name_prefix
   license_type                  = var.license_type
   iam_for_ecs_arn               = aws_iam_role.iam_for_ecs.arn
@@ -149,10 +149,10 @@ module "region2" {
   existing_copilot_eip          = var.existing_copilot_dr_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
-  standby_instance_state         = var.standby_instance_state
+  standby_instance_state        = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
-  depends_on = [ null_resource.region_conflict ]
+  depends_on = [null_resource.region_conflict]
 }
 
 module "aviatrix-iam-roles" {
@@ -381,8 +381,8 @@ locals {
 data "aws_caller_identity" "current" {}
 
 data "aws_route53_zone" "avx_zone" {
-  count = var.ha_distribution == "inter-region" ? 1 : 0
-  name  = var.zone_name
+  count        = var.ha_distribution == "inter-region" ? 1 : 0
+  name         = var.zone_name
   private_zone = var.private_zone
 }
 
@@ -407,8 +407,8 @@ resource "aws_route53_record" "avx_primary" {
   # }
   # health_check_id = aws_route53_health_check.aviatrix_controller_health_check[0].id
   lifecycle {
-    ignore_changes = [ 
+    ignore_changes = [
       alias
-      ]
+    ]
   }
 }
