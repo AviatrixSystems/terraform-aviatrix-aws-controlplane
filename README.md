@@ -264,9 +264,6 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | vpc                           | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
-| waf_managed_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of managed rule group.                                                                                                                                              |
-| waf_ip_set_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of IP Set policy rule.                                                                                                                                              |
-| waf_geo_match_rules                      | refer WAF section in Caveats                          | The list of set contains the elements of Geo IP Set policy rule.                                                                                                                                              |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
 
 ### Additional Information
@@ -400,130 +397,94 @@ Enable HA by updating the Auto Scaling Group(s):
   - AWS Managed Rules - SQLite Ruleset 
   - AWS Managed Rules - Linux Ruleset
   - AWS Managed Rules - Unix Ruleset
-
-  ### Using custimized WAF rules
-  Customer can define his own preferred rules upon specific data strucure format. 
-  The detail of variable value can refer [here](https://registry.terraform.io/providers/hashicorp/aws/5.16.1/docs/resources/wafv2_web_acl)
-
-  #### Example for managed rules
-
+  #### WAF deployment with basic rules 
 ```
-variable "waf_managed_rules" {
-    type = list
-    default = [
-        {
-            name                       = "AWSManagedRulesCommonRuleSet"
-            vendor_name                = "AWS"
-            priority                   = 10
-            rule_override_action       = "none" #rule_override_action
-            rule_group_override_action = "block" # rule_group_override_action 
-            saml_endpoint_name_bypass  = "avx_controller"
-            saml_bypass_rule_label     = "awswaf:managed:aws:core-rule-set:SizeRestrictions_Body" # ref.: https://repost.aws/knowledge-center/waf-http-request-body-inspection
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesKnownBadInputsRuleSet"
-            vendor_name                = "AWS"
-            priority                   = 20
-            rule_override_action       = "none"
-            rule_group_override_action = "challenge"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesAmazonIpReputationList"
-            vendor_name                = "AWS"
-            priority                   = 30
-            rule_override_action       = "none"
-            rule_group_override_action = "block"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesAnonymousIpList"
-            vendor_name                = "AWS"
-            priority                   = 40
-            rule_override_action       = "none"
-            rule_group_override_action = "block"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesSQLiRuleSet"
-            vendor_name                = "AWS"
-            priority                   = 50
-            rule_override_action       = "none"
-            rule_group_override_action = "block"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesLinuxRuleSet"
-            vendor_name                = "AWS"
-            priority                   = 60
-            rule_override_action       = "none"
-            rule_group_override_action = "block"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        },
-        {
-            name                       = "AWSManagedRulesUnixRuleSet"
-            vendor_name                = "AWS"
-            priority                   = 70
-            rule_override_action       = "none"
-            rule_group_override_action = "block"
-            saml_endpoint_name_bypass  = null
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled   = true
-        }
-]
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  cert_domain_name         = "xxx.xxx.com"
+  configure_waf = true
 }
 ```
 
-#### Example for IP Set rules
-```
-variable "waf_ip_set_rules" {
-    type = list
-    default = [
-        {
-            name = "ipser1"
-            priority = 0
-            action = "allow"
-            ip_address_version = "IPV4"
-            addresses = ["x.x.x.x./32"] # the maks length /0 is not supported
-            forwarded_ip_config = {
-                fallback_behavior = "MATCH"
-                header_name = "Header"
-            }
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled = true
-        }
-    ]
-} 
-```
+  ### Customized WAF use case
+ This module provides basic AWS WAF rules as part of the Aviatrix HA (High Availability) solution.
+ 
+ If you need to extend the functionality with custom rules:
+  - Refer the module's output parameter  `alb_arn`.
+  - You can then add new WAF rules according to your specific requirements.
 
-#### Example for Geo Match rules
+If the basic AWS WAF rules provided by the Aviatrix HA Module are not required:
+  - Set `configure_waf` to `false` ( default is `false`).
+  - Refer to the module's `alb_arn` for integration points.
+  - Create and manage your WAF rules as per your needs.
+
+#### WAF deployment with basic rules and extended rule
 ```
-variable "waf_geo_match_rules" {
-    type = list 
-    default = [
-        {
-            country_codes = ["US"]
-            priority = 1
-            action = "block"
-            forwarded_ip_config = {
-                fallback_behavior = "MATCH"
-                header_name = "Header"
-            }
-            cloudwatch_metrics_enabled = true
-            sampled_requests_enabled = true
-        }
-    ]
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  cert_domain_name         = "xxx.xxx.com"
+  configure_waf = true
+}
+
+resource "aws_wafv2_web_acl" "example" {
+  name        = "example-acl"
+  description = "Example ACL"
+  scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
+  --- omit ---
+}
+
+resource "aws_wafv2_web_acl_association" "associate_alb" {
+  resource_arn = module.aws_controller_ha.lb_arn
+  web_acl_arn  = aws_wafv2_web_acl.example.arn
+}
+```
+#### WAF deployment with basic rules disable
+``````
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  cert_domain_name         = "xxx.xxx.com"
+  configure_waf = false
+}
+
+resource "aws_wafv2_web_acl" "example" {
+  name        = "example-acl"
+  description = "Example ACL"
+  scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
+  --- omit ---
+}
+
+resource "aws_wafv2_web_acl_association" "associate_alb" {
+  resource_arn = module.aws_controller_ha.lb_arn
+  web_acl_arn  = aws_wafv2_web_acl.example.arn
 }
 ```
