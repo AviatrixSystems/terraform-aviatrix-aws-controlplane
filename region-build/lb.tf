@@ -2,7 +2,7 @@ resource "aws_lb" "avtx-controller" {
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
   load_balancer_type               = var.load_balancer_type
-  security_groups                  = var.load_balancer_type == "application" ? tolist([aws_security_group.AviatrixSecurityGroup.id,aws_security_group.AviatrixCopilotSecurityGroup.id]) : null
+  security_groups                  = tolist([aws_security_group.AviatrixSecurityGroup.id,aws_security_group.AviatrixCopilotSecurityGroup.id])
   enable_cross_zone_load_balancing = true
   idle_timeout                     = var.load_balancer_type == "application" ? "900" : "300"
   subnets                          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
@@ -54,8 +54,5 @@ module "controller_alb_waf" {
   configure_waf                                = var.configure_waf
   alb_waf_name                                 =  "aviatrix_controller_waf"
   alb_arn                                      = aws_lb.avtx-controller.arn
-  waf_managed_rules                                = var.waf_managed_rules
-  waf_ip_set_rules                                 = var.waf_ip_set_rules
-  waf_geo_match_rules                              = var.waf_geo_match_rules
   depends_on = [ aws_lb.avtx-controller ]
 }

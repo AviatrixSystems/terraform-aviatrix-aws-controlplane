@@ -35,3 +35,11 @@ output "copilot_public_ip" {
 output "lb_dns_name" {
   value = aws_lb.avtx-controller.dns_name
 }
+
+output "lb_arn" {
+  value = aws_lb.avtx-controller.arn
+}
+
+output "waf_arn" {
+  value = var.configure_waf == true ? module.controller_alb_waf.waf_arn : ""
+}

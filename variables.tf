@@ -474,3 +474,8 @@ variable "cert_domain_name" {
   default     = null
 }
 
+variable "configure_waf" {
+  type = bool
+  description = "Whether WAF is enabled for the controller"
+  default = false
+}
