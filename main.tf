@@ -78,10 +78,7 @@ module "region1" {
   load_balancer_type            = var.load_balancer_type
   cert_domain_name              = var.load_balancer_type == "application" ? var.cert_domain_name : null
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
-  # waf_managed_rules             = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_managed_rules : []
-  # waf_ip_set_rules              = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_ip_set_rules : []
-  # waf_geo_match_rules           = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_geo_match_rules : []
-  ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
+  ecr_image = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
@@ -160,9 +157,6 @@ module "region2" {
   cert_domain_name              = var.load_balancer_type == "application" ? var.cert_domain_name : null
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
-  # waf_managed_rules             = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_managed_rules : []
-  # waf_ip_set_rules              = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_ip_set_rules : []
-  # waf_geo_match_rules           = var.load_balancer_type == "application" && var.configure_waf == true ? var.waf_geo_match_rules : []
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
 }

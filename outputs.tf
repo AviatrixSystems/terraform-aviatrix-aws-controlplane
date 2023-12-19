@@ -83,7 +83,7 @@ output "dr_lb_arn" {
 }
 
 output "waf_arn" {
-  value = var.configure_waf == true ?  module.region1.waf_arn : null
+  value = var.configure_waf == true ? module.region1.waf_arn : null
 }
 
 output "dr_waf_arn" {

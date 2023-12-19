@@ -459,13 +459,13 @@ variable "existing_copilot_dr_eip" {
 }
 
 variable "load_balancer_type" {
-  type        = string 
+  type        = string
   description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
   default     = "network"
   validation {
     condition     = contains(["network", "application"], var.load_balancer_type)
     error_message = "Valid values for var: load_balancer_type are (network, application)."
-}
+  }
 }
 
 variable "cert_domain_name" {
@@ -475,7 +475,7 @@ variable "cert_domain_name" {
 }
 
 variable "configure_waf" {
-  type = bool
+  type        = bool
   description = "Whether WAF is enabled for the controller"
-  default = false
+  default     = false
 }
