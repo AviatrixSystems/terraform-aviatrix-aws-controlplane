@@ -431,3 +431,8 @@ variable "existing_copilot_eip" {
   description = "Existing EIP to associate with the Aviatrix CoPilot"
   default     = ""
 }
+
+variable "controller_ami_id" {
+  type = string
+  description = "Set controller AMI ID"
+}

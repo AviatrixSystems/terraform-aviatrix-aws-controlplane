@@ -428,7 +428,7 @@ resource "aws_launch_template" "avtx-controller" {
     name = var.ec2_role_name
   }
 
-  image_id                             = local.ami_id
+  image_id                             = var.controller_ami_id == "" ? var.controller_ami_id : local.ami_id 
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.instance_type
   key_name                             = var.keypair
