@@ -463,3 +463,9 @@ variable "controller_ami_id" {
   description = "Set controller AMI ID"
   default = ""
 }
+
+variable "dr_controller_ami_id" {
+  type = string
+  description = "Set controller AMI ID"
+  default = ""
+}
