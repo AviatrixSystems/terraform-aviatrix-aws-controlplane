@@ -34,6 +34,8 @@ module "region1" {
   cop_instance_type             = var.cop_instance_type
   root_volume_type              = var.root_volume_type
   root_volume_size              = var.root_volume_size
+  ebs_optimized                 = var.ebs_optimized
+  monitoring                    = var.monitoring
   copilot_name                  = var.copilot_name
   copilot_username              = var.copilot_username
   copilot_email                 = var.copilot_email
@@ -109,6 +111,8 @@ module "region2" {
   cop_instance_type             = var.cop_instance_type
   root_volume_type              = var.root_volume_type
   root_volume_size              = var.root_volume_size
+  ebs_optimized                 = var.ebs_optimized
+  monitoring                    = var.monitoring
   copilot_name                  = var.copilot_name
   copilot_username              = var.copilot_username
   copilot_email                 = var.copilot_email
