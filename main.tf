@@ -76,6 +76,7 @@ module "region1" {
   copilot_ha_enabled            = var.copilot_ha_enabled
   standby_instance_state        = var.standby_instance_state
   controller_ami_id = var.controller_ami_id
+  copilot_ami_id = var.copilot_ami_id
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -151,6 +152,7 @@ module "region2" {
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
   controller_ami_id = var.dr_controller_ami_id
+  copilot_ami_id = var.dr_copilot_ami_id
   standby_instance_state        = var.standby_instance_state
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"

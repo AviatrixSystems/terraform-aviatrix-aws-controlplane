@@ -436,3 +436,8 @@ variable "controller_ami_id" {
   type = string
   description = "Set controller AMI ID"
 }
+
+variable "copilot_ami_id" {
+  type = string
+  description = "Set copliot AMI ID"
+}

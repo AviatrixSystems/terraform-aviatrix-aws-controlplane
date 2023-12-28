@@ -466,6 +466,18 @@ variable "controller_ami_id" {
 
 variable "dr_controller_ami_id" {
   type = string
-  description = "Set controller AMI ID"
+  description = "Set DR controller AMI ID"
+  default = ""
+}
+
+variable "copilot_ami_id" {
+  type = string
+  description = "Set copilot AMI ID"
+  default = ""
+}
+
+variable "dr_copilot_ami_id" {
+  type = string
+  description = "Set DR copilot AMI ID"
   default = ""
 }
