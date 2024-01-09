@@ -481,3 +481,8 @@ variable "dr_copilot_ami_id" {
   description = "Set DR copilot AMI ID"
   default = ""
 }
+
+variable "template_user_data" {
+  type = string 
+  default = ""
+}

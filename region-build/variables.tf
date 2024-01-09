@@ -441,3 +441,8 @@ variable "copilot_ami_id" {
   type = string
   description = "Set copliot AMI ID"
 }
+
+variable "template_user_data" {
+  type = string 
+  default = ""
+}

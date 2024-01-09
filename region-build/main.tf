@@ -450,6 +450,8 @@ resource "aws_launch_template" "avtx-controller" {
 
     tags = { Name = local.ctr_tag }
   }
+
+  user_data = var.template_user_data
 }
 
 data "aws_default_tags" "current" {}
