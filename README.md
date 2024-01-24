@@ -208,12 +208,12 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
-| cert_domain_name               | none                              | Certificate for the domain of the application load balancer. It is mandantory to configure when `load_balancer_type` is `application`.                                                                                                                                |
-| controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
-| configure_waf               | false                              | Whether AWS WAF is enabled for the Controller access.                                                                                                                                 |
-| copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                |
+| cert_domain_name              | none                                    | Domain name for the certificate used by the application load balancer. Required if `load_balancer_type` is `application`.                                                                                                                      |
+| controller_ha_enabled         | true                                    | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                                             |
+| configure_waf                 | false                                   | Whether AWS WAF is enabled for the Controller access.                                                                                                                                                                                          |
+| copilot_ha_enabled            | true                                    | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                                                   |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
-| controller_name            |                                 | Name of Controller.                                                                                                                                                                                       |
+| controller_name               |                                         | Name of Controller.                                                                                                                                                                                                                            |
 | cop_incoming_https_cidr       | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
 | cop_incoming_syslog_cidr      | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
 | cop_incoming_netflow_cidr     | CoPilot Netflow (UDP port 31283) access | CoPilot allowed CIDRs for Netflow acccess                                                                                                                                                                                                      |
@@ -244,7 +244,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | inter_region_backup_enabled   | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
 | keypair                       |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
 | license_type                  | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
-| load_balancer_type                  | network                                    | Type of load balancer, can be `network` or `application`                                                                                                                                                                                  |
+| load_balancer_type            | network                                 | Type of load balancer, can be `network` or `application`                                                                                                                                                                                       |
 | name_prefix                   | avx                                     | Additional name prefix for resources created by this module                                                                                                                                                                                    |
 | private_zone                  | false                                   | Set to ` true` if Route 53 zone is private type                                                                                                                                                                                                |
 | record_name                   | true                                    | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.                                                                                                      |
@@ -253,7 +253,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | root_volume_type              | gp3                                     | Root volume type for Controller                                                                                                                                                                                                                |
 | s3_backup_bucket              |                                         | S3 bucket for Controller DB backup                                                                                                                                                                                                             |
 | s3_backup_region              |                                         | Region S3 backup bucket is in                                                                                                                                                                                                                  |
-| standby_instance_state              |    Running                                     |  Instance state in Warm Pool of AWS autoscaling group. Valid values are `Running` and `Stopped`                                                                                                                                                                                                                  |
+| standby_instance_state        | Running                                 | Instance state in Warm Pool of AWS autoscaling group. Valid values are `Running` and `Stopped`                                                                                                                                                 |
 | subnet_ids                    |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | subnet_name                   | Aviatrix-Public-Subnet                  | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
 | tags                          | {}                                      | Map of common tags which should be used for module resources. Example: `{ key1 = "value1", key2 = "value2" }`                                                                                                                                  |
@@ -263,6 +263,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | use_existing_vpc              | false                                   | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                                                                                                                 |
 | vpc                           | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
+| waf_managed_rules             | Various free AWS Managed Rules          | Managed rules to apply to WAF. Only applicable if `configure_waf` is true                                                                                                                                                                      |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
 
@@ -295,19 +296,25 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 ## CloudFormation
 
 ### Description
+
 Aviatrix Platform HA for AWS is also available via CloudFormation. Users can create, update, and delete the Platform HA infrastructure using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml). Al the functionalities available via Terraform are similarly available via CloudFormation.
 
 ### Flow
+
 The CloudFormation stack will gather the input parameters from the user, and then provision the HA infrastructure using a Codebuild instance, which is managed by a Lambda function. Along with a Codebuild project, a Lambda function, the CloudFormation stack will also create an S3 bucket, several SSM parameters to save output values, as well as necessary IAM roles and policies.
 
 ### Deployment
+
 To create the HA infrastructure using CloudFormation:
+
 1. Create a stack using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml)
 2. Provide the required inputs, as required by the selected HA deployment
 3. Review the inputs, and create the stack
 
 ### Troubleshooting and inspection
+
 There are several different resources avaiable for deeper inspection of the CloudFormation deployment status
+
 - CloudFormation stack `Events` tab will have information regarding the CloudFormation resources, and the stack status
 - Cloudwatch will have the following Log streams:
   - Log stream for the Lambda function
@@ -340,64 +347,77 @@ There are several different resources avaiable for deeper inspection of the Clou
 - Controller has to be launched with a public IP address.
 
 ### Temporarily Disabling HA
+
 HA can be temporarily disabled if needed. This can be done via Terraform or by directly modifying the Auto Scaling Groups.
 
 Disable HA using Terraform:
-	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
-	- Run `terraform apply`.
-	
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
+- Run `terraform apply`.
+
 Enable HA using Terraform:
-	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
-	- Run `terraform apply`.
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
+- Run `terraform apply`.
 
 Disable HA by updating the Auto Scaling Group(s):
-	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
-	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
-	Go to Advanced configurations -> Edit.
-	Click on Suspended processes and check the following processes:
 
-	 - Launch
-	 - Terminate
-	 - HealthCheck
-	 - Replace Unhealthy
-	
-  Click on Update to save the changes.
-	Repeat this process for the other Auto Scaling Group if necessary.
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Click on Suspended processes and check the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
 
 Enable HA by updating the Auto Scaling Group(s):
-	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
-	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
-	Go to Advanced configurations -> Edit.
-	Under Suspended processes, remove the following processes:
 
-	- Launch
-	- Terminate
-	- HealthCheck
-	- Replace Unhealthy
-	
-  Click on Update to save the changes.
-	Repeat this process for the other Auto Scaling Group if necessary.
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Under Suspended processes, remove the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
 
-  ### Warm Pool instance state of AWS Autoscaling Group
-  The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
+### Warm Pool instance state of AWS Autoscaling Group
 
-  ### WAF support for Aviatrix Controller
-  WAF can be enabled for basic protection. To support this function, there are a few requirements:  
-  - The WAF deployment needs to be on an AWS application load balancer. Please ensure that the `load_balancer_type` is configured as `application`
-  - Certificate signing via AWS Certificate Manager is required for ALB support. Please ensure that your certificate's state is set to 'ISSUED' in AWS Certificate Manager."
-  
-  There are 2 scenarios case 
+The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
 
-  ### Using default WAF rules 
-  If user doesnt specify WAF rule, Aviatrix offers the default rules to block general threat, it refers AWS WAF rule set on 
-  - AWS Managed Rules - Common Ruleset 
-  - AWS Managed Rules - Known Bad Inputs Ruleset 
-  - AWS Managed Rules - Amazon IP Reputation List 
-  - AWS Managed Rules - Anonymous IP List
-  - AWS Managed Rules - SQLite Ruleset 
-  - AWS Managed Rules - Linux Ruleset
-  - AWS Managed Rules - Unix Ruleset
-  #### WAF deployment with basic rules 
+### WAF Support for Aviatrix Controller
+
+A web application firewall (WAF) can be enabled for additional protection for the Aviatrix Controller. The requirements to use WAF are:
+
+- The load balancer type must be an application load balancer. Network load balancers are not supported. `load_balancer_type` should be set to `application`
+- A signed certificate in AWS Certificate Manager is required for ALB. Ensure that the certificate's status is `Issued` in AWS Certificate Manager.
+
+There are 2 main WAF deployment scenarios:
+
+- Default WAF rules
+- Customized WAF rules
+
+#### Using the Default WAF Rules
+
+If `configure_waf` is set to `true`, the following AWS Managed Rules are enabled:
+
+- AWS Managed Rules - Common Ruleset
+- AWS Managed Rules - Known Bad Inputs Ruleset
+- AWS Managed Rules - Amazon IP Reputation List
+- AWS Managed Rules - Anonymous IP List
+- AWS Managed Rules - SQLite Ruleset
+- AWS Managed Rules - Linux Ruleset
+- AWS Managed Rules - Unix Ruleset
+
+Configure `waf_managed_rules` to customize the list of managed rules to implement.
+
+##### WAF deployment with basic rules
+
 ```
 module "aws_controller_ha" {
   source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
@@ -411,24 +431,23 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name         = "xxx.xxx.com"
-  configure_waf = true
+  cert_domain_name        = "x.example.com"
+  configure_waf           = true
 }
 ```
 
-  ### Customized WAF use case
- This module provides basic AWS WAF rules as part of the Aviatrix HA (High Availability) solution.
- 
- If you need to extend the functionality with custom rules:
-  - Refer the module's output parameter  `alb_arn`.
-  - You can then add new WAF rules according to your specific requirements.
+#### Customized WAF use case
 
-If the basic AWS WAF rules provided by the Aviatrix HA Module are not required:
-  - Set `configure_waf` to `false` ( default is `false`).
-  - Refer to the module's `alb_arn` for integration points.
-  - Create and manage your WAF rules as per your needs.
+By default, the module will implement the set of AWS Managed Rules listed above. Further customization is possible.
 
-#### WAF deployment with basic rules and extended rule
+##### WAF deployment with basic rules and extended rule
+
+If you want to add additional rules to the AWS Managed Rules:
+
+- Refer the module's output parameter `alb_arn`.
+- Create additional `aws_wafv2_web_acl` resources.
+- Associate the `aws_wafv2_web_acl` with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
+
 ```
 module "aws_controller_ha" {
   source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
@@ -442,7 +461,7 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name         = "xxx.xxx.com"
+  cert_domain_name        = "x.example.com"
   configure_waf = true
 }
 
@@ -450,7 +469,7 @@ resource "aws_wafv2_web_acl" "example" {
   name        = "example-acl"
   description = "Example ACL"
   scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
-  --- omit ---
+  --- rules omitted ---
 }
 
 resource "aws_wafv2_web_acl_association" "associate_alb" {
@@ -458,8 +477,17 @@ resource "aws_wafv2_web_acl_association" "associate_alb" {
   web_acl_arn  = aws_wafv2_web_acl.example.arn
 }
 ```
+
 #### WAF deployment with basic rules disable
-``````
+
+If you don't want to use the AWS Managed Rules and would like to fully customize the WAF rules:
+
+- Set `configure_waf` to `false`.
+- Refer the module's output parameter `alb_arn`.
+- Create additional `aws_wafv2_web_acl` resources.
+- Associate the `aws_wafv2_web_acl` resources with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
+
+```
 module "aws_controller_ha" {
   source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   keypair                 = "keypair1"
@@ -472,15 +500,15 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name         = "xxx.xxx.com"
-  configure_waf = false
+  cert_domain_name        = "x.example.com"
+  configure_waf           = false
 }
 
 resource "aws_wafv2_web_acl" "example" {
   name        = "example-acl"
   description = "Example ACL"
   scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
-  --- omit ---
+  --- rules omitted ---
 }
 
 resource "aws_wafv2_web_acl_association" "associate_alb" {
