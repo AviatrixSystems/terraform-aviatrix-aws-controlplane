@@ -52,24 +52,24 @@ resource "aws_wafv2_web_acl" "waf_acl" {
                 name = rule.value.name # the name must give
                 action_to_use {
                   dynamic "count" {
-                    for_each = lookup(rule.value,"rule_group_override_action",null) == "count" ? ["count"] : []
-                    content{} 
+                    for_each = lookup(rule.value, "rule_group_override_action", null) == "count" ? ["count"] : []
+                    content {}
                   }
                   dynamic "block" {
-                    for_each = lookup(rule.value,"rule_group_override_action",null) == "block" ? ["block"] : []
-                    content{} 
+                    for_each = lookup(rule.value, "rule_group_override_action", null) == "block" ? ["block"] : []
+                    content {}
                   }
                   dynamic "allow" {
-                    for_each = lookup(rule.value,"rule_group_override_action",null) == "allow" ? ["allow"] : []
-                    content{} 
+                    for_each = lookup(rule.value, "rule_group_override_action", null) == "allow" ? ["allow"] : []
+                    content {}
                   }
                   dynamic "captcha" {
-                    for_each = lookup(rule.value,"rule_group_override_action",null) == "captcha" ? ["captcha"] : []
-                    content{} 
+                    for_each = lookup(rule.value, "rule_group_override_action", null) == "captcha" ? ["captcha"] : []
+                    content {}
                   }
                   dynamic "challenge" {
-                    for_each = lookup(rule.value,"rule_group_override_action",null) == "challenge" ? ["block"] : []
-                    content{} 
+                    for_each = lookup(rule.value, "rule_group_override_action", null) == "challenge" ? ["block"] : []
+                    content {}
                   }
                 }
               }
@@ -77,30 +77,29 @@ resource "aws_wafv2_web_acl" "waf_acl" {
             dynamic "scope_down_statement" {
               for_each = lookup(rule.value, "saml_endpoint_name_bypass", null) == null ? [] : [rule]
               content {
-                  and_statement {
-                    statement {
-                      not_statement {
-                        statement {
-                          label_match_statement {
-                            key   = rule.value.saml_bypass_rule_label
-                            scope = "LABEL"
-                          }
+                and_statement {
+                  statement {
+                    not_statement {
+                      statement {
+                        label_match_statement {
+                          key   = rule.value.saml_bypass_rule_label
+                          scope = "LABEL"
                         }
                       }
                     }
-                    statement {
-                      not_statement {
-                        statement {
-                          byte_match_statement {
-                            positional_constraint = "EXACTLY"
-                            search_string         = "/flask/saml/sso/${rule.value.saml_endpoint_name_bypass}"
-                            field_to_match {
-                              uri_path {}
-                            }
-                            text_transformation {
-                              priority = 0
-                              type     = "NONE"
-                            }
+                  }
+                  statement {
+                    not_statement {
+                      statement {
+                        byte_match_statement {
+                          positional_constraint = "EXACTLY"
+                          search_string         = "/flask/saml/sso/${rule.value.saml_endpoint_name_bypass}"
+                          field_to_match {
+                            uri_path {}
+                          }
+                          text_transformation {
+                            priority = 0
+                            type     = "NONE"
                           }
                         }
                       }
@@ -108,6 +107,7 @@ resource "aws_wafv2_web_acl" "waf_acl" {
                   }
                 }
               }
+            }
           }
         }
       }
@@ -122,7 +122,7 @@ resource "aws_wafv2_web_acl" "waf_acl" {
 }
 
 resource "aws_wafv2_web_acl_association" "associate_alb" {
-  count       = var.configure_waf != true ? 0 : var.scope == "REGIONAL" ? 1 : 0
+  count        = var.configure_waf != true ? 0 : var.scope == "REGIONAL" ? 1 : 0
   resource_arn = var.alb_arn
   web_acl_arn  = aws_wafv2_web_acl.waf_acl[0].arn
 }
