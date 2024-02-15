@@ -41,5 +41,5 @@ output "lb_arn" {
 }
 
 output "waf_arn" {
-  value = var.configure_waf == true ? module.controller_alb_waf.waf_arn : ""
+  value = var.configure_waf == true ? module.controller_alb_waf[0].waf_arn : ""
 }

@@ -1,5 +1,4 @@
 resource "aws_wafv2_web_acl" "waf_acl" {
-  count       = var.configure_waf == true ? 1 : 0
   name        = var.alb_waf_name
   scope       = var.scope
   description = join(" ", ["Aviatrix MGMT", var.scope, "WAF"])
@@ -122,7 +121,6 @@ resource "aws_wafv2_web_acl" "waf_acl" {
 }
 
 resource "aws_wafv2_web_acl_association" "associate_alb" {
-  count        = var.configure_waf != true ? 0 : var.scope == "REGIONAL" ? 1 : 0
   resource_arn = var.alb_arn
-  web_acl_arn  = aws_wafv2_web_acl.waf_acl[0].arn
+  web_acl_arn  = aws_wafv2_web_acl.waf_acl.arn
 }

@@ -1,9 +1,3 @@
-variable "configure_waf" {
-  type        = bool
-  description = "Whether WAF is enabled for the controller"
-  default     = false
-}
-
 variable "scope" {
   type        = string
   description = "Deployment WAF deployment scope"
