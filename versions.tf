@@ -4,9 +4,7 @@ terraform {
       source = "aviatrixsystems/aviatrix"
     }
     aws = {
-      source  = "hashicorp/aws"
-      version = "~>5.16.1"
-
+      source = "hashicorp/aws"
     }
     # docker = {
     #   source = "kreuzwerker/docker"
