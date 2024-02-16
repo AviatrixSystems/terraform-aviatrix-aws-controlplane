@@ -255,6 +255,7 @@ resource "aws_iam_policy" "ecs-policy" {
       "Action": [
         "ecs:DescribeTaskDefinition",
         "ecs:RegisterTaskDefinition",
+        "ecs:TagResource",
         "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
