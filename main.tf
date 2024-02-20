@@ -8,6 +8,15 @@ resource "null_resource" "region_conflict" {
   }
 }
 
+resource "null_resource" "validate_waf_alb" {
+  lifecycle {
+    precondition {
+      condition     = var.configure_waf ? var.load_balancer_type == "application" : true
+      error_message = "var.load_balancer_type must be application if var.configure_waf is true"
+    }
+  }
+}
+
 module "region1" {
   source                        = "./region-build"
   region                        = var.region
@@ -78,7 +87,7 @@ module "region1" {
   load_balancer_type            = var.load_balancer_type
   cert_domain_name              = var.load_balancer_type == "application" ? var.cert_domain_name : null
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
-  ecr_image = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
+  ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
