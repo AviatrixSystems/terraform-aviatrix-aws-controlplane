@@ -14,7 +14,7 @@ This Terraform module will create the following:
 - An Auto Scaling Group (ASG) for Aviatrix CoPilot
 - An AWS load balancer with the Controller and CoPilot instances as targets
 - An Elastic Container Service (ECS) cluster and task definition. ECS handles Controller and CoPilot failover events and restores the configuration from the latest backup automatically on new instances.
-- An Amazon EventBridge event rule that monitors events from the ASGs and sends relevant events to ECS.
+- An Amazon EventBridge event rule that monitors events from the ASGs and invokes ECS.
 - An Amazon Simple Notification Service (SNS) topic that receives events from the ASGs.
 - An Amazon Simple Queue Service (SQS) queue that is subscribed to the SNS topic. When EventBridge triggers ECS, ECS reads messages from the SQS queue and takes the appropriate actions.
 - Additional roles for the resources above with corresponding role policies with required permissions
