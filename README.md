@@ -198,6 +198,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | ----------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | access_account_name           |                                         | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
 | admin_email                   |                                         | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
+| alb_cert_arn                  | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the primary region. Required if `load_balancer_type` is `application`.                                                                                             |
 | asg_notif_email               |                                         | The email address for Controller failover notifications                                                                                                                                                                                        |
 | app_role_name                 | aviatrix-role-app                       | The name of the Aviatrix App role                                                                                                                                                                                                              |
 | avx_copilot_password          |                                         | The Aviatrix Copilot service account password. WARNING: The password will be visible in the container's environment variables. See above note for more information.                                                                            |
@@ -208,7 +209,6 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
-| cert_domain_name              | none                                    | Domain name for the certificate used by the application load balancer. Required if `load_balancer_type` is `application`.                                                                                                                      |
 | controller_ha_enabled         | true                                    | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                                             |
 | configure_waf                 | false                                   | Whether AWS WAF is enabled for the Controller access.                                                                                                                                                                                          |
 | copilot_ha_enabled            | true                                    | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                                                   |
@@ -226,6 +226,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | copilot_email                 |                                         | CoPilot account email. See Prerequisites above for more information                                                                                                                                                                            |
 | copilot_name                  |                                         | Name of CoPilot                                                                                                                                                                                                                                |
 | copilot_username              |                                         | CoPilot account username. See Prerequisites above for more information                                                                                                                                                                         |
+| dr_alb_cert_arn               | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the DR region. Required if `load_balancer_type` is `application`.                                                                                                  |
 | create_iam_roles              | true                                    | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                                                                                                                   |
 | dr_keypair                    | ""                                      | Key pair which should be used by DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                        |
 | dr_region                     | "us-east-2"                             | Region to deploy the DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                                    |
@@ -431,7 +432,7 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name        = "x.example.com"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   configure_waf           = true
 }
 ```
@@ -440,7 +441,7 @@ module "aws_controller_ha" {
 
 By default, the module will implement the set of AWS Managed Rules listed above. Further customization is possible.
 
-##### WAF deployment with basic rules and extended rule
+##### WAF deployment with basic rules and extended rules
 
 If you want to add additional rules to the AWS Managed Rules:
 
@@ -461,7 +462,7 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name        = "x.example.com"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   configure_waf = true
 }
 
@@ -478,7 +479,7 @@ resource "aws_wafv2_web_acl_association" "associate_alb" {
 }
 ```
 
-#### WAF deployment with basic rules disable
+#### WAF deployment with basic rules disabled
 
 If you don't want to use the AWS Managed Rules and would like to fully customize the WAF rules:
 
@@ -500,7 +501,7 @@ module "aws_controller_ha" {
   s3_backup_region        = "us-east-1"
   ha_distribution         = "inter-az"
   load_balancer_type      = "application"
-  cert_domain_name        = "x.example.com"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   configure_waf           = false
 }
 

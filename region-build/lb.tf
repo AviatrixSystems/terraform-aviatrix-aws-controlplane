@@ -17,17 +17,12 @@ resource "aws_lb" "avtx-controller" {
 }
 
 # Define a listener
-data "aws_acm_certificate" "avtx_ctrl" {
-  count    = var.load_balancer_type == "application" ? 1 : 0
-  domain   = var.cert_domain_name
-  statuses = ["ISSUED"]
-}
 
 resource "aws_lb_listener" "avtx-ctrl" {
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "443"
   protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
-  certificate_arn   = var.load_balancer_type == "application" ? data.aws_acm_certificate.avtx_ctrl[0].arn : null
+  certificate_arn   = var.load_balancer_type == "application" ? var.alb_cert_arn : null
 
   default_action {
     target_group_arn = aws_lb_target_group.avtx-controller.arn
@@ -52,7 +47,7 @@ module "controller_alb_waf" {
   count  = var.configure_waf ? 1 : 0
   source = "./modules/terraform-aws-waf"
 
-  alb_waf_name  = "aviatrix_controller_waf"
-  alb_arn       = aws_lb.avtx-controller.arn
-  depends_on    = [aws_lb.avtx-controller]
+  alb_waf_name = "aviatrix_controller_waf"
+  alb_arn      = aws_lb.avtx-controller.arn
+  depends_on   = [aws_lb.avtx-controller]
 }

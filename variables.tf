@@ -468,14 +468,20 @@ variable "load_balancer_type" {
   }
 }
 
-variable "cert_domain_name" {
-  type        = string
-  description = "The domain name for certificate for Load Balancer"
-  default     = null
-}
-
 variable "configure_waf" {
   type        = bool
   description = "Whether WAF is enabled for the controller"
   default     = false
+}
+
+variable "alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the primary region"
+  default     = ""
+}
+
+variable "dr_alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
+  default     = ""
 }
