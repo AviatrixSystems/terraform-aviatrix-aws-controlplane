@@ -284,8 +284,8 @@ locals {
   cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"
   ctr_tag = var.controller_name != "" ? var.controller_name : "${local.name_prefix}AviatrixController"
 
-  ischina           = regexall("^cn-",var.region)
-  iam_type          = contains(local.ischina,"cn-") ? "aws-cn":"aws"
+  ischina  = regexall("^cn-", var.region)
+  iam_type = contains(local.ischina, "cn-") ? "aws-cn" : "aws"
 
   common_tags = merge(
     var.tags, {
@@ -429,5 +429,25 @@ variable "use_existing_copilot_eip" {
 variable "existing_copilot_eip" {
   type        = string
   description = "Existing EIP to associate with the Aviatrix CoPilot"
+  default     = ""
+}
+
+variable "load_balancer_type" {
+  type        = string
+  description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
+  validation {
+    condition     = contains(["network", "application"], var.load_balancer_type)
+    error_message = "Valid values for var: load_balancer_type are (network, application)."
+  }
+}
+
+variable "configure_waf" {
+  type        = bool
+  description = "Whether WAF is enabled for the controller"
+}
+
+variable "alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer"
   default     = ""
 }

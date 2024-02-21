@@ -1,9 +1,10 @@
 resource "aws_lb" "avtx-controller" {
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
-  load_balancer_type               = "network"
+  load_balancer_type               = var.load_balancer_type
+  security_groups                  = tolist([aws_security_group.AviatrixSecurityGroup.id, aws_security_group.AviatrixCopilotSecurityGroup.id])
   enable_cross_zone_load_balancing = true
-  idle_timeout                     = "300"
+  idle_timeout                     = var.load_balancer_type == "application" ? "900" : "300"
   subnets                          = var.use_existing_vpc ? var.subnet_ids : tolist([aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id])
 
   tags = {
@@ -16,10 +17,12 @@ resource "aws_lb" "avtx-controller" {
 }
 
 # Define a listener
+
 resource "aws_lb_listener" "avtx-ctrl" {
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "443"
-  protocol          = "TCP"
+  protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
+  certificate_arn   = var.load_balancer_type == "application" ? var.alb_cert_arn : null
 
   default_action {
     target_group_arn = aws_lb_target_group.avtx-controller.arn
@@ -30,7 +33,7 @@ resource "aws_lb_listener" "avtx-ctrl" {
 resource "aws_lb_target_group" "avtx-controller" {
   name     = "${local.name_prefix}controller"
   port     = 443
-  protocol = "TCP"
+  protocol = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
   vpc_id   = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 
   depends_on = [aws_lb.avtx-controller]
@@ -38,4 +41,13 @@ resource "aws_lb_target_group" "avtx-controller" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+module "controller_alb_waf" {
+  count  = var.configure_waf ? 1 : 0
+  source = "./modules/terraform-aws-waf"
+
+  alb_waf_name = "aviatrix_controller_waf"
+  alb_arn      = aws_lb.avtx-controller.arn
+  depends_on   = [aws_lb.avtx-controller]
 }
