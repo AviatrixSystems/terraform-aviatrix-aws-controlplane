@@ -59,6 +59,12 @@ variable "app_role_name" {
   default = "aviatrix-role-app"
 }
 
+variable "app_role_max_session_duration" {
+  type        = number
+  description = "The max session duration for the Aviatrix app role"
+  default     = 43200
+}
+
 variable "vpc_name" {
   type    = string
   default = "Aviatrix-VPC"
