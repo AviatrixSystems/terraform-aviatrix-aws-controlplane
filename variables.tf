@@ -59,6 +59,12 @@ variable "app_role_name" {
   default = "aviatrix-role-app"
 }
 
+variable "app_role_max_session_duration" {
+  type        = number
+  description = "The max session duration for the Aviatrix app role"
+  default     = 43200
+}
+
 variable "vpc_name" {
   type    = string
   default = "Aviatrix-VPC"
@@ -467,5 +473,33 @@ variable "existing_copilot_eip" {
 variable "existing_copilot_dr_eip" {
   type        = string
   description = "Existing EIP to associate with the DR Aviatrix CoPilot"
+  default     = ""
+}
+
+variable "load_balancer_type" {
+  type        = string
+  description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
+  default     = "network"
+  validation {
+    condition     = contains(["network", "application"], var.load_balancer_type)
+    error_message = "Valid values for var: load_balancer_type are (network, application)."
+  }
+}
+
+variable "configure_waf" {
+  type        = bool
+  description = "Whether WAF is enabled for the controller"
+  default     = false
+}
+
+variable "alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the primary region"
+  default     = ""
+}
+
+variable "dr_alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
 }

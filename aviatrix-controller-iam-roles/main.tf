@@ -37,6 +37,7 @@ resource "aws_iam_role" "aviatrix-role-app" {
   description        = "Aviatrix APP - Created by Terraform+Aviatrix"
   path               = "/"
   assume_role_policy = data.aws_iam_policy_document.policy_primary.json
+  max_session_duration = var.app_role_max_session_duration
 }
 
 data "aws_iam_policy_document" "aviatrix-assume-role-policy" {

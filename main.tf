@@ -8,6 +8,33 @@ resource "null_resource" "region_conflict" {
   }
 }
 
+resource "null_resource" "validate_waf_alb_arn" {
+  lifecycle {
+    precondition {
+      condition     = var.configure_waf ? var.load_balancer_type == "application" : true
+      error_message = "var.load_balancer_type must be application if var.configure_waf is true"
+    }
+  }
+}
+
+resource "null_resource" "validate_alb_cert_arn" {
+  lifecycle {
+    precondition {
+      condition     = var.load_balancer_type == "application" ? var.alb_cert_arn != "" : true
+      error_message = "var.alb_cert_arn must be specified if var.load_balancer_type is application"
+    }
+  }
+}
+
+resource "null_resource" "validate_dr_alb_cert_arn" {
+  lifecycle {
+    precondition {
+      condition     = var.ha_distribution == "inter-region" && var.load_balancer_type == "application" ? var.dr_alb_cert_arn != "" : true
+      error_message = "var.dr_alb_cert_arn must be specified if var.ha_distribution is inter-region and var.load_balancer_type is application"
+    }
+  }
+}
+
 module "region1" {
   source                        = "./region-build"
   region                        = var.region
@@ -77,6 +104,9 @@ module "region1" {
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
   standby_instance_state        = var.standby_instance_state
+  load_balancer_type            = var.load_balancer_type
+  configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
+  alb_cert_arn                  = var.alb_cert_arn
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -154,16 +184,20 @@ module "region2" {
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
   standby_instance_state        = var.standby_instance_state
+  load_balancer_type            = var.load_balancer_type
+  configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
+  alb_cert_arn                  = var.dr_alb_cert_arn
   ecr_image                     = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
 }
 
 module "aviatrix-iam-roles" {
-  count         = var.create_iam_roles ? 1 : 0
-  source        = "./aviatrix-controller-iam-roles"
-  ec2_role_name = var.ec2_role_name
-  app_role_name = var.app_role_name
+  count                         = var.create_iam_roles ? 1 : 0
+  source                        = "./aviatrix-controller-iam-roles"
+  ec2_role_name                 = var.ec2_role_name
+  app_role_name                 = var.app_role_name
+  app_role_max_session_duration = var.app_role_max_session_duration
 }
 
 resource "aws_iam_role" "iam_for_ecs" {
@@ -253,6 +287,7 @@ resource "aws_iam_policy" "ecs-policy" {
       "Action": [
         "ecs:DescribeTaskDefinition",
         "ecs:RegisterTaskDefinition",
+        "ecs:TagResource",
         "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",

@@ -67,3 +67,9 @@ variable "secondary-account-ids" {
   type    = list(string)
   default = []
 }
+
+variable "app_role_max_session_duration" {
+  type        = number
+  description = "The max session duration for the Aviatrix app role"
+  default     = 43200
+}
