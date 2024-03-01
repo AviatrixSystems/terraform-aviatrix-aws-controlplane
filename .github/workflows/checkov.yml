@@ -1,4 +1,4 @@
-name: checkov
+name: Checkov Checks
 
 # Controls when the workflow will run
 on:
