@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: 
       - main
+    paths:
+      - "**.tf"
 
   # Allows you to run this workflow manually from the Actions tab
   # trunk-ignore(yamllint/empty-values)
