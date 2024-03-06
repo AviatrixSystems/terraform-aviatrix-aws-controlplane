@@ -420,9 +420,13 @@ resource "aws_launch_template" "avtx-controller" {
     }
   }
 
+  monitoring {
+    enabled = var.monitoring
+  }
+
   disable_api_termination = var.termination_protection
 
-  ebs_optimized = true
+  ebs_optimized = var.ebs_optimized
 
   iam_instance_profile {
     name = var.ec2_role_name

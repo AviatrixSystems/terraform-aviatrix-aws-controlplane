@@ -13,7 +13,7 @@ resource "aws_network_interface" "eni-copilot" {
 }
 
 data "aws_subnet" "subnet" {
-  id    = var.subnet_id
+  id = var.subnet_id
 }
 
 resource "aws_eip" "copilot_eip" {
@@ -30,11 +30,13 @@ resource "aws_eip_association" "eip_assoc" {
 }
 
 resource "aws_instance" "aviatrixcopilot" {
-  ami                    = var.ami_id
-  instance_type          = var.instance_type
-  key_name               = var.keypair
-  availability_zone      = data.aws_subnet.subnet.availability_zone
-  user_data = <<EOF
+  ami               = var.ami_id
+  instance_type     = var.instance_type
+  key_name          = var.keypair
+  availability_zone = data.aws_subnet.subnet.availability_zone
+  ebs_optimized     = var.ebs_optimized
+  monitoring        = var.monitoring
+  user_data         = <<EOF
 #!/bin/bash
 jq '.config.controllerIp="${var.controller_ip}" | .config.controllerPublicIp="${var.controller_ip}" | .config.isCluster=true' /etc/copilot/db.json > /etc/copilot/db.json.tmp
 mv /etc/copilot/db.json.tmp /etc/copilot/db.json
