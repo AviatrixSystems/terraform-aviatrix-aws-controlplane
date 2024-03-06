@@ -274,6 +274,8 @@ module "data_nodes" {
   root_volume_type         = var.cop_root_volume_type
   default_data_volume_size = var.cop_default_data_volume_size
   default_data_volume_type = var.cop_default_data_volume_type
+  ebs_optimized            = var.ebs_optimized
+  monitoring               = var.monitoring
   tags                     = local.common_tags
 }
 
