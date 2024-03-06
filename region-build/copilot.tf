@@ -13,8 +13,12 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
     }
   }
 
+  monitoring {
+    enabled = var.monitoring
+  }
+
   disable_api_termination              = var.termination_protection
-  ebs_optimized                        = true
+  ebs_optimized                        = var.ebs_optimized
   image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.cop_instance_type
@@ -69,8 +73,12 @@ resource "aws_launch_template" "avtx-copilot" {
     }
   }
 
+  monitoring {
+    enabled = var.monitoring
+  }
+
   disable_api_termination              = var.termination_protection
-  ebs_optimized                        = true
+  ebs_optimized                        = var.ebs_optimized
   image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.cop_instance_type

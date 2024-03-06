@@ -131,14 +131,14 @@ variable "root_volume_size" {
 
 variable "ebs_optimized" {
   type        = bool
-  description = "Whether ebs_optimized is enabled on ec2 launch template"
-  default     = true
+  description = "Whether EBS optimization is enabled. Applies to both the Controller and CoPilot."
+  default     = false
 }
 
 variable "monitoring" {
   type        = bool
-  description = "Whether detail monitoring is enabled on ec2 launch template"
-  default     = true
+  description = "Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot."
+  default     = false
 }
 
 variable "controller_name" {
