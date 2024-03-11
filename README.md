@@ -14,7 +14,7 @@ This Terraform module will create the following:
 - An Auto Scaling Group (ASG) for Aviatrix CoPilot
 - An AWS load balancer with the Controller and CoPilot instances as targets
 - An Elastic Container Service (ECS) cluster and task definition. ECS handles Controller and CoPilot failover events and restores the configuration from the latest backup automatically on new instances.
-- An Amazon EventBridge event rule that monitors events from the ASGs and sends relevant events to ECS.
+- An Amazon EventBridge event rule that monitors events from the ASGs and invokes ECS.
 - An Amazon Simple Notification Service (SNS) topic that receives events from the ASGs.
 - An Amazon Simple Queue Service (SQS) queue that is subscribed to the SNS topic. When EventBridge triggers ECS, ECS reads messages from the SQS queue and takes the appropriate actions.
 - Additional roles for the resources above with corresponding role policies with required permissions
@@ -198,7 +198,9 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | ----------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | access_account_name           |                                         | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
 | admin_email                   |                                         | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
+| alb_cert_arn                  | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the primary region. Required if `load_balancer_type` is `application`.                                                                                             |
 | asg_notif_email               |                                         | The email address for Controller failover notifications                                                                                                                                                                                        |
+| app_role_max_session_duration | 43200 seconds (12 hours)                | The max session duration for the Aviatrix App role                                                                                                                                                                                             |
 | app_role_name                 | aviatrix-role-app                       | The name of the Aviatrix App role                                                                                                                                                                                                              |
 | avx_copilot_password          |                                         | The Aviatrix Copilot service account password. WARNING: The password will be visible in the container's environment variables. See above note for more information.                                                                            |
 | avx_copilot_password_ssm_path | /aviatrix/copilot/password              | The path to the Aviatrix CoPilot password                                                                                                                                                                                                      |
@@ -208,12 +210,11 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_password                  |                                         | The Aviatrix Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments. |
 | avx_password_ssm_path         | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                         |
 | avx_password_ssm_region       | us-east-1                               | The region the password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                                   |
+| configure_waf                 | false                                   | Whether AWS WAF is enabled for the Controller access.                                                                                                                                                                                          |
 | controller_ami_id               | ""                             | The Aviatrix Controller AMI  ID                                                 |
-| controller_ha_enabled               | true                              | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                |
-| copilot_ami_id               | ""                             | The Aviatrix Copilot AMI  ID                                    |
-| copilot_ha_enabled               | true                              | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                |
+| controller_ha_enabled         | true                                    | Whether HA is enabled for the Controller. Set to `false` to temporarily disable HA                                                                                                                                                             |
+| controller_name               |                                         | Name of Controller.                                                                                                                                                                                                                            |
 | controller_version            | "latest"                                | The initial version of the Aviatrix Controller at launch                                                                                                                                                                                       |
-| controller_name            |                                 | Name of Controller.                                                                                                                                                                                       |
 | cop_incoming_https_cidr       | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
 | cop_incoming_syslog_cidr      | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
 | cop_incoming_netflow_cidr     | CoPilot Netflow (UDP port 31283) access | CoPilot allowed CIDRs for Netflow acccess                                                                                                                                                                                                      |
@@ -223,10 +224,14 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | cop_root_volume_type          | gp3                                     | Root volume type for CoPilot                                                                                                                                                                                                                   |
 | cop_default_data_volume_size  | 8GB                                     | Default data volume disk size for CoPilot                                                                                                                                                                                                      |
 | cop_default_data_volume_type  | gp3                                     | Default data volume type for CoPilot                                                                                                                                                                                                           |
+| copilot_ami_id               | ""                             | The Aviatrix Copilot AMI  ID                                    |
+| copilot_deployment            | simple                                  | The CoPilot deployment type. Valid values are `simple` and `fault-tolerant`. `fault-tolerant` is only supported if `ha_distribution` is `single-az` or `inter-az`.                                                                             |
 | copilot_email                 |                                         | CoPilot account email. See Prerequisites above for more information                                                                                                                                                                            |
+| copilot_ha_enabled            | true                                    | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                                                   |
 | copilot_name                  |                                         | Name of CoPilot                                                                                                                                                                                                                                |
 | copilot_username              |                                         | CoPilot account username. See Prerequisites above for more information                                                                                                                                                                         |
 | create_iam_roles              | true                                    | Whether to create the IAM roles used to grant AWS API permissions to the Aviatrix Controller                                                                                                                                                   |
+| dr_alb_cert_arn               | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the DR region. Required if `load_balancer_type` is `application`.                                                                                                  |
 | dr_controller_ami_id               | ""                             | The Aviatrix DR Controller AMI  ID. WARNING: The Controller AMI ID is specified when Controller AMI is going to be migrated. For fresh deployment, it will use latest AMI by default.                                                                                                                                 |
 | dr_copilot_ami_id               | ""                             | The Aviatrix DR Copilot AMI  ID.                                                                                                                                 |
 | dr_keypair                    | ""                                      | Key pair which should be used by DR Controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                        |
@@ -235,6 +240,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | dr_vpc                        | ""                                      | VPC to deploy DR Controlller. Only applicable if `use_existing_vpc` is true. Only applicable if `ha_distribution` is "inter-region".                                                                                                           |
 | dr_vpc_cidr                   | 10.0.0.0/24                             | The CIDR for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false.                                                                                                  |
 | dr_vpc_name                   | ""                                      | The name for the VPC to create for the DR Controller. Only applicable if `ha_distribution` is "inter-region" and `use_existing_vpc` is false.                                                                                                  |
+| ebs_optimized                 | false                                   | Whether EBS optimization is enabled. Applies to both the Controller and CoPilot.                                                                                                                                                               |
 | ec2_role_name                 | aviatrix-role-ec2                       | The name of the Aviatrix EC2 role                                                                                                                                                                                                              |
 | existing_copilot_dr_eip       | ""                                      | The existing EIP to use for the DR CoPilot. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_copilot_eip` is true.                                                                                       |
 | existing_copilot_eip          | ""                                      | The existing EIP to use for CoPilot. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_copilot_eip` is true.                                                                                              |
@@ -246,6 +252,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | inter_region_backup_enabled   | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
 | keypair                       |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
 | license_type                  | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
+| load_balancer_type            | network                                 | Type of load balancer, can be `network` or `application`                                                                                                                                                                                       |
+| monitoring                    | false                                   | Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot.                                                                                                                                                            |
 | name_prefix                   | avx                                     | Additional name prefix for resources created by this module                                                                                                                                                                                    |
 | private_zone                  | false                                   | Set to ` true` if Route 53 zone is private type                                                                                                                                                                                                |
 | record_name                   | true                                    | The record name to be created under the exisitng route 53 zone specified by `zone_name`. Required if `ha_distribution` is 'inter-region'.                                                                                                      |
@@ -254,7 +262,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | root_volume_type              | gp3                                     | Root volume type for Controller                                                                                                                                                                                                                |
 | s3_backup_bucket              |                                         | S3 bucket for Controller DB backup                                                                                                                                                                                                             |
 | s3_backup_region              |                                         | Region S3 backup bucket is in                                                                                                                                                                                                                  |
-| standby_instance_state              |    Running                                     |  Instance state in Warm Pool of AWS autoscaling group. Valid values are `Running` and `Stopped`                                                                                                                                                                                                                  |
+| standby_instance_state        | Running                                 | Instance state in Warm Pool of AWS autoscaling group. Valid values are `Running` and `Stopped`                                                                                                                                                 |
 | subnet_ids                    |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | subnet_name                   | Aviatrix-Public-Subnet                  | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
 | tags                          | {}                                      | Map of common tags which should be used for module resources. Example: `{ key1 = "value1", key2 = "value2" }`                                                                                                                                  |
@@ -264,6 +272,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | use_existing_vpc              | false                                   | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                                                                                                                 |
 | vpc                           | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
 | vpc_cidr                      | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
+| waf_managed_rules             | Various free AWS Managed Rules          | Managed rules to apply to WAF. Only applicable if `configure_waf` is true                                                                                                                                                                      |
 | vpc_name                      | Aviatrix-VPC                            | The name for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
 | zone_name                     | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
 
@@ -296,19 +305,25 @@ When an SNS HA event is triggered there are 3 scenarios depending on what `autos
 ## CloudFormation
 
 ### Description
-Aviatrix Platform HA for AWS is also available via CloudFormation. Users can create, update, and delete the Platform HA infrastructure using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml). Al the functionalities available via Terraform are similarly available via CloudFormation.
+
+Aviatrix Platform HA for AWS is also available via CloudFormation. Users can create, update, and delete the Platform HA infrastructure using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml). All of the functionalities available via Terraform are similarly available via CloudFormation.
 
 ### Flow
+
 The CloudFormation stack will gather the input parameters from the user, and then provision the HA infrastructure using a Codebuild instance, which is managed by a Lambda function. Along with a Codebuild project, a Lambda function, the CloudFormation stack will also create an S3 bucket, several SSM parameters to save output values, as well as necessary IAM roles and policies.
 
 ### Deployment
+
 To create the HA infrastructure using CloudFormation:
+
 1. Create a stack using the provided ![CloudFormation Template](cloudformation/aws_ha.yaml)
 2. Provide the required inputs, as required by the selected HA deployment
 3. Review the inputs, and create the stack
 
 ### Troubleshooting and inspection
+
 There are several different resources avaiable for deeper inspection of the CloudFormation deployment status
+
 - CloudFormation stack `Events` tab will have information regarding the CloudFormation resources, and the stack status
 - Cloudwatch will have the following Log streams:
   - Log stream for the Lambda function
@@ -341,43 +356,172 @@ There are several different resources avaiable for deeper inspection of the Clou
 - Controller has to be launched with a public IP address.
 
 ### Temporarily Disabling HA
+
 HA can be temporarily disabled if needed. This can be done via Terraform or by directly modifying the Auto Scaling Groups.
 
 Disable HA using Terraform:
-	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
-	- Run `terraform apply`.
-	
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
+- Run `terraform apply`.
+
 Enable HA using Terraform:
-	- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
-	- Run `terraform apply`.
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
+- Run `terraform apply`.
 
 Disable HA by updating the Auto Scaling Group(s):
-	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
-	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
-	Go to Advanced configurations -> Edit.
-	Click on Suspended processes and check the following processes:
 
-	 - Launch
-	 - Terminate
-	 - HealthCheck
-	 - Replace Unhealthy
-	
-  Click on Update to save the changes.
-	Repeat this process for the other Auto Scaling Group if necessary.
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Click on Suspended processes and check the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
 
 Enable HA by updating the Auto Scaling Group(s):
-	Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
-	Select the Auto Scaling Group (avtx_controller or avtx_copilot).
-	Go to Advanced configurations -> Edit.
-	Under Suspended processes, remove the following processes:
 
-	- Launch
-	- Terminate
-	- HealthCheck
-	- Replace Unhealthy
-	
-  Click on Update to save the changes.
-	Repeat this process for the other Auto Scaling Group if necessary.
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Under Suspended processes, remove the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
 
-  ### Warm Pool instance state of AWS Autoscaling Group
-  The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
+### Warm Pool instance state of AWS Autoscaling Group
+
+The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.
+
+### WAF Support for Aviatrix Controller
+
+A web application firewall (WAF) can be enabled for additional protection for the Aviatrix Controller. The requirements to use WAF are:
+
+- The load balancer type must be an application load balancer. Network load balancers are not supported. `load_balancer_type` should be set to `application`
+- A signed certificate in AWS Certificate Manager is required for ALB. Ensure that the certificate's status is `Issued` in AWS Certificate Manager.
+
+There are 2 main WAF deployment scenarios:
+
+- Default WAF rules
+- Customized WAF rules
+
+#### Using the Default WAF Rules
+
+If `configure_waf` is set to `true`, the following AWS Managed Rules are enabled:
+
+- AWS Managed Rules - Common Ruleset
+- AWS Managed Rules - Known Bad Inputs Ruleset
+- AWS Managed Rules - Amazon IP Reputation List
+- AWS Managed Rules - Anonymous IP List
+- AWS Managed Rules - SQLite Ruleset
+- AWS Managed Rules - Linux Ruleset
+- AWS Managed Rules - Unix Ruleset
+
+Configure `waf_managed_rules` to customize the list of managed rules to implement.
+
+##### WAF deployment with basic rules
+
+```
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  configure_waf           = true
+}
+```
+
+#### Customized WAF use case
+
+By default, the module will implement the set of AWS Managed Rules listed above. Further customization is possible.
+
+##### WAF deployment with basic rules and extended rules
+
+If you want to add additional rules to the AWS Managed Rules:
+
+- Refer the module's output parameter `alb_arn`.
+- Create additional `aws_wafv2_web_acl` resources.
+- Associate the `aws_wafv2_web_acl` with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
+
+```
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  configure_waf = true
+}
+
+resource "aws_wafv2_web_acl" "example" {
+  name        = "example-acl"
+  description = "Example ACL"
+  scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
+  --- rules omitted ---
+}
+
+resource "aws_wafv2_web_acl_association" "associate_alb" {
+  resource_arn = module.aws_controller_ha.lb_arn
+  web_acl_arn  = aws_wafv2_web_acl.example.arn
+}
+```
+
+#### WAF deployment with basic rules disabled
+
+If you don't want to use the AWS Managed Rules and would like to fully customize the WAF rules:
+
+- Set `configure_waf` to `false`.
+- Refer the module's output parameter `alb_arn`.
+- Create additional `aws_wafv2_web_acl` resources.
+- Associate the `aws_wafv2_web_acl` resources with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
+
+```
+module "aws_controller_ha" {
+  source                  = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  keypair                 = "keypair1"
+  incoming_ssl_cidr       = ["x.x.x.x/32"]
+  cop_incoming_https_cidr = ["x.x.x.x/32"]
+  access_account_name     = "AWS-Account"
+  admin_email             = "admin@example.com"
+  asg_notif_email         = "asg@example.com"
+  s3_backup_bucket        = "backup-bucket"
+  s3_backup_region        = "us-east-1"
+  ha_distribution         = "inter-az"
+  load_balancer_type      = "application"
+  alb_cert_arn            = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  configure_waf           = false
+}
+
+resource "aws_wafv2_web_acl" "example" {
+  name        = "example-acl"
+  description = "Example ACL"
+  scope       = "REGIONAL" # Use CLOUDFRONT for CloudFront distributions
+  --- rules omitted ---
+}
+
+resource "aws_wafv2_web_acl_association" "associate_alb" {
+  resource_arn = module.aws_controller_ha.lb_arn
+  web_acl_arn  = aws_wafv2_web_acl.example.arn
+}
+```
