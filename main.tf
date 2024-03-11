@@ -104,9 +104,9 @@ module "region1" {
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
   standby_instance_state        = var.standby_instance_state
-  controller_ami_id = var.controller_ami_id
-  copilot_ami_id = var.copilot_ami_id
-  template_user_data = var.template_user_data
+  controller_ami_id             = var.controller_ami_id
+  copilot_ami_id                = var.copilot_ami_id
+  template_user_data            = var.template_user_data
   load_balancer_type            = var.load_balancer_type
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                  = var.alb_cert_arn
@@ -186,10 +186,10 @@ module "region2" {
   existing_copilot_eip          = var.existing_copilot_dr_eip
   controller_ha_enabled         = var.controller_ha_enabled
   copilot_ha_enabled            = var.copilot_ha_enabled
-  controller_ami_id = var.dr_controller_ami_id
-  copilot_ami_id = var.dr_copilot_ami_id
+  controller_ami_id             = var.dr_controller_ami_id
+  copilot_ami_id                = var.dr_copilot_ami_id
   standby_instance_state        = var.standby_instance_state
-  template_user_data = var.template_user_data
+  template_user_data            = var.template_user_data
   load_balancer_type            = var.load_balancer_type
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                  = var.dr_alb_cert_arn

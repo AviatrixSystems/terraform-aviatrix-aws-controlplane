@@ -477,31 +477,31 @@ variable "existing_copilot_dr_eip" {
 }
 
 variable "controller_ami_id" {
-  type = string
+  type        = string
   description = "Set controller AMI ID"
-  default = ""
+  default     = ""
 }
 
 variable "dr_controller_ami_id" {
-  type = string
+  type        = string
   description = "Set DR controller AMI ID"
-  default = ""
+  default     = ""
 }
 
 variable "copilot_ami_id" {
-  type = string
+  type        = string
   description = "Set copilot AMI ID"
-  default = ""
+  default     = ""
 }
 
 variable "dr_copilot_ami_id" {
-  type = string
+  type        = string
   description = "Set DR copilot AMI ID"
-  default = ""
+  default     = ""
 }
 
 variable "template_user_data" {
-  type = string 
+  type    = string
   default = ""
 }
 variable "load_balancer_type" {

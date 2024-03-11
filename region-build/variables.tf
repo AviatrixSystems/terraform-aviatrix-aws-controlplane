@@ -118,12 +118,12 @@ variable "root_volume_size" {
 }
 
 variable "ebs_optimized" {
-  type = bool
+  type        = bool
   description = "Whether EBS optimization is enabled. Applies to both the Controller and CoPilot."
 }
 
 variable "monitoring" {
-  type = bool
+  type        = bool
   description = "Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot."
 }
 
@@ -443,17 +443,17 @@ variable "existing_copilot_eip" {
 }
 
 variable "controller_ami_id" {
-  type = string
+  type        = string
   description = "Set controller AMI ID"
 }
 
 variable "copilot_ami_id" {
-  type = string
+  type        = string
   description = "Set copliot AMI ID"
 }
 
 variable "template_user_data" {
-  type = string 
+  type    = string
   default = ""
 }
 variable "load_balancer_type" {
