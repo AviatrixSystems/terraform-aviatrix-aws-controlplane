@@ -476,6 +476,36 @@ variable "existing_copilot_dr_eip" {
   default     = ""
 }
 
+variable "controller_ami_id" {
+  type        = string
+  description = "The Aviatrix Controller AMI ID"
+  default     = ""
+}
+
+variable "dr_controller_ami_id" {
+  type        = string
+  description = "The DR Aviatrix Controller AMI ID"
+  default     = ""
+}
+
+variable "copilot_ami_id" {
+  type        = string
+  description = "The Aviatrix CoPilot AMI ID"
+  default     = ""
+}
+
+variable "dr_copilot_ami_id" {
+  type        = string
+  description = "The DR Aviatrix ConPilot AMI ID"
+  default     = ""
+}
+
+variable "user_data" {
+  type        = string
+  description = "The base64-encoded user data to provide when launching the instance."
+  default     = ""
+}
+
 variable "load_balancer_type" {
   type        = string
   description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"

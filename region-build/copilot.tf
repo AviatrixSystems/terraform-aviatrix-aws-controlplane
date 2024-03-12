@@ -18,8 +18,8 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
   }
 
   disable_api_termination              = var.termination_protection
+  image_id                             = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
   ebs_optimized                        = var.ebs_optimized
-  image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.cop_instance_type
   key_name                             = var.keypair
@@ -78,8 +78,8 @@ resource "aws_launch_template" "avtx-copilot" {
   }
 
   disable_api_termination              = var.termination_protection
+  image_id                             = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
   ebs_optimized                        = var.ebs_optimized
-  image_id                             = local.cop_ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.cop_instance_type
   key_name                             = var.keypair
@@ -265,7 +265,7 @@ module "data_nodes" {
 
   node_name                = local.cop_tag
   node_key                 = count.index
-  ami_id                   = local.cop_ami_id
+  ami_id                   = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
   instance_type            = var.cop_instance_type
   controller_ip            = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
   keypair                  = var.keypair

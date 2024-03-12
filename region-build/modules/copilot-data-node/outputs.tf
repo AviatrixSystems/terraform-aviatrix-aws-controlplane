@@ -25,12 +25,12 @@ output "instance_private_ip" {
 
 output "instance_details" {
   description = "Data Node Instance Details"
-  value       = {
-    "instance_id": try(aws_instance.aviatrixcopilot.id, ""),
-    "instance_name": try(aws_instance.aviatrixcopilot.tags["Name"], ""),
-    "sg_id": try(aws_security_group.AviatrixCopilotSecurityGroup.id, ""),
-    "sg_name": try(aws_security_group.AviatrixCopilotSecurityGroup.name, ""),
-    "instance_private_ip": try(aws_instance.aviatrixcopilot.private_ip, ""),
-    "instance_public_ip": try(aws_eip.copilot_eip.public_ip, ""),
+  value = {
+    "instance_id" : try(aws_instance.aviatrixcopilot.id, ""),
+    "instance_name" : try(aws_instance.aviatrixcopilot.tags["Name"], ""),
+    "sg_id" : try(aws_security_group.AviatrixCopilotSecurityGroup.id, ""),
+    "sg_name" : try(aws_security_group.AviatrixCopilotSecurityGroup.name, ""),
+    "instance_private_ip" : try(aws_instance.aviatrixcopilot.private_ip, ""),
+    "instance_public_ip" : try(aws_eip.copilot_eip.public_ip, ""),
   }
 }

@@ -61,7 +61,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_DATA_NODES_DETAILS",
-          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+          value = var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
         },
         {
           name  = "COP_DEPLOYMENT",
@@ -231,7 +231,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_DATA_NODES_DETAILS",
-          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+          value = var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
         },
         {
           name  = "COP_DEPLOYMENT",
@@ -432,7 +432,7 @@ resource "aws_launch_template" "avtx-controller" {
     name = var.ec2_role_name
   }
 
-  image_id                             = local.ami_id
+  image_id                             = var.controller_ami_id != "" ? var.controller_ami_id : local.ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.instance_type
   key_name                             = var.keypair
@@ -454,6 +454,8 @@ resource "aws_launch_template" "avtx-controller" {
 
     tags = { Name = local.ctr_tag }
   }
+
+  user_data = var.user_data
 }
 
 data "aws_default_tags" "current" {}
@@ -466,7 +468,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
-  suspended_processes       = var.controller_ha_enabled ? null : ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
+  suspended_processes       = var.controller_ha_enabled ? null : ["Launch", "Terminate", "HealthCheck", "ReplaceUnhealthy"]
 
   launch_template {
     id      = aws_launch_template.avtx-controller.id
