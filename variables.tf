@@ -500,10 +500,12 @@ variable "dr_copilot_ami_id" {
   default     = ""
 }
 
-variable "template_user_data" {
-  type    = string
-  default = ""
+variable "user_data" {
+  type        = string
+  description = "The base64-encoded user data to provide when launching the instance."
+  default     = ""
 }
+
 variable "load_balancer_type" {
   type        = string
   description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"

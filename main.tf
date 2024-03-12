@@ -106,7 +106,7 @@ module "region1" {
   standby_instance_state        = var.standby_instance_state
   controller_ami_id             = var.controller_ami_id
   copilot_ami_id                = var.copilot_ami_id
-  template_user_data            = var.template_user_data
+  user_data                     = var.user_data
   load_balancer_type            = var.load_balancer_type
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                  = var.alb_cert_arn
@@ -189,7 +189,7 @@ module "region2" {
   controller_ami_id             = var.dr_controller_ami_id
   copilot_ami_id                = var.dr_copilot_ami_id
   standby_instance_state        = var.standby_instance_state
-  template_user_data            = var.template_user_data
+  user_data                     = var.user_data
   load_balancer_type            = var.load_balancer_type
   configure_waf                 = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                  = var.dr_alb_cert_arn
