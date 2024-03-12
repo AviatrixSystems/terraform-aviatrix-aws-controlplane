@@ -444,12 +444,12 @@ variable "existing_copilot_eip" {
 
 variable "controller_ami_id" {
   type        = string
-  description = "Set controller AMI ID"
+  description = "The Aviatrix Controller AMI ID"
 }
 
 variable "copilot_ami_id" {
   type        = string
-  description = "Set copliot AMI ID"
+  description = "The Aviatrix CoPilot AMI ID"
 }
 
 variable "user_data" {

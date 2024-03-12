@@ -478,25 +478,25 @@ variable "existing_copilot_dr_eip" {
 
 variable "controller_ami_id" {
   type        = string
-  description = "Set controller AMI ID"
+  description = "The Aviatrix Controller AMI ID"
   default     = ""
 }
 
 variable "dr_controller_ami_id" {
   type        = string
-  description = "Set DR controller AMI ID"
+  description = "The DR Aviatrix Controller AMI ID"
   default     = ""
 }
 
 variable "copilot_ami_id" {
   type        = string
-  description = "Set copilot AMI ID"
+  description = "The Aviatrix CoPilot AMI ID"
   default     = ""
 }
 
 variable "dr_copilot_ami_id" {
   type        = string
-  description = "Set DR copilot AMI ID"
+  description = "The DR Aviatrix ConPilot AMI ID"
   default     = ""
 }
 
