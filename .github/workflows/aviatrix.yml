@@ -1,0 +1,14 @@
+name: Aviatrix Checks
+
+on:
+    pull_request:
+        types: [opened, edited, synchronize, reopened]
+
+permissions: read-all
+
+jobs:
+    aviatrix-check:
+        uses: AvxSre/sre-workflows/.github/workflows/aviatrix.yml@main
+        with:
+            jira-check-commits: false
+            jira-check: false
