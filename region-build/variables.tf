@@ -98,7 +98,7 @@ variable "copilot_data_node_count" {
   }
 }
 
-variable "cop_instance_type" {
+variable "copilot_instance_type" {
   type        = string
   description = "CoPilot instance size"
   default     = "t3.2xlarge"
@@ -145,31 +145,31 @@ variable "copilot_email" {
   description = "CoPilot user email address, if desired"
 }
 
-variable "cop_type" {
+variable "copilot_type" {
   type        = string
   description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
   default     = "Copilot"
 }
 
-variable "cop_root_volume_size" {
+variable "copilot_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
   default     = 25
 }
 
-variable "cop_root_volume_type" {
+variable "copilot_root_volume_type" {
   type        = string
   description = "Root volume type for Copilot"
   default     = "gp3"
 }
 
-variable "cop_default_data_volume_size" {
+variable "copilot_default_data_volume_size" {
   type        = number
   description = "Default data disk volume size for Copilot"
   default     = 8
 }
 
-variable "cop_default_data_volume_type" {
+variable "copilot_default_data_volume_type" {
   type        = string
   description = "Default data disk volume type for Copilot"
   default     = "gp3"
@@ -186,18 +186,18 @@ variable "incoming_ssl_cidr" {
   description = "Incoming cidr for security group used by controller"
 }
 
-variable "cop_incoming_https_cidr" {
+variable "copilot_incoming_https_cidr" {
   type        = list(string)
   description = "Incoming CIDR for HTTPS access to the CoPilot"
 }
 
-variable "cop_incoming_syslog_cidr" {
+variable "copilot_incoming_syslog_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Syslog sources to the CoPilot"
   default     = ["0.0.0.0/0"]
 }
 
-variable "cop_incoming_netflow_cidr" {
+variable "copilot_incoming_netflow_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Netflow sources to the CoPilot"
   default     = ["0.0.0.0/0"]
@@ -288,7 +288,7 @@ locals {
   images_custom     = jsondecode(data.http.avx_iam_id.response_body).Custom
   images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
   images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
-  cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
+  cop_ami_id        = var.copilot_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
   ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
 
   cop_tag = var.copilot_name != "" ? var.copilot_name : "${local.name_prefix}AviatrixCopilot"

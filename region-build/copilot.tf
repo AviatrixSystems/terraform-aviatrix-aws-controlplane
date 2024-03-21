@@ -7,8 +7,8 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
     device_name = "/dev/sda1"
 
     ebs {
-      volume_size           = var.cop_root_volume_size
-      volume_type           = var.cop_root_volume_type
+      volume_size           = var.copilot_root_volume_size
+      volume_type           = var.copilot_root_volume_type
       delete_on_termination = false
     }
   }
@@ -21,7 +21,7 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
   image_id                             = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
   ebs_optimized                        = var.ebs_optimized
   instance_initiated_shutdown_behavior = "terminate"
-  instance_type                        = var.cop_instance_type
+  instance_type                        = var.copilot_instance_type
   key_name                             = var.keypair
 
   network_interfaces {
@@ -57,8 +57,8 @@ resource "aws_launch_template" "avtx-copilot" {
     device_name = "/dev/sda1"
 
     ebs {
-      volume_size           = var.cop_root_volume_size
-      volume_type           = var.cop_root_volume_type
+      volume_size           = var.copilot_root_volume_size
+      volume_type           = var.copilot_root_volume_type
       delete_on_termination = true
     }
   }
@@ -67,8 +67,8 @@ resource "aws_launch_template" "avtx-copilot" {
     device_name = "/dev/sda2"
 
     ebs {
-      volume_size           = var.cop_default_data_volume_size
-      volume_type           = var.cop_default_data_volume_type
+      volume_size           = var.copilot_default_data_volume_size
+      volume_type           = var.copilot_default_data_volume_type
       delete_on_termination = true
     }
   }
@@ -81,7 +81,7 @@ resource "aws_launch_template" "avtx-copilot" {
   image_id                             = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
   ebs_optimized                        = var.ebs_optimized
   instance_initiated_shutdown_behavior = "terminate"
-  instance_type                        = var.cop_instance_type
+  instance_type                        = var.copilot_instance_type
   key_name                             = var.keypair
 
   network_interfaces {
@@ -199,7 +199,7 @@ resource "aws_security_group_rule" "copilot_https_ingress_rule" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = concat(var.cop_incoming_https_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot HTTPS Ingress - DO NOT DELETE"
 }
@@ -209,7 +209,7 @@ resource "aws_security_group_rule" "copilot_syslog_ingress_rule" {
   from_port         = 5000
   to_port           = 5000
   protocol          = "udp"
-  cidr_blocks       = var.cop_incoming_syslog_cidr
+  cidr_blocks       = var.copilot_incoming_syslog_cidr
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot Syslog Ingress - DO NOT DELETE"
 }
@@ -219,7 +219,7 @@ resource "aws_security_group_rule" "copilot_netflow_ingress_rule" {
   from_port         = 31283
   to_port           = 31283
   protocol          = "udp"
-  cidr_blocks       = var.cop_incoming_netflow_cidr
+  cidr_blocks       = var.copilot_incoming_netflow_cidr
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot Netflow Ingress - DO NOT DELETE"
 }
@@ -229,7 +229,7 @@ resource "aws_security_group_rule" "copilot_alb_ingress_rule" {
   from_port         = 8443
   to_port           = 8443
   protocol          = "tcp"
-  cidr_blocks       = concat(var.cop_incoming_https_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot ALB Ingress - DO NOT DELETE"
 }
@@ -266,14 +266,14 @@ module "data_nodes" {
   node_name                = local.cop_tag
   node_key                 = count.index
   ami_id                   = var.copilot_ami_id != "" ? var.copilot_ami_id : local.cop_ami_id
-  instance_type            = var.cop_instance_type
+  instance_type            = var.copilot_instance_type
   controller_ip            = var.use_existing_eip ? var.existing_eip : aws_eip.controller_eip[0].public_ip
   keypair                  = var.keypair
   subnet_id                = local.data_node_subnets[count.index % length(local.data_node_subnets)]
-  root_volume_size         = var.cop_root_volume_size
-  root_volume_type         = var.cop_root_volume_type
-  default_data_volume_size = var.cop_default_data_volume_size
-  default_data_volume_type = var.cop_default_data_volume_type
+  root_volume_size         = var.copilot_root_volume_size
+  root_volume_type         = var.copilot_root_volume_type
+  default_data_volume_size = var.copilot_default_data_volume_size
+  default_data_volume_type = var.copilot_default_data_volume_type
   ebs_optimized            = var.ebs_optimized
   monitoring               = var.monitoring
   tags                     = local.common_tags
