@@ -71,8 +71,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
 }
 ```
 
@@ -89,8 +87,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
   ha_distribution             = "inter-az"
 }
 ```
@@ -109,8 +105,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
   ha_distribution             = "inter-region"
   zone_name                   = "example.com"
   record_name                 = "controller.example.com"
@@ -131,8 +125,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "cn-north-1"
   ha_distribution             = "inter-az"
   region                      = "cn-north-1"
   dr_region                   = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
@@ -260,8 +252,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | region                           | "us-east-1"                             | Region to deploy the Controller and CoPilot                                                                                                                                                                                                    |
 | root_volume_size                 | 64                                      | Root volume disk size for Controller                                                                                                                                                                                                           |
 | root_volume_type                 | gp3                                     | Root volume type for Controller                                                                                                                                                                                                                |
-| s3_backup_bucket                 |                                         | S3 bucket for Controller DB backup                                                                                                                                                                                                             |
-| s3_backup_region                 |                                         | Region S3 backup bucket is in                                                                                                                                                                                                                  |
+| s3_backup_bucket                 | aviatrix-ha-                            | If `use_existing_s3` is false, a new S3 bucket will be created with the prefix specified by `s3_backup_bucket`. If `use_existing_s3` is true, the S3 bucket must already be created.                                                           |
+| s3_backup_region                 | us-east-1                               | The region the S3 backup bucket is in                                                                                                                                                                                                          |
 | standby_instance_state           | Running                                 | Instance state in Warm Pool of AWS autoscaling group. Valid values are `Running` and `Stopped`                                                                                                                                                 |
 | subnet_ids                       |                                         | The list of existing subnets to deploy the Controller in. Only applicable if `use_existing_vpc` is true.                                                                                                                                       |
 | subnet_name                      | Aviatrix-Public-Subnet                  | The subnet name to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                                  |
@@ -269,6 +261,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | termination_protection           | true                                    | Whether to enable termination protection on the Controller and CoPilot instances                                                                                                                                                               |
 | use_existing_copilot_eip         | false                                   | Set to true to use the EIP(s) specified by `existing_copilot_eip` (and `existing_copilot_dr_eip`) for the Aviatrix CoPilot(s) rather than allocating new EIPs                                                                                  |
 | use_existing_eip                 | false                                   | Set to true to use the EIP(s) specified by `existing_eip` (and `existing_dr_eip`) for the Aviatrix Controller(s) rather than allocating new EIPs                                                                                               |
+| use_existing_s3                  | false                                   | Whether to use an existing S3 bucket                                                                                                                                                                                                           |
 | use_existing_vpc                 | false                                   | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                                                                                                                 |
 | vpc                              | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
 | vpc_cidr                         | 10.0.0.0/24                             | The CIDR for the VPC to create for the Controller. Only applicable if `use_existing_vpc` is false.                                                                                                                                             |
@@ -436,8 +429,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -466,8 +457,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -505,8 +494,6 @@ module "aws_controller_ha" {
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   asg_notif_email             = "asg@example.com"
-  s3_backup_bucket            = "backup-bucket"
-  s3_backup_region            = "us-east-1"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
