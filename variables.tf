@@ -226,11 +226,19 @@ variable "copilot_incoming_netflow_cidr" {
 variable "s3_backup_bucket" {
   type        = string
   description = "S3 bucket for Controller DB backup"
+  default     = "aviatrix-ha-"
 }
 
 variable "s3_backup_region" {
   type        = string
   description = "AWS region of S3 backup bucket"
+  default     = "us-east-1"
+}
+
+variable "use_existing_s3" {
+  type        = bool
+  description = "Whether to use an existing S3 bucket"
+  default     = false
 }
 
 variable "termination_protection" {

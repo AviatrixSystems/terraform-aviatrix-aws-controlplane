@@ -45,7 +45,7 @@ module "region1" {
   incoming_ssl_cidr                = var.incoming_ssl_cidr
   keypair                          = var.keypair
   access_account_name              = var.access_account_name
-  s3_backup_bucket                 = var.s3_backup_bucket
+  s3_backup_bucket                 = var.use_existing_s3 ? var.s3_backup_bucket : aws_s3_bucket.backup[0].id
   s3_backup_region                 = var.s3_backup_region
   termination_protection           = var.termination_protection
   create_iam_roles                 = var.create_iam_roles
@@ -128,7 +128,7 @@ module "region2" {
   incoming_ssl_cidr                = var.incoming_ssl_cidr
   keypair                          = var.dr_keypair
   access_account_name              = var.access_account_name
-  s3_backup_bucket                 = var.s3_backup_bucket
+  s3_backup_bucket                 = var.use_existing_s3 ? var.s3_backup_bucket : aws_s3_bucket.backup[0].id
   s3_backup_region                 = var.s3_backup_region
   termination_protection           = var.termination_protection
   create_iam_roles                 = var.create_iam_roles
@@ -368,6 +368,13 @@ EOF
 resource "aws_iam_role_policy_attachment" "eventbridge-attach-policy" {
   role       = aws_iam_role.iam_for_eventbridge.name
   policy_arn = aws_iam_policy.eventbridge-policy.arn
+}
+
+resource "aws_s3_bucket" "backup" {
+  provider      = aws.s3_region
+  count         = var.use_existing_s3 ? 0 : 1
+  bucket_prefix = var.s3_backup_bucket
+  force_destroy = true
 }
 
 ##################################
