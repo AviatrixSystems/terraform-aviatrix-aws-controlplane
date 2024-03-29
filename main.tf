@@ -77,6 +77,7 @@ module "region1" {
   copilot_incoming_syslog_cidr     = var.copilot_incoming_syslog_cidr
   tags                             = var.tags
   controller_version               = var.controller_version
+  use_existing_keypair             = var.use_existing_keypair
   use_existing_vpc                 = var.use_existing_vpc
   vpc                              = var.vpc
   subnet_ids                       = var.subnet_ids
@@ -160,6 +161,7 @@ module "region2" {
   copilot_incoming_syslog_cidr     = var.copilot_incoming_syslog_cidr
   tags                             = var.tags
   controller_version               = var.controller_version
+  use_existing_keypair             = var.use_existing_keypair
   use_existing_vpc                 = var.use_existing_vpc
   vpc                              = var.dr_vpc
   subnet_ids                       = var.dr_subnet_ids

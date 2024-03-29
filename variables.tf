@@ -36,6 +36,7 @@ variable "copilot_ha_enabled" {
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
+  default     = "aviatrix-ha-keypair"
 }
 
 variable "region" {
@@ -278,6 +279,12 @@ variable "controller_version" {
   }
 }
 
+variable "use_existing_keypair" {
+  type        = bool
+  description = "Whether to use an existing keypair"
+  default     = false
+}
+
 variable "use_existing_vpc" {
   description = "Set to true to use existing VPC."
   type        = bool
@@ -373,7 +380,7 @@ variable "dr_vpc_cidr" {
 variable "dr_keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
-  default     = ""
+  default     = "aviatrix-ha-keypair"
 }
 
 variable "zone_name" {
