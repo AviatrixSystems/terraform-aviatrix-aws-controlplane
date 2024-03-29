@@ -65,7 +65,6 @@ The following resources should be created before running Terraform. The module w
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -81,7 +80,6 @@ module "aws_controller_ha" {
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -98,8 +96,6 @@ module "aws_controller_ha" {
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
-  dr_keypair                  = "keypair2"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -119,7 +115,6 @@ module "aws_controller_ha" {
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -261,6 +256,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | termination_protection           | true                                    | Whether to enable termination protection on the Controller and CoPilot instances                                                                                                                                                               |
 | use_existing_copilot_eip         | false                                   | Set to true to use the EIP(s) specified by `existing_copilot_eip` (and `existing_copilot_dr_eip`) for the Aviatrix CoPilot(s) rather than allocating new EIPs                                                                                  |
 | use_existing_eip                 | false                                   | Set to true to use the EIP(s) specified by `existing_eip` (and `existing_dr_eip`) for the Aviatrix Controller(s) rather than allocating new EIPs                                                                                               |
+| use_existing_keypair             | false                                   | If `use_existing_keypair` is false, a new keypair will be created with the name specified by `keypair`. If `use_existing_keypair` is true, they keypair must already be created.                                                               |
 | use_existing_s3                  | false                                   | Whether to use an existing S3 bucket                                                                                                                                                                                                           |
 | use_existing_vpc                 | false                                   | Set to true to deploy Controller and CoPilot to existing VPCs specified by `vpc` and `dr_vpc`.                                                                                                                                                 |
 | vpc                              | ""                                      | VPC to deploy Controlller and CoPilot in. Only applicable if `use_existing_vpc` is true.                                                                                                                                                       |
@@ -423,7 +419,6 @@ Configure `waf_managed_rules` to customize the list of managed rules to implemen
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -451,7 +446,6 @@ If you want to add additional rules to the AWS Managed Rules:
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
@@ -488,7 +482,6 @@ If you don't want to use the AWS Managed Rules and would like to fully customize
 ```
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
-  keypair                     = "keypair1"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
