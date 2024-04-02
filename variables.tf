@@ -210,6 +210,7 @@ variable "incoming_ssl_cidr" {
 variable "copilot_incoming_https_cidr" {
   type        = list(string)
   description = "Incoming CIDR for HTTPS access to the CoPilot"
+  default     = null
 }
 
 variable "copilot_incoming_syslog_cidr" {

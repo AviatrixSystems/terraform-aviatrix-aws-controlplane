@@ -72,7 +72,7 @@ module "region1" {
   copilot_root_volume_type         = var.copilot_root_volume_type
   copilot_default_data_volume_size = var.copilot_default_data_volume_size
   copilot_default_data_volume_type = var.copilot_default_data_volume_type
-  copilot_incoming_https_cidr      = var.copilot_incoming_https_cidr
+  copilot_incoming_https_cidr      = var.copilot_incoming_https_cidr == null ? var.incoming_ssl_cidr : var.copilot_incoming_https_cidr
   copilot_incoming_netflow_cidr    = var.copilot_incoming_netflow_cidr
   copilot_incoming_syslog_cidr     = var.copilot_incoming_syslog_cidr
   tags                             = var.tags
@@ -156,7 +156,7 @@ module "region2" {
   copilot_root_volume_type         = var.copilot_root_volume_type
   copilot_default_data_volume_size = var.copilot_default_data_volume_size
   copilot_default_data_volume_type = var.copilot_default_data_volume_type
-  copilot_incoming_https_cidr      = var.copilot_incoming_https_cidr
+  copilot_incoming_https_cidr      = var.copilot_incoming_https_cidr == null ? var.incoming_ssl_cidr : var.copilot_incoming_https_cidr
   copilot_incoming_netflow_cidr    = var.copilot_incoming_netflow_cidr
   copilot_incoming_syslog_cidr     = var.copilot_incoming_syslog_cidr
   tags                             = var.tags
