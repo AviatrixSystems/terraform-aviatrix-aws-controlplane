@@ -41,7 +41,7 @@ module "region1" {
   dr_region                        = var.dr_region
   vpc_cidr                         = var.vpc_cidr
   admin_email                      = var.admin_email
-  asg_notif_email                  = var.asg_notif_email
+  asg_notif_email                  = var.asg_notif_email == "" ? var.admin_email : var.asg_notif_email
   incoming_ssl_cidr                = var.incoming_ssl_cidr
   keypair                          = var.keypair
   access_account_name              = var.access_account_name
@@ -125,7 +125,7 @@ module "region2" {
   vpc_cidr                         = var.dr_vpc_cidr
   dr_region                        = var.region
   admin_email                      = var.admin_email
-  asg_notif_email                  = var.asg_notif_email
+  asg_notif_email                  = var.asg_notif_email == "" ? var.admin_email : var.asg_notif_email
   incoming_ssl_cidr                = var.incoming_ssl_cidr
   keypair                          = var.dr_keypair
   access_account_name              = var.access_account_name

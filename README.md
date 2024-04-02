@@ -69,7 +69,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
 }
 ```
 
@@ -84,7 +83,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-az"
 }
 ```
@@ -100,7 +98,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-region"
   zone_name                   = "example.com"
   record_name                 = "controller.example.com"
@@ -119,7 +116,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-az"
   region                      = "cn-north-1"
   dr_region                   = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
@@ -186,7 +182,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | access_account_name              |                                         | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
 | admin_email                      |                                         | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
 | alb_cert_arn                     | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the primary region. Required if `load_balancer_type` is `application`.                                                                                             |
-| asg_notif_email                  |                                         | The email address for Controller failover notifications                                                                                                                                                                                        |
+| asg_notif_email                  | admin_email                             | The email address for Controller failover notifications. This will default to the admin_email if not specified.                                                                                                                                |
 | app_role_max_session_duration    | 43200 seconds (12 hours)                | The max session duration for the Aviatrix App role                                                                                                                                                                                             |
 | app_role_name                    | aviatrix-role-app                       | The name of the Aviatrix App role                                                                                                                                                                                                              |
 | avx_copilot_password             |                                         | The Aviatrix Copilot service account password. WARNING: The password will be visible in the container's environment variables. See above note for more information.                                                                            |
@@ -423,7 +419,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -450,7 +445,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -486,7 +480,6 @@ module "aws_controller_ha" {
   copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
-  asg_notif_email             = "asg@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
   alb_cert_arn                = "arn:aws:acm:us-east-1:111111111111:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
