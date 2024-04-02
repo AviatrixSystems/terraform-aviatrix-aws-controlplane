@@ -256,6 +256,7 @@ variable "admin_email" {
 variable "asg_notif_email" {
   type        = string
   description = "Email address for Controller failover notifications"
+  default     = ""
 }
 
 variable "access_account_name" {
