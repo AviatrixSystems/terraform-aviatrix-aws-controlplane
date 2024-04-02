@@ -66,7 +66,6 @@ The following resources should be created before running Terraform. The module w
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
 }
@@ -80,7 +79,6 @@ module "aws_controller_ha" {
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -95,7 +93,6 @@ module "aws_controller_ha" {
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-region"
@@ -113,7 +110,6 @@ module "aws_controller_ha" {
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -182,7 +178,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | access_account_name              |                                         | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
 | admin_email                      |                                         | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
 | alb_cert_arn                     | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the primary region. Required if `load_balancer_type` is `application`.                                                                                             |
-| asg_notif_email                  | admin_email                             | The email address for Controller failover notifications. This will default to the admin_email if not specified.                                                                                                                                |
+| asg_notif_email                  | admin_email                             | The email address for Controller failover notifications. This will default to `admin_email` if not specified.                                                                                                                                  |
 | app_role_max_session_duration    | 43200 seconds (12 hours)                | The max session duration for the Aviatrix App role                                                                                                                                                                                             |
 | app_role_name                    | aviatrix-role-app                       | The name of the Aviatrix App role                                                                                                                                                                                                              |
 | avx_copilot_password             |                                         | The Aviatrix Copilot service account password. WARNING: The password will be visible in the container's environment variables. See above note for more information.                                                                            |
@@ -204,7 +200,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | copilot_deployment               | simple                                  | The CoPilot deployment type. Valid values are `simple` and `fault-tolerant`. `fault-tolerant` is only supported if `ha_distribution` is `single-az` or `inter-az`.                                                                             |
 | copilot_email                    |                                         | CoPilot account email. See Prerequisites above for more information                                                                                                                                                                            |
 | copilot_ha_enabled               | true                                    | Whether HA is enabled for CoPilot. Set to `false` to temporarily disable HA.                                                                                                                                                                   |
-| copilot_incoming_https_cidr      | CoPilot HTTPS access                    | CoPilot allowed CIDRs for HTTPS acccess                                                                                                                                                                                                        |
+| copilot_incoming_https_cidr      | incoming_ssl_cidr                       | CoPilot allowed CIDRs for HTTPS acccess. This will default to `incoming_ssl_cidr` if not specified.                                                                                                                                            |
 | copilot_incoming_netflow_cidr    | CoPilot Netflow (UDP port 31283) access | CoPilot allowed CIDRs for Netflow acccess                                                                                                                                                                                                      |
 | copilot_incoming_syslog_cidr     | CoPilot Syslog (UDP port 5000) access   | CoPilot allowed CIDRs for Syslog acccess                                                                                                                                                                                                       |
 | copilot_instance_type            | t3.2xlarge                              | CoPilot instance size                                                                                                                                                                                                                          |
@@ -416,7 +412,6 @@ Configure `waf_managed_rules` to customize the list of managed rules to implemen
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -442,7 +437,6 @@ If you want to add additional rules to the AWS Managed Rules:
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -477,7 +471,6 @@ If you don't want to use the AWS Managed Rules and would like to fully customize
 module "aws_controller_ha" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  copilot_incoming_https_cidr = ["x.x.x.x/32"]
   access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
