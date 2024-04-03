@@ -502,27 +502,9 @@ resource "aws_cloudformation_stack" "cft" {
   capabilities = ["CAPABILITY_IAM"]
 }
 
-resource "null_resource" "wait_for_copilot" {
-  for_each = aws_cloudformation_stack.cft
-  triggers = {
-    copilot = each.value.outputs["AviatrixCoPilotURL"]
-  }
-  provisioner "local-exec" {
-    when    = create
-    command = <<EOF
-echo "Waiting for Copilot..."
-count=0
-until [ "$(curl -ks https://${try(each.value.outputs["AviatrixCoPilotURL"], "")}/api/info/updateStatus | jq -r '.status')" = "finished" ]
-do
-  sleep 10
-  count=$((count+1))
-  if [ $count -eq 60 ]; then
-    break
-  fi
-done
-echo "Copilot is online."
-      EOF
-  }
+resource "time_sleep" "waiting_for_initialization" {
+  for_each        = aws_cloudformation_stack.cft
+  create_duration = "10m"
 }
 
 locals {
