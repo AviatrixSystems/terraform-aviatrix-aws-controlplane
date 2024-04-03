@@ -504,7 +504,7 @@ resource "aws_cloudformation_stack" "cft" {
 
 resource "time_sleep" "waiting_for_initialization" {
   for_each        = { for i in aws_cloudformation_stack.cft : i.name => i }
-  create_duration = "10m"
+  create_duration = "20m"
 }
 
 locals {
