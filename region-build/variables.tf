@@ -234,6 +234,7 @@ variable "asg_notif_email" {
 variable "access_account_name" {
   type        = string
   description = "The controller account friendly name (mapping to the AWS account ID)"
+  default     = "aws_admin"
 }
 
 variable "tags" {

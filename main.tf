@@ -36,6 +36,7 @@ resource "null_resource" "validate_dr_alb_cert_arn" {
 }
 
 module "region1" {
+  count                            = var.ha_distribution == "basic" ? 0 : 1
   source                           = "./region-build"
   region                           = var.region
   dr_region                        = var.dr_region
@@ -83,7 +84,7 @@ module "region1" {
   subnet_ids                       = var.subnet_ids
   name_prefix                      = var.name_prefix
   license_type                     = var.license_type
-  iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs.arn
+  iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs[0].arn
   inter_region_primary             = var.region
   inter_region_standby             = var.dr_region
   zone_name                        = var.zone_name
@@ -97,7 +98,7 @@ module "region1" {
   avx_customer_id                  = var.avx_customer_id
   avx_password                     = var.avx_password
   avx_copilot_password             = var.avx_copilot_password
-  attach_eventbridge_role_arn      = aws_iam_role.iam_for_eventbridge.arn
+  attach_eventbridge_role_arn      = aws_iam_role.iam_for_eventbridge[0].arn
   use_existing_eip                 = var.use_existing_eip
   existing_eip                     = var.existing_eip
   use_existing_copilot_eip         = var.use_existing_copilot_eip
@@ -167,7 +168,7 @@ module "region2" {
   subnet_ids                       = var.dr_subnet_ids
   name_prefix                      = var.name_prefix
   license_type                     = var.license_type
-  iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs.arn
+  iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs[0].arn
   inter_region_primary             = var.region
   inter_region_standby             = var.dr_region
   zone_name                        = var.zone_name
@@ -181,7 +182,7 @@ module "region2" {
   avx_customer_id                  = var.avx_customer_id
   avx_password                     = var.avx_password
   avx_copilot_password             = var.avx_copilot_password
-  attach_eventbridge_role_arn      = aws_iam_role.iam_for_eventbridge.arn
+  attach_eventbridge_role_arn      = aws_iam_role.iam_for_eventbridge[0].arn
   use_existing_eip                 = var.use_existing_eip
   existing_eip                     = var.existing_dr_eip
   use_existing_copilot_eip         = var.use_existing_copilot_eip
@@ -201,7 +202,7 @@ module "region2" {
 }
 
 module "aviatrix-iam-roles" {
-  count                         = var.create_iam_roles ? 1 : 0
+  count                         = var.ha_distribution == "basic" ? 0 : var.create_iam_roles ? 1 : 0
   source                        = "./aviatrix-controller-iam-roles"
   ec2_role_name                 = var.ec2_role_name
   app_role_name                 = var.app_role_name
@@ -209,7 +210,8 @@ module "aviatrix-iam-roles" {
 }
 
 resource "aws_iam_role" "iam_for_ecs" {
-  name = "aviatrix-controller-ecs"
+  count = var.ha_distribution == "basic" ? 0 : 1
+  name  = "aviatrix-controller-ecs"
 
   assume_role_policy = <<EOF
 {
@@ -229,6 +231,7 @@ EOF
 }
 
 resource "aws_iam_policy" "ecs-policy" {
+  count       = var.ha_distribution == "basic" ? 0 : 1
   name        = "aviatrix-ctrl-ecs-policy"
   path        = "/"
   description = "Policy for creating aviatrix-controller"
@@ -318,12 +321,14 @@ EOF
 }
 
 resource "aws_iam_role_policy_attachment" "attach-policy" {
-  role       = aws_iam_role.iam_for_ecs.name
-  policy_arn = aws_iam_policy.ecs-policy.arn
+  count      = var.ha_distribution == "basic" ? 0 : 1
+  role       = aws_iam_role.iam_for_ecs[0].name
+  policy_arn = aws_iam_policy.ecs-policy[0].arn
 }
 
 resource "aws_iam_role" "iam_for_eventbridge" {
-  name = "aviatrix-eventbridge-role"
+  count = var.ha_distribution == "basic" ? 0 : 1
+  name  = "aviatrix-eventbridge-role"
 
   assume_role_policy = <<EOF
 {
@@ -343,6 +348,7 @@ EOF
 }
 
 resource "aws_iam_policy" "eventbridge-policy" {
+  count       = var.ha_distribution == "basic" ? 0 : 1
   name        = "aviatrix-eventbridge-policy"
   path        = "/"
   description = "Policy for EventBridge to run ECS tasks"
@@ -368,13 +374,14 @@ EOF
 }
 
 resource "aws_iam_role_policy_attachment" "eventbridge-attach-policy" {
-  role       = aws_iam_role.iam_for_eventbridge.name
-  policy_arn = aws_iam_policy.eventbridge-policy.arn
+  count      = var.ha_distribution == "basic" ? 0 : 1
+  role       = aws_iam_role.iam_for_eventbridge[0].name
+  policy_arn = aws_iam_policy.eventbridge-policy[0].arn
 }
 
 resource "aws_s3_bucket" "backup" {
   provider      = aws.s3_region
-  count         = var.use_existing_s3 ? 0 : 1
+  count         = var.ha_distribution == "basic" ? 0 : var.use_existing_s3 ? 0 : 1
   bucket_prefix = var.s3_backup_bucket
   force_destroy = true
 }
@@ -451,8 +458,8 @@ resource "aws_route53_record" "avx_primary" {
     # zone_id                = aws_lb.avtx-controller.zone_id
     # name                   = aws_lb.avtx-controller.dns_name
     # evaluate_target_health = true
-    zone_id                = module.region1.lb.zone_id
-    name                   = module.region1.lb.dns_name
+    zone_id                = module.region1[0].lb.zone_id
+    name                   = module.region1[0].lb.dns_name
     evaluate_target_health = false
   }
 
@@ -464,5 +471,54 @@ resource "aws_route53_record" "avx_primary" {
     ignore_changes = [
       alias
     ]
+  }
+}
+
+# Basic deployment
+
+resource "aws_cloudformation_stack" "cft" {
+  count = var.ha_distribution == "basic" ? 1 : 0
+
+  name         = "aviatrix-controlplane"
+  template_url = "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane.template"
+
+  parameters = {
+    AdminEmail                  = var.admin_email
+    AllowedHttpsIngressIpParam  = var.incoming_ssl_cidr[0]
+    CustomerId                  = var.avx_customer_id
+    VpcCidr                     = var.vpc_cidr
+    SubnetCidr                  = cidrsubnet(var.vpc_cidr, 24 - tonumber(split("/", var.vpc_cidr)[1]), 0)
+    SubnetAZ                    = "${var.region}a"
+    AdminPassword               = var.avx_password
+    AdminPasswordConfirm        = var.avx_password
+    HTTPProxy                   = ""
+    HTTPSProxy                  = ""
+    TargetVersion               = var.controller_version
+    DataVolSize                 = var.copilot_default_data_volume_size < 100 ? 100 : var.copilot_default_data_volume_size
+    ControllerInstanceTypeParam = var.instance_type
+    CoPilotInstanceTypeParam    = var.copilot_instance_type
+  }
+
+  capabilities = ["CAPABILITY_IAM"]
+}
+
+locals {
+  argument_vpc_id          = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs["AviatrixVpcID"] : ""
+  argument_cft_name        = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].name : ""
+  # Add a delay so that the CFT deletes most of the resources before attempting to delete the security groups.
+  argument_delete_sg_basic = format("--region %s --vpc %s --delete_cft %s --delay 600", var.region, local.argument_vpc_id, local.argument_cft_name)
+}
+
+resource "null_resource" "delete_sg_script_basic" {
+  count = var.ha_distribution == "basic" ? 1 : 0
+
+  triggers = {
+    argument_delete_sg_basic = local.argument_delete_sg_basic
+  }
+
+  provisioner "local-exec" {
+    when       = destroy
+    command    = "python3 -W ignore ${path.module}/region-build/delete_sg.py ${self.triggers.argument_delete_sg_basic}"
+    on_failure = continue
   }
 }

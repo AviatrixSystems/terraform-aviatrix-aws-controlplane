@@ -7,7 +7,7 @@
 
 ### Description
 
-This Terraform module will create the following:
+For HA deployments, this Terraform module will create the following:
 
 - An Auto Scaling Group (ASG) for Aviatrix Controller
   - The Controller will be initialized to the specified version (latest by default) and Controller backups will be configured.
@@ -30,8 +30,6 @@ Aviatrix Platform HA supports controllers running version 7.0 and later
 
 The following resources should be created before running Terraform. The module will not create these resources.
 
-- The S3 bucket used for Controller backups
-- The Key Pair to be used by the Launch Templates in the Auto Scaling Groups
 - The admin password required to initilaize the Controller should be set in the AWS Systems Manager parameter store at /aviatrix/controller/password in us-east-1.
 
   `aws ssm put-parameter --type "SecureString" --name "/aviatrix/controller/password" --value "XXXXXXXXX" --region="us-east-1"`
@@ -60,14 +58,26 @@ The following resources should be created before running Terraform. The module w
 
 ### Usage Example
 
+#### Basic
+
+```
+module "basic" {
+  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  incoming_ssl_cidr           = ["x.x.x.x/32"]
+  admin_email                 = "admin@example.com"
+  avx_password                = <password>
+  avx_customer_id             = <customer_id>
+}
+```
+
 #### Single-AZ
 
 ```
-module "aws_controller_ha" {
+module "single_az" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
+  ha_distribution             = "single-az"
 }
 ```
 
@@ -76,10 +86,9 @@ module "aws_controller_ha" {
 #### Inter-AZ
 
 ```
-module "aws_controller_ha" {
+module "inter_az" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
 }
@@ -90,10 +99,9 @@ module "aws_controller_ha" {
 #### Inter-Region
 
 ```
-module "aws_controller_ha" {
+module "inter_region" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-region"
   zone_name                   = "example.com"
@@ -107,10 +115,9 @@ module "aws_controller_ha" {
 #### China Deployment
 
 ```
-module "aws_controller_ha" {
+module "china" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
   region                      = "cn-north-1"
@@ -175,7 +182,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 
 | Key                              | Default Value                           | Description                                                                                                                                                                                                                                    |
 | -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| access_account_name              |                                         | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
+| access_account_name              | aws_admin                               | A friendly name mapping to your AWS account ID                                                                                                                                                                                                 |
 | admin_email                      |                                         | The administrator's email address. This email address will be used for password recovery as well as for notifications from the Controller.                                                                                                     |
 | alb_cert_arn                     | ""                                      | The ARN of the ACM certificate to use with the application load balancer in the primary region. Required if `load_balancer_type` is `application`.                                                                                             |
 | asg_notif_email                  | admin_email                             | The email address for Controller failover notifications. This will default to `admin_email` if not specified.                                                                                                                                  |
@@ -225,11 +232,11 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | existing_copilot_eip             | ""                                      | The existing EIP to use for CoPilot. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_copilot_eip` is true.                                                                                              |
 | existing_dr_eip                  | ""                                      | The existing EIP to use for the DR Controller. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_eip` is true.                                                                                            |
 | existing_eip                     | ""                                      | The existing EIP to use for the Controller. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_eip` is true.                                                                                               |
-| ha_distribution                  | single-az                               | Desired Controller high availability distribution. Valid values are 'single-az', 'inter-az', and 'inter-region'.                                                                                                                               |
+| ha_distribution                  | basic                                   | Desired Controller high availability distribution. Valid values are 'basic', 'single-az', 'inter-az', and 'inter-region'.                                                                                                                      |
 | incoming_ssl_cidr                |                                         | Incoming CIDR for security group used by Controller                                                                                                                                                                                            |
 | instance_type                    | t3.xlarge                               | Controller instance size                                                                                                                                                                                                                       |
 | inter_region_backup_enabled      | false                                   | Whether to enable backups on the primary controller. Only applicable if `ha_distribution` is "inter-region".                                                                                                                                   |
-| keypair                          |                                         | Key pair which should be used by Controller                                                                                                                                                                                                    |
+| keypair                          | aviatrix-ha-keypair                     | Key pair which should be used. They key pair will be created unless `use_existing_keypair` is true.                                                                                                                                            |
 | license_type                     | BYOL                                    | Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'                                                                                                                                                                                  |
 | load_balancer_type               | network                                 | Type of load balancer, can be `network` or `application`                                                                                                                                                                                       |
 | monitoring                       | false                                   | Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot.                                                                                                                                                            |
@@ -336,6 +343,21 @@ There are several different resources avaiable for deeper inspection of the Clou
 - Inter-region HA is not supported with private-mode.
 - Controller has to be launched with a public IP address.
 
+#### Basic Deployment
+
+- A basic deployment of the Aviatrix control plane leverages a CloudFormation template to launch the Controller and CoPilot instances. The various AWS services required to provide high availability (ECS/EventBridge/etc...) are not deployed.
+- Only a subset of the variables allowed in Terraform are exposed in the CloudFormation template:
+  - `admin_email`
+  - `avx_customer_id`
+  - `avx_password`
+  - `controller_version`
+  - `copilot_default_data_volume_size`
+  - `copilot_instance_type`
+  - `instance_type`
+  - `region`
+  - `vpc_cidr`
+- `avx_customer_id` and `avx_password` are required for basic deployments.
+
 ### Temporarily Disabling HA
 
 HA can be temporarily disabled if needed. This can be done via Terraform or by directly modifying the Auto Scaling Groups.
@@ -409,10 +431,9 @@ Configure `waf_managed_rules` to customize the list of managed rules to implemen
 ##### WAF deployment with basic rules
 
 ```
-module "aws_controller_ha" {
+module "waf_basic_rules" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
@@ -434,10 +455,9 @@ If you want to add additional rules to the AWS Managed Rules:
 - Associate the `aws_wafv2_web_acl` with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
 
 ```
-module "aws_controller_ha" {
+module "waf_extended_rules" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
@@ -468,10 +488,9 @@ If you don't want to use the AWS Managed Rules and would like to fully customize
 - Associate the `aws_wafv2_web_acl` resources with the `alb_arn` using a `aws_wafv2_web_acl_association` resource.
 
 ```
-module "aws_controller_ha" {
+module "waf_basic_rules_disabled" {
   source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
-  access_account_name         = "AWS-Account"
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
   load_balancer_type          = "application"
