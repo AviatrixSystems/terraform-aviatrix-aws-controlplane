@@ -357,6 +357,7 @@ There are several different resources avaiable for deeper inspection of the Clou
   - `region`
   - `vpc_cidr`
 - `avx_customer_id` and `avx_password` are required for basic deployments.
+- `incoming_ssl_cidr` expects a list of CIDRs. The CloudFormation template supports a single CIDR so only the first CIDR from the list will be used.
 
 ### Temporarily Disabling HA
 
