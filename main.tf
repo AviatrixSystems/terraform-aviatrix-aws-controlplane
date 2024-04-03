@@ -503,7 +503,7 @@ resource "aws_cloudformation_stack" "cft" {
 }
 
 resource "time_sleep" "waiting_for_initialization" {
-  for_each        = aws_cloudformation_stack.cft
+  for_each        = { for i in aws_cloudformation_stack.cft : i.name => i }
   create_duration = "10m"
 }
 
