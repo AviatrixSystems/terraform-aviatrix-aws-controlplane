@@ -502,9 +502,32 @@ resource "aws_cloudformation_stack" "cft" {
   capabilities = ["CAPABILITY_IAM"]
 }
 
+resource "null_resource" "wait_for_copilot" {
+  for_each = aws_cloudformation_stack.cft
+  triggers = {
+    copilot = each.value.outputs["AviatrixCoPilotURL"]
+  }
+  provisioner "local-exec" {
+    when    = create
+    command = <<EOF
+echo "Waiting for Copilot..."
+count=0
+until [ "$(curl -ks https://${try(each.value.outputs["AviatrixCoPilotURL"], "")}/api/info/updateStatus | jq -r '.status')" = "finished" ]
+do
+  sleep 10
+  count=$((count+1))
+  if [ $count -eq 60 ]; then
+    break
+  fi
+done
+echo "Copilot is online."
+      EOF
+  }
+}
+
 locals {
-  argument_vpc_id          = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs["AviatrixVpcID"] : ""
-  argument_cft_name        = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].name : ""
+  argument_vpc_id   = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs["AviatrixVpcID"] : ""
+  argument_cft_name = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].name : ""
   # Add a delay so that the CFT deletes most of the resources before attempting to delete the security groups.
   argument_delete_sg_basic = format("--region %s --vpc %s --delete_cft %s --delay 600", var.region, local.argument_vpc_id, local.argument_cft_name)
 }
