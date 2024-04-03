@@ -31,15 +31,15 @@ output "s3_backup_bucket" {
 }
 
 output "log_group_name" {
-  value = module.region1.log_group_name
+  value = var.ha_distribution == "basic" ? "" : module.region1[0].log_group_name
 }
 
 output "controller_name" {
-  value = module.region1.controller_name
+  value = var.ha_distribution == "basic" ? "AviatrixController" : module.region1[0].controller_name
 }
 
 output "copilot_name" {
-  value = module.region1.copilot_name
+  value = var.ha_distribution == "basic" ? "AviatrixCoPilot" : module.region1[0].copilot_name
 }
 
 output "region" {
@@ -51,7 +51,7 @@ output "dr_region" {
 }
 
 output "controller_public_ip" {
-  value = module.region1.controller_public_ip
+  value = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs["AviatrixControllerEIP"] : module.region1[0].controller_public_ip
 }
 
 output "dr_controller_public_ip" {
@@ -59,7 +59,7 @@ output "dr_controller_public_ip" {
 }
 
 output "copilot_public_ip" {
-  value = module.region1.copilot_public_ip
+  value = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs["AviatrixCoPilotEIP"] : module.region1[0].copilot_public_ip
 }
 
 output "dr_copilot_public_ip" {
@@ -67,7 +67,7 @@ output "dr_copilot_public_ip" {
 }
 
 output "lb_dns_name" {
-  value = module.region1.lb_dns_name
+  value = var.ha_distribution == "basic" ? "" : module.region1[0].lb_dns_name
 }
 
 output "dr_lb_dns_name" {
@@ -75,7 +75,7 @@ output "dr_lb_dns_name" {
 }
 
 output "lb_arn" {
-  value = module.region1.lb_arn
+  value = var.ha_distribution == "basic" ? "" : module.region1[0].lb_arn
 }
 
 output "dr_lb_arn" {

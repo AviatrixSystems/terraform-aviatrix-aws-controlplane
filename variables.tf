@@ -3,11 +3,11 @@ data "aws_region" "current" {}
 variable "ha_distribution" {
   type        = string
   description = "Desired Controller high availability distribution"
-  default     = "single-az"
+  default     = "basic"
 
   validation {
-    condition     = contains(["inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
+    condition     = contains(["basic", "inter-az", "single-az", "inter-region"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az and inter-region)."
   }
 }
 
@@ -263,6 +263,7 @@ variable "asg_notif_email" {
 variable "access_account_name" {
   type        = string
   description = "The controller account friendly name (mapping to the AWS account ID)"
+  default     = "aws_admin"
 }
 
 variable "tags" {
