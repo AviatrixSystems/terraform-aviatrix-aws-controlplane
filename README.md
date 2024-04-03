@@ -346,6 +346,7 @@ There are several different resources avaiable for deeper inspection of the Clou
 #### Basic Deployment
 
 - A basic deployment of the Aviatrix control plane leverages a CloudFormation template to launch the Controller and CoPilot instances. The various AWS services required to provide high availability (ECS/EventBridge/etc...) are not deployed.
+- Provisioning via CloudFormation takes an additional 15-20 minutes after `terraform apply` is complete. The provisioning status can be monitored viewing the status of the `AviatrixPlatformInitStepFunction` state machine under Step Functions in AWS.
 - Only a subset of the variables allowed in Terraform are exposed in the CloudFormation template:
   - `admin_email`
   - `avx_customer_id`
