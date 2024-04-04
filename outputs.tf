@@ -23,11 +23,11 @@ output "record_name" {
 }
 
 output "s3_backup_region" {
-  value = var.s3_backup_region
+  value = var.ha_distribution == "basic" ? "" : var.s3_backup_region
 }
 
 output "s3_backup_bucket" {
-  value = var.s3_backup_bucket
+  value = var.ha_distribution == "basic" ? "" : var.use_existing_s3 ? var.s3_backup_bucket : aws_s3_bucket.backup[0].id
 }
 
 output "log_group_name" {
