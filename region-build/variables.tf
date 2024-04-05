@@ -303,7 +303,7 @@ data "http" "avx_iam_id" {
 }
 
 data "http" "copilot_iam_id" {
-  url = "https:/cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
+  url = "https://cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
   request_headers = {
     "Accept" = "application/json"
   }
