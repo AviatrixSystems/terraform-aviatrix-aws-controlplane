@@ -296,14 +296,14 @@ locals {
 
 
 data "http" "avx_iam_id" {
-  url = "https://s3-us-west-2.amazonaws.com/aviatrix-download/AMI_ID/ami_id.json"
+  url = "https://cdn.prod.sre.aviatrix.com/image-details/aws_controller_image_details.json"
   request_headers = {
     "Accept" = "application/json"
   }
 }
 
 data "http" "copilot_iam_id" {
-  url = "https://aviatrix-download.s3.us-west-2.amazonaws.com/AMI_ID/copilot_ami_id.json"
+  url = "https:/cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
   request_headers = {
     "Accept" = "application/json"
   }
