@@ -339,15 +339,28 @@ locals {
   })
 }
 
+variable "controller_json_url" {
+  type        = string
+  description = "The URL of the JSON file with Controller AMI IDs"
+  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_controller_image_details.json"
+
+}
+
+variable "copilot_json_url" {
+  type        = string
+  description = "The URL of the JSON file with CoPilot AMI IDs"
+  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
+}
+
 data "http" "avx_iam_id" {
-  url = "https://s3-us-west-2.amazonaws.com/aviatrix-download/AMI_ID/ami_id.json"
+  url = var.controller_json_url
   request_headers = {
     "Accept" = "application/json"
   }
 }
 
 data "http" "copilot_iam_id" {
-  url = "https://aviatrix-download.s3.us-west-2.amazonaws.com/AMI_ID/copilot_ami_id.json"
+  url = var.copilot_json_url
   request_headers = {
     "Accept" = "application/json"
   }
