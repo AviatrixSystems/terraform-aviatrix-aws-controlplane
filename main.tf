@@ -112,6 +112,9 @@ module "region1" {
   load_balancer_type               = var.load_balancer_type
   configure_waf                    = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                     = var.alb_cert_arn
+  controller_json_url              = var.controller_json_url
+  copilot_json_url                 = var.copilot_json_url
+  cdn_server                       = var.cdn_server
   ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -196,6 +199,9 @@ module "region2" {
   load_balancer_type               = var.load_balancer_type
   configure_waf                    = var.load_balancer_type == "application" && var.configure_waf == true ? true : false
   alb_cert_arn                     = var.dr_alb_cert_arn
+  controller_json_url              = var.controller_json_url
+  copilot_json_url                 = var.copilot_json_url
+  cdn_server                       = var.cdn_server
   ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
