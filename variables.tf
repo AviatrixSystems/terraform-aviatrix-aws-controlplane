@@ -318,15 +318,17 @@ variable "license_type" {
 }
 
 locals {
-  name_prefix       = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol       = jsondecode(data.http.avx_iam_id.response_body).BYOL
-  images_platinum   = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
-  images_custom     = jsondecode(data.http.avx_iam_id.response_body).Custom
-  images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
-  images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
-  cop_ami_id        = var.copilot_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
-  ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
-  dr_ami_id         = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
+  name_prefix        = var.name_prefix != "" ? "${var.name_prefix}-" : ""
+  images_byol        = jsondecode(data.http.avx_iam_id.response_body).BYOL
+  images_platinum    = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
+  images_custom      = jsondecode(data.http.avx_iam_id.response_body).Custom
+  image_generation   = try(keys(jsondecode(data.http.manifest.response_body).image_generations)[0], "")
+  images_generations = try(jsondecode(data.http.avx_iam_id.response_body)[local.image_generation]["amd64"], "")
+  images_copilot     = jsondecode(data.http.copilot_iam_id.response_body).Copilot
+  images_copilotarm  = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
+  cop_ami_id         = var.copilot_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
+  ami_id             = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[data.aws_region.current.name] : var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
+  dr_ami_id          = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[var.dr_region] : var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
   // identify gloabl or china region
   ischina  = regexall("^cn-", var.region)
   iam_type = contains(local.ischina, "cn-") ? "aws-cn" : "aws"
@@ -364,6 +366,15 @@ data "http" "copilot_iam_id" {
   request_headers = {
     "Accept" = "application/json"
   }
+}
+
+variable "cdn_server" {
+  type    = string
+  default = "cdn.prod.sre.aviatrix.com"
+}
+
+data "http" "manifest" {
+  url = var.controller_version == "latest" ? "https://${var.cdn_server}/controller/MANIFEST" : "https://${var.cdn_server}/controller/${var.controller_version}/MANIFEST"
 }
 
 variable "dr_region" {
