@@ -62,7 +62,7 @@ The following resources should be created before running Terraform. The module w
 
 ```
 module "basic" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   avx_password                = <password>
@@ -74,7 +74,7 @@ module "basic" {
 
 ```
 module "single_az" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "single-az"
@@ -87,7 +87,7 @@ module "single_az" {
 
 ```
 module "inter_az" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -100,7 +100,7 @@ module "inter_az" {
 
 ```
 module "inter_region" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-region"
@@ -116,7 +116,7 @@ module "inter_region" {
 
 ```
 module "china" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -433,7 +433,7 @@ Configure `waf_managed_rules` to customize the list of managed rules to implemen
 
 ```
 module "waf_basic_rules" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -457,7 +457,7 @@ If you want to add additional rules to the AWS Managed Rules:
 
 ```
 module "waf_extended_rules" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
@@ -490,7 +490,7 @@ If you don't want to use the AWS Managed Rules and would like to fully customize
 
 ```
 module "waf_basic_rules_disabled" {
-  source                      = "github.com/aviatrix-automation/Aviatrix_AWS_HA"
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
   incoming_ssl_cidr           = ["x.x.x.x/32"]
   admin_email                 = "admin@example.com"
   ha_distribution             = "inter-az"
