@@ -217,7 +217,7 @@ module "aviatrix-iam-roles" {
 
 resource "aws_iam_role" "iam_for_ecs" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = "aviatrix-controller-ecs"
+  name  = var.ecs_role_name
 
   assume_role_policy = <<EOF
 {
@@ -238,7 +238,7 @@ EOF
 
 resource "aws_iam_policy" "ecs-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = "aviatrix-ctrl-ecs-policy"
+  name        = var.ecs_policy_name
   path        = "/"
   description = "Policy for creating aviatrix-controller"
   policy      = <<EOF
@@ -334,7 +334,7 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
 
 resource "aws_iam_role" "iam_for_eventbridge" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = "aviatrix-eventbridge-role"
+  name  = var.eventbridge_role_name
 
   assume_role_policy = <<EOF
 {
@@ -355,7 +355,7 @@ EOF
 
 resource "aws_iam_policy" "eventbridge-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = "aviatrix-eventbridge-policy"
+  name        = var.eventbridge_policy_name
   path        = "/"
   description = "Policy for EventBridge to run ECS tasks"
   policy      = <<EOF

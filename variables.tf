@@ -66,6 +66,26 @@ variable "app_role_max_session_duration" {
   default     = 43200
 }
 
+variable "ecs_role_name" {
+  type    = string
+  default = "aviatrix-role-ecs"
+}
+
+variable "ecs_policy_name" {
+  type    = string
+  default = "aviatrix-ecs-policy"
+}
+
+variable "eventbridge_role_name" {
+  type    = string
+  default = "aviatrix-role-eventbridge"
+}
+
+variable "eventbridge_policy_name" {
+  type    = string
+  default = "aviatrix-eventbridge-policy"
+}
+
 variable "vpc_name" {
   type    = string
   default = "Aviatrix-VPC"
