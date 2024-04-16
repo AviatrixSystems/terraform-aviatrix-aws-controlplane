@@ -207,6 +207,10 @@ module "region2" {
   depends_on = [null_resource.region_conflict]
 }
 
+resource "random_id" "aviatrix" {
+  byte_length = 4
+}
+
 module "aviatrix-iam-roles" {
   count                         = var.ha_distribution == "basic" ? 0 : var.create_iam_roles ? 1 : 0
   source                        = "./aviatrix-controller-iam-roles"
@@ -217,7 +221,7 @@ module "aviatrix-iam-roles" {
 
 resource "aws_iam_role" "iam_for_ecs" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = var.ecs_role_name
+  name  = "${var.ecs_role_name}-${random_id.aviatrix.hex}"
 
   assume_role_policy = <<EOF
 {
@@ -238,7 +242,7 @@ EOF
 
 resource "aws_iam_policy" "ecs-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = var.ecs_policy_name
+  name        = "${var.ecs_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
   description = "Policy for creating aviatrix-controller"
   policy      = <<EOF
@@ -334,7 +338,7 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
 
 resource "aws_iam_role" "iam_for_eventbridge" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = var.eventbridge_role_name
+  name  = "${var.eventbridge_role_name}-${random_id.aviatrix.hex}"
 
   assume_role_policy = <<EOF
 {
@@ -355,7 +359,7 @@ EOF
 
 resource "aws_iam_policy" "eventbridge-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = var.eventbridge_policy_name
+  name        = "${var.eventbridge_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
   description = "Policy for EventBridge to run ECS tasks"
   policy      = <<EOF
