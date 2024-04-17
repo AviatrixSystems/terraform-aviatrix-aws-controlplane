@@ -374,6 +374,11 @@ variable "iam_for_ecs_arn" {
   description = "The ARN of the IAM for ECS"
 }
 
+variable "ecs_task_execution_arn" {
+  type        = string
+  description = "The ARN of the ECS task exection role"
+}
+
 variable "inter_region_primary" {
   type        = string
   description = "For the inter-region scenario, this is the primary region."

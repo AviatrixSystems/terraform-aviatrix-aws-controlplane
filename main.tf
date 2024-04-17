@@ -85,6 +85,7 @@ module "region1" {
   name_prefix                      = var.name_prefix
   license_type                     = var.license_type
   iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs[0].arn
+  ecs_task_execution_arn           = aws_iam_role.iam_for_ecs_task_execution[0].arn
   inter_region_primary             = var.region
   inter_region_standby             = var.dr_region
   zone_name                        = var.zone_name
@@ -172,6 +173,7 @@ module "region2" {
   name_prefix                      = var.name_prefix
   license_type                     = var.license_type
   iam_for_ecs_arn                  = aws_iam_role.iam_for_ecs[0].arn
+  ecs_task_execution_arn           = aws_iam_role.iam_for_ecs_task_execution[0].arn
   inter_region_primary             = var.region
   inter_region_standby             = var.dr_region
   zone_name                        = var.zone_name
@@ -207,6 +209,10 @@ module "region2" {
   depends_on = [null_resource.region_conflict]
 }
 
+resource "random_id" "aviatrix" {
+  byte_length = 4
+}
+
 module "aviatrix-iam-roles" {
   count                         = var.ha_distribution == "basic" ? 0 : var.create_iam_roles ? 1 : 0
   source                        = "./aviatrix-controller-iam-roles"
@@ -217,7 +223,7 @@ module "aviatrix-iam-roles" {
 
 resource "aws_iam_role" "iam_for_ecs" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = "aviatrix-controller-ecs"
+  name  = "${var.ecs_role_name}-${random_id.aviatrix.hex}"
 
   assume_role_policy = <<EOF
 {
@@ -238,7 +244,7 @@ EOF
 
 resource "aws_iam_policy" "ecs-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = "aviatrix-ctrl-ecs-policy"
+  name        = "${var.ecs_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
   description = "Policy for creating aviatrix-controller"
   policy      = <<EOF
@@ -334,7 +340,7 @@ resource "aws_iam_role_policy_attachment" "attach-policy" {
 
 resource "aws_iam_role" "iam_for_eventbridge" {
   count = var.ha_distribution == "basic" ? 0 : 1
-  name  = "aviatrix-eventbridge-role"
+  name  = "${var.eventbridge_role_name}-${random_id.aviatrix.hex}"
 
   assume_role_policy = <<EOF
 {
@@ -355,7 +361,7 @@ EOF
 
 resource "aws_iam_policy" "eventbridge-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
-  name        = "aviatrix-eventbridge-policy"
+  name        = "${var.eventbridge_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
   description = "Policy for EventBridge to run ECS tasks"
   policy      = <<EOF
@@ -383,6 +389,31 @@ resource "aws_iam_role_policy_attachment" "eventbridge-attach-policy" {
   count      = var.ha_distribution == "basic" ? 0 : 1
   role       = aws_iam_role.iam_for_eventbridge[0].name
   policy_arn = aws_iam_policy.eventbridge-policy[0].arn
+}
+
+resource "aws_iam_role" "iam_for_ecs_task_execution" {
+  count              = var.ha_distribution == "basic" ? 0 : 1
+  name               = "${var.ecs_task_execution_role_name}-${random_id.aviatrix.hex}"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume_role.json
+}
+
+data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
+  statement {
+    actions = [
+      "sts:AssumeRole"
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ecs-task-execution-attach-policy" {
+  count      = var.ha_distribution == "basic" ? 0 : 1
+  role       = aws_iam_role.iam_for_ecs_task_execution[0].name
+  policy_arn = "arn:${local.iam_type}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 resource "aws_s3_bucket" "backup" {
