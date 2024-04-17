@@ -86,6 +86,11 @@ variable "eventbridge_policy_name" {
   default = "aviatrix-eventbridge-policy"
 }
 
+variable "ecs_task_execution_role_name" {
+  type    = string
+  default = "aviatrix-role-ecs-task-exec"
+}
+
 variable "vpc_name" {
   type    = string
   default = "Aviatrix-VPC"
