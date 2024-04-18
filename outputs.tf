@@ -89,3 +89,7 @@ output "waf_arn" {
 output "dr_waf_arn" {
   value = var.configure_waf == true ? local.dr_waf_arn : null
 }
+
+output "cft_output" {
+  value = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs : {}
+}
