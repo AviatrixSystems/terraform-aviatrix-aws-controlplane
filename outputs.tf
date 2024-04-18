@@ -91,5 +91,5 @@ output "dr_waf_arn" {
 }
 
 output "cft_output" {
-  value = var.ha_distribution == "basic" ? aws_cloudformation_stack.cft[0].outputs : {}
+  value = var.ha_distribution == "basic" ? try(aws_cloudformation_stack.cft[0].outputs, {}) : {}
 }
