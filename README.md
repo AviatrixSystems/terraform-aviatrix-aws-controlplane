@@ -269,6 +269,32 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | waf_managed_rules                | Various free AWS Managed Rules          | Managed rules to apply to WAF. Only applicable if `configure_waf` is true                                                                                                                                                                      |
 | zone_name                        | true                                    | The existing Route 53 zone to create a record in. Required if `ha_distribution` is 'inter-region'.                                                                                                                                             |
 
+### Outputs
+
+| Output                  | Description                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| cft_output              | The output from the underlying CloudFormation template when doing a `basic` deployment  |
+| controller_name         | The name of the Controller                                                              |
+| controller_public_ip    | The public IP of the Controller in the primary region                                   |
+| copilot_name            | The name of CoPilot                                                                     |
+| copilot_public_ip       | The public IP of CoPilot in the primary region                                          |
+| dr_controller_public_ip | The public IP of the DR Controller                                                      |
+| dr_copilot_public_ip    | The public IP of the DR CoPilot                                                         |
+| dr_lb_arn               | The ARN of the LB in the DR region                                                      |
+| dr_lb_dns_name          | The DNS name of the LB in the DR region                                                 |
+| dr_region               | The DR region                                                                           |
+| dr_waf_arn              | The ARN of the WAF in the DR region                                                     |
+| ha_distribution         | They type of deployment                                                                 |
+| lb_arn                  | The ARN of the LB in the primary region                                                 |
+| lb_dns_name             | The DNS name of the LB in the primary region                                            |
+| log_group_name          | The CloudWatch log group that logs are sent to                                          |
+| region                  | The region                                                                              |
+| s3_backup_bucket        | The S3 bucket used for backups                                                          |
+| s3_backup_region        | The region the S3 backup bucket is in                                                   |
+| waf_arn                 | The ARN of the WAF in the primary region                                                |
+| record_name             | The record name to be created under the existing route 53 zone specified by `zone_name` |
+| zone_name               | The Route 53 zone that `record_name` is created in                                      |
+
 ### Additional Information
 
 When an SNS HA event is triggered there are 3 scenarios depending on what `autoscaling_source` and `autoscaling_destination` are set to:
