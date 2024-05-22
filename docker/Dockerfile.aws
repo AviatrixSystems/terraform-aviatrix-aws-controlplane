@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.9-alpine
+FROM --platform=linux/amd64 python:3.12-alpine
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
