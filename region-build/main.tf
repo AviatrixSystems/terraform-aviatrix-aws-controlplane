@@ -341,7 +341,7 @@ resource "aws_ecs_task_definition" "task_def" {
       error_message = "To add a user for copilot, please provide both the username and the email. Otherwise, they both should be empty."
     }
     precondition {
-      condition     = (contains(["inter-az", "single-az", "inter-region"], var.ha_distribution) && var.copilot_deployment == "simple") || (contains(["inter-az", "single-az"], var.ha_distribution) && var.copilot_deployment == "fault-tolerant")
+      condition     = (contains(["inter-az", "single-az", "inter-region", "inter-region-v2"], var.ha_distribution) && var.copilot_deployment == "simple") || (contains(["inter-az", "single-az"], var.ha_distribution) && var.copilot_deployment == "fault-tolerant")
       error_message = "Fault-Tolerant CoPilot cannot be deployed in an inter-region HA distribution. Please either change the CoPilot deployment, or the HA distribution."
     }
   }

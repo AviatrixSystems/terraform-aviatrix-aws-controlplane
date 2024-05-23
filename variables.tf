@@ -6,8 +6,8 @@ variable "ha_distribution" {
   default     = "basic"
 
   validation {
-    condition     = contains(["basic", "inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az and inter-region)."
+    condition     = contains(["basic", "inter-az", "single-az", "inter-region", "inter-region-v2"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az, inter-region and inter-region-v2)."
   }
 }
 

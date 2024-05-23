@@ -117,14 +117,14 @@ module "region1" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
 module "region2" {
   providers = {
     aws = aws.region2
   }
-  count                            = var.ha_distribution == "inter-region" ? 1 : 0
+  count                            = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   source                           = "./region-build"
   region                           = var.dr_region
   vpc_cidr                         = var.dr_vpc_cidr
@@ -205,7 +205,7 @@ module "region2" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
 }
 
@@ -479,13 +479,13 @@ resource "null_resource" "push_ecr_image" {
 data "aws_caller_identity" "current" {}
 
 data "aws_route53_zone" "avx_zone" {
-  count        = var.ha_distribution == "inter-region" ? 1 : 0
+  count        = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   name         = var.zone_name
   private_zone = var.private_zone
 }
 
 resource "aws_route53_record" "avx_primary" {
-  count   = var.ha_distribution == "inter-region" ? 1 : 0
+  count   = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   zone_id = data.aws_route53_zone.avx_zone[0].zone_id
   name    = var.record_name
   type    = "A"
