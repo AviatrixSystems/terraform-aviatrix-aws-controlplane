@@ -728,3 +728,70 @@ resource "null_resource" "delete_sg_script" {
     aws_vpc.vpc[0]
   ]
 }
+
+# Inter-region V2
+
+resource "aws_lambda_function" "healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+
+  # If the file is not in the current working directory you will need to include a
+  # path.module in the filename.
+  filename      = "healthcheck_payload.zip"
+  function_name = "aviatrix_healthcheck"
+  role          = var.healthcheck_lambda_arn
+  handler       = "healthcheck.lambda_handler"
+
+  source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
+
+  runtime = "python3.12"
+
+  environment {
+    variables = {
+      foo = "bar"
+    }
+  }
+}
+
+module "eventbridge" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  source = "./modules/terraform-aws-eventbridge"
+
+  create_bus  = false
+  create_role = false
+
+  rules = {
+    crons = {
+      description         = "Aviatrix Healthcheck"
+      schedule_expression = "rate(5 minutes)"
+    }
+  }
+
+  targets = {
+    crons = [
+      {
+        name  = "Aviatrix Healthcheck Lambda Function"
+        arn   = aws_lambda_function.healthcheck[0].arn
+        input = jsonencode({ "job" : "Running scheduled healthcheck" })
+      }
+    ]
+  }
+}
+
+resource "aws_lambda_permission" "healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.healthcheck[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = module.eventbridge[0].eventbridge_rule_arns.crons
+}
+
+data "archive_file" "healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type        = "zip"
+  source_file = "${path.module}/healthcheck.py"
+  output_path = "healthcheck_payload.zip"
+}

@@ -512,3 +512,9 @@ variable "alb_cert_arn" {
   description = "The ARN of the ACM certificate to use with the application load balancer"
   default     = ""
 }
+
+variable "healthcheck_lambda_arn" {
+  type        = string
+  description = "The ARN of the role used for the healthcheck Lambda"
+  default     = ""
+}

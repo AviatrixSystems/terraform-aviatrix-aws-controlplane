@@ -116,6 +116,7 @@ module "region1" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -204,6 +205,7 @@ module "region2" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
@@ -563,4 +565,58 @@ resource "null_resource" "delete_sg_script_basic" {
     command    = "python3 -W ignore ${path.module}/region-build/delete_sg.py ${self.triggers.argument_delete_sg_basic}"
     on_failure = continue
   }
+}
+
+# Inter-region V2
+
+resource "aws_iam_role" "iam_for_lambda" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name               = "aviatrix-role-lambda"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "lambda-policy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name        = "aviatrix-lambda-policy"
+  path        = "/"
+  description = "Aviatrix Healthcheck Policy"
+  policy      = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:CreateLogGroup",
+                "logs:PutLogEvents"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:logs:*:*:*"
+        }
+    ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "lambda-attach-policy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda[0].name
+  policy_arn = aws_iam_policy.lambda-policy[0].arn
 }
