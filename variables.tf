@@ -600,3 +600,9 @@ variable "dr_alb_cert_arn" {
   description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
 }
+
+variable "healthcheck_interval" {
+  type        = number
+  description = "The number of minutes to wait between healthchecks"
+  default     = 5
+}

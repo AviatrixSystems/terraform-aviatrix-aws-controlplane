@@ -764,7 +764,7 @@ module "eventbridge" {
   rules = {
     crons = {
       description         = "Aviatrix Healthcheck"
-      schedule_expression = "rate(5 minutes)"
+      schedule_expression = "rate(${var.healthcheck_interval} minutes)"
     }
   }
 

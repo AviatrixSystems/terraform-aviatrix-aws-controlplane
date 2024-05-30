@@ -117,6 +117,7 @@ module "region1" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
+  healthcheck_interval             = var.healthcheck_interval
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -206,6 +207,7 @@ module "region2" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
+  healthcheck_interval             = var.healthcheck_interval
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]

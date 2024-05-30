@@ -518,3 +518,9 @@ variable "healthcheck_lambda_arn" {
   description = "The ARN of the role used for the healthcheck Lambda"
   default     = ""
 }
+
+variable "healthcheck_interval" {
+  type        = number
+  description = "The number of minutes to wait between healthchecks"
+  default     = 5
+}
