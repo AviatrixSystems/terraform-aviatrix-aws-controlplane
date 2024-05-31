@@ -10,7 +10,7 @@ resource "aws_ecs_task_definition" "task_def" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = var.ecs_task_execution_arn
   task_role_arn            = var.iam_for_ecs_arn
   container_definitions = jsonencode([
     {
@@ -61,7 +61,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_DATA_NODES_DETAILS",
-          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+          value = var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
         },
         {
           name  = "COP_DEPLOYMENT",
@@ -231,7 +231,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "COP_DATA_NODES_DETAILS",
-          value =  var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
+          value = var.copilot_deployment == "fault-tolerant" ? jsonencode(module.data_nodes.*.instance_details) : ""
         },
         {
           name  = "COP_DEPLOYMENT",
@@ -347,30 +347,6 @@ resource "aws_ecs_task_definition" "task_def" {
   }
 }
 
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name               = "ecsTaskExecutionRole-${var.region}"
-  assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume_role.json
-}
-
-data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
-  statement {
-    actions = [
-      "sts:AssumeRole"
-    ]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:${local.iam_type}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-
 resource "aws_eip" "controller_eip" {
   count  = var.use_existing_eip ? 0 : 1
   domain = "vpc"
@@ -420,15 +396,19 @@ resource "aws_launch_template" "avtx-controller" {
     }
   }
 
+  monitoring {
+    enabled = var.monitoring
+  }
+
   disable_api_termination = var.termination_protection
 
-  ebs_optimized = true
+  ebs_optimized = var.ebs_optimized
 
   iam_instance_profile {
     name = var.ec2_role_name
   }
 
-  image_id                             = local.ami_id
+  image_id                             = var.controller_ami_id != "" ? var.controller_ami_id : local.ami_id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.instance_type
   key_name                             = var.keypair
@@ -450,6 +430,8 @@ resource "aws_launch_template" "avtx-controller" {
 
     tags = { Name = local.ctr_tag }
   }
+
+  user_data = var.user_data
 }
 
 data "aws_default_tags" "current" {}
@@ -462,7 +444,7 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = true
-  suspended_processes       = var.controller_ha_enabled ? null : ["Launch","Terminate","HealthCheck","ReplaceUnhealthy"]
+  suspended_processes       = var.controller_ha_enabled ? null : ["Launch", "Terminate", "HealthCheck", "ReplaceUnhealthy"]
 
   launch_template {
     id      = aws_launch_template.avtx-controller.id

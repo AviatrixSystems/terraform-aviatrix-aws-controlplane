@@ -3,11 +3,11 @@ data "aws_region" "current" {}
 variable "ha_distribution" {
   type        = string
   description = "Desired Controller high availability distribution"
-  default     = "single-az"
+  default     = "basic"
 
   validation {
-    condition     = contains(["inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
+    condition     = contains(["basic", "inter-az", "single-az", "inter-region"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az and inter-region)."
   }
 }
 
@@ -36,6 +36,7 @@ variable "copilot_ha_enabled" {
 variable "keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
+  default     = "aviatrix-ha-keypair"
 }
 
 variable "region" {
@@ -57,6 +58,37 @@ variable "ec2_role_name" {
 variable "app_role_name" {
   type    = string
   default = "aviatrix-role-app"
+}
+
+variable "app_role_max_session_duration" {
+  type        = number
+  description = "The max session duration for the Aviatrix app role"
+  default     = 43200
+}
+
+variable "ecs_role_name" {
+  type    = string
+  default = "aviatrix-role-ecs"
+}
+
+variable "ecs_policy_name" {
+  type    = string
+  default = "aviatrix-ecs-policy"
+}
+
+variable "eventbridge_role_name" {
+  type    = string
+  default = "aviatrix-role-eventbridge"
+}
+
+variable "eventbridge_policy_name" {
+  type    = string
+  default = "aviatrix-eventbridge-policy"
+}
+
+variable "ecs_task_execution_role_name" {
+  type    = string
+  default = "aviatrix-role-ecs-task-exec"
 }
 
 variable "vpc_name" {
@@ -104,7 +136,7 @@ variable "copilot_data_node_count" {
   }
 }
 
-variable "cop_instance_type" {
+variable "copilot_instance_type" {
   type        = string
   description = "CoPilot instance size"
   default     = "t3.2xlarge"
@@ -121,6 +153,18 @@ variable "root_volume_size" {
   type        = number
   description = "Root volume disk size for controller"
   default     = 64
+}
+
+variable "ebs_optimized" {
+  type        = bool
+  description = "Whether EBS optimization is enabled. Applies to both the Controller and CoPilot."
+  default     = false
+}
+
+variable "monitoring" {
+  type        = bool
+  description = "Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot."
+  default     = false
 }
 
 variable "controller_name" {
@@ -147,31 +191,31 @@ variable "copilot_email" {
   description = "CoPilot user email address, if desired"
 }
 
-variable "cop_type" {
+variable "copilot_type" {
   type        = string
   description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
   default     = "Copilot"
 }
 
-variable "cop_root_volume_size" {
+variable "copilot_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
   default     = 25
 }
 
-variable "cop_root_volume_type" {
+variable "copilot_root_volume_type" {
   type        = string
   description = "Root volume type for Copilot"
   default     = "gp3"
 }
 
-variable "cop_default_data_volume_size" {
+variable "copilot_default_data_volume_size" {
   type        = number
   description = "Default data volume disk size for Copilot"
   default     = 8
 }
 
-variable "cop_default_data_volume_type" {
+variable "copilot_default_data_volume_type" {
   type        = string
   description = "Default data volume type for Copilot"
   default     = "gp3"
@@ -188,18 +232,19 @@ variable "incoming_ssl_cidr" {
   description = "Incoming cidr for security group used by controller"
 }
 
-variable "cop_incoming_https_cidr" {
+variable "copilot_incoming_https_cidr" {
   type        = list(string)
   description = "Incoming CIDR for HTTPS access to the CoPilot"
+  default     = null
 }
 
-variable "cop_incoming_syslog_cidr" {
+variable "copilot_incoming_syslog_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Syslog sources to the CoPilot"
   default     = ["0.0.0.0/0"]
 }
 
-variable "cop_incoming_netflow_cidr" {
+variable "copilot_incoming_netflow_cidr" {
   type        = list(string)
   description = "Incoming CIDR for Netflow sources to the CoPilot"
   default     = ["0.0.0.0/0"]
@@ -208,11 +253,19 @@ variable "cop_incoming_netflow_cidr" {
 variable "s3_backup_bucket" {
   type        = string
   description = "S3 bucket for Controller DB backup"
+  default     = "aviatrix-ha-"
 }
 
 variable "s3_backup_region" {
   type        = string
   description = "AWS region of S3 backup bucket"
+  default     = "us-east-1"
+}
+
+variable "use_existing_s3" {
+  type        = bool
+  description = "Whether to use an existing S3 bucket"
+  default     = false
 }
 
 variable "termination_protection" {
@@ -229,11 +282,13 @@ variable "admin_email" {
 variable "asg_notif_email" {
   type        = string
   description = "Email address for Controller failover notifications"
+  default     = ""
 }
 
 variable "access_account_name" {
   type        = string
   description = "The controller account friendly name (mapping to the AWS account ID)"
+  default     = "aws_admin"
 }
 
 variable "tags" {
@@ -250,6 +305,12 @@ variable "controller_version" {
     condition     = var.controller_version == "latest" ? true : (tonumber(tostring(split(".", var.controller_version)[0])) >= 7 ? true : false)
     error_message = "Aviatrix Platform HA supports controllers running version 7.0 and later"
   }
+}
+
+variable "use_existing_keypair" {
+  type        = bool
+  description = "Whether to use an existing keypair"
+  default     = false
 }
 
 variable "use_existing_vpc" {
@@ -282,15 +343,17 @@ variable "license_type" {
 }
 
 locals {
-  name_prefix       = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol       = jsondecode(data.http.avx_iam_id.response_body).BYOL
-  images_platinum   = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
-  images_custom     = jsondecode(data.http.avx_iam_id.response_body).Custom
-  images_copilot    = jsondecode(data.http.copilot_iam_id.response_body).Copilot
-  images_copilotarm = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
-  cop_ami_id        = var.cop_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
-  ami_id            = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
-  dr_ami_id         = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
+  name_prefix        = var.name_prefix != "" ? "${var.name_prefix}-" : ""
+  images_byol        = jsondecode(data.http.avx_iam_id.response_body).BYOL
+  images_platinum    = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
+  images_custom      = jsondecode(data.http.avx_iam_id.response_body).Custom
+  image_generation   = try(keys(jsondecode(data.http.manifest.response_body).image_generations)[0], "")
+  images_generations = try(jsondecode(data.http.avx_iam_id.response_body)[local.image_generation]["amd64"], "")
+  images_copilot     = jsondecode(data.http.copilot_iam_id.response_body).Copilot
+  images_copilotarm  = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
+  cop_ami_id         = var.copilot_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
+  ami_id             = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[data.aws_region.current.name] : var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
+  dr_ami_id          = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[var.dr_region] : var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
   // identify gloabl or china region
   ischina  = regexall("^cn-", var.region)
   iam_type = contains(local.ischina, "cn-") ? "aws-cn" : "aws"
@@ -303,18 +366,40 @@ locals {
   })
 }
 
+variable "controller_json_url" {
+  type        = string
+  description = "The URL of the JSON file with Controller AMI IDs"
+  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_controller_image_details.json"
+
+}
+
+variable "copilot_json_url" {
+  type        = string
+  description = "The URL of the JSON file with CoPilot AMI IDs"
+  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
+}
+
 data "http" "avx_iam_id" {
-  url = "https://s3-us-west-2.amazonaws.com/aviatrix-download/AMI_ID/ami_id.json"
+  url = var.controller_json_url
   request_headers = {
     "Accept" = "application/json"
   }
 }
 
 data "http" "copilot_iam_id" {
-  url = "https://aviatrix-download.s3.us-west-2.amazonaws.com/AMI_ID/copilot_ami_id.json"
+  url = var.copilot_json_url
   request_headers = {
     "Accept" = "application/json"
   }
+}
+
+variable "cdn_server" {
+  type    = string
+  default = "cdn.prod.sre.aviatrix.com"
+}
+
+data "http" "manifest" {
+  url = var.controller_version == "latest" ? "https://${var.cdn_server}/controller/MANIFEST" : "https://${var.cdn_server}/controller/${var.controller_version}/MANIFEST"
 }
 
 variable "dr_region" {
@@ -347,7 +432,7 @@ variable "dr_vpc_cidr" {
 variable "dr_keypair" {
   type        = string
   description = "Key pair which should be used by Aviatrix controller"
-  default     = ""
+  default     = "aviatrix-ha-keypair"
 }
 
 variable "zone_name" {
@@ -455,5 +540,63 @@ variable "existing_copilot_eip" {
 variable "existing_copilot_dr_eip" {
   type        = string
   description = "Existing EIP to associate with the DR Aviatrix CoPilot"
+  default     = ""
+}
+
+variable "controller_ami_id" {
+  type        = string
+  description = "The Aviatrix Controller AMI ID"
+  default     = ""
+}
+
+variable "dr_controller_ami_id" {
+  type        = string
+  description = "The DR Aviatrix Controller AMI ID"
+  default     = ""
+}
+
+variable "copilot_ami_id" {
+  type        = string
+  description = "The Aviatrix CoPilot AMI ID"
+  default     = ""
+}
+
+variable "dr_copilot_ami_id" {
+  type        = string
+  description = "The DR Aviatrix ConPilot AMI ID"
+  default     = ""
+}
+
+variable "user_data" {
+  type        = string
+  description = "The base64-encoded user data to provide when launching the instance."
+  default     = ""
+}
+
+variable "load_balancer_type" {
+  type        = string
+  description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
+  default     = "network"
+  validation {
+    condition     = contains(["network", "application"], var.load_balancer_type)
+    error_message = "Valid values for var: load_balancer_type are (network, application)."
+  }
+}
+
+variable "configure_waf" {
+  type        = bool
+  description = "Whether WAF is enabled for the controller"
+  default     = false
+}
+
+variable "alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the primary region"
+  default     = ""
+}
+
+variable "dr_alb_cert_arn" {
+  type        = string
+  description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
 }
