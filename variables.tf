@@ -606,3 +606,15 @@ variable "healthcheck_interval" {
   description = "The number of minutes to wait between healthchecks"
   default     = 5
 }
+
+variable "healthcheck_policy_name" {
+  type = string
+  default = "aviatrix-healthcheck-policy"
+
+}
+
+variable "healthcheck_role_name" {
+  type = string
+  default = "aviatrix-role-healthcheck"
+
+}

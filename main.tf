@@ -116,7 +116,7 @@ module "region1" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
@@ -206,7 +206,7 @@ module "region2" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_lambda[0].arn : null
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
@@ -571,10 +571,10 @@ resource "null_resource" "delete_sg_script_basic" {
 
 # Inter-region V2
 
-resource "aws_iam_role" "iam_for_lambda" {
+resource "aws_iam_role" "iam_for_healthcheck" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  name               = "aviatrix-role-lambda"
+  name               = "${var.healthcheck_role_name}-${random_id.aviatrix.hex}"
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
@@ -592,10 +592,10 @@ resource "aws_iam_role" "iam_for_lambda" {
 EOF
 }
 
-resource "aws_iam_policy" "lambda-policy" {
+resource "aws_iam_policy" "healthcheck-policy" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  name        = "aviatrix-lambda-policy"
+  name        = "${var.healthcheck_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
   description = "Aviatrix Healthcheck Policy"
   policy      = <<EOF
@@ -619,6 +619,6 @@ EOF
 resource "aws_iam_role_policy_attachment" "lambda-attach-policy" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  role       = aws_iam_role.iam_for_lambda[0].name
-  policy_arn = aws_iam_policy.lambda-policy[0].arn
+  role       = aws_iam_role.iam_for_healthcheck[0].name
+  policy_arn = aws_iam_policy.healthcheck-policy[0].arn
 }
