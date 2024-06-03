@@ -734,9 +734,6 @@ resource "null_resource" "delete_sg_script" {
 resource "aws_lambda_function" "healthcheck" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-
-  # If the file is not in the current working directory you will need to include a
-  # path.module in the filename.
   filename      = "healthcheck_payload.zip"
   function_name = "aviatrix_healthcheck"
   role          = var.healthcheck_lambda_arn
@@ -753,30 +750,20 @@ resource "aws_lambda_function" "healthcheck" {
   }
 }
 
-module "eventbridge" {
+resource "aws_cloudwatch_event_rule" "healthcheck" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  source = "./modules/terraform-aws-eventbridge"
+  name                = "aviatrix-healthcheck-rule"
+  description         = "Aviatrix Healthcheck"
+  schedule_expression = "rate(${var.healthcheck_interval} minutes)"
+}
 
-  create_bus  = false
-  create_role = false
+resource "aws_cloudwatch_event_target" "healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  rules = {
-    crons = {
-      description         = "Aviatrix Healthcheck"
-      schedule_expression = "rate(${var.healthcheck_interval} minutes)"
-    }
-  }
-
-  targets = {
-    crons = [
-      {
-        name  = "Aviatrix Healthcheck Lambda Function"
-        arn   = aws_lambda_function.healthcheck[0].arn
-        input = jsonencode({ "job" : "Running scheduled healthcheck" })
-      }
-    ]
-  }
+  target_id = "AviatrixHealthcheck"
+  rule      = aws_cloudwatch_event_rule.healthcheck[0].name
+  arn       = aws_lambda_function.healthcheck[0].arn
 }
 
 resource "aws_lambda_permission" "healthcheck" {
@@ -785,7 +772,7 @@ resource "aws_lambda_permission" "healthcheck" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.healthcheck[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = module.eventbridge[0].eventbridge_rule_arns.crons
+  source_arn    = aws_cloudwatch_event_rule.healthcheck[0].arn
 }
 
 data "archive_file" "healthcheck" {
