@@ -524,3 +524,9 @@ variable "healthcheck_interval" {
   description = "The number of minutes to wait between healthchecks"
   default     = 5
 }
+
+variable "healthcheck_state" {
+  type        = string
+  description = "Whether the Aviatrix healthcheck is enabled or disabled"
+  default     = "DISABLED"
+}

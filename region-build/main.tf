@@ -756,6 +756,13 @@ resource "aws_cloudwatch_event_rule" "healthcheck" {
   name                = "aviatrix-healthcheck-rule"
   description         = "Aviatrix Healthcheck"
   schedule_expression = "rate(${var.healthcheck_interval} minutes)"
+  state               = var.healthcheck_state
+
+  lifecycle {
+    ignore_changes = [
+      state
+    ]
+  }
 }
 
 resource "aws_cloudwatch_event_target" "healthcheck" {

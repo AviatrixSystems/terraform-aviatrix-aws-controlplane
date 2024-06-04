@@ -118,6 +118,7 @@ module "region1" {
   cdn_server                       = var.cdn_server
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
+  healthcheck_state                = "DISABLED"
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -208,6 +209,7 @@ module "region2" {
   cdn_server                       = var.cdn_server
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
+  healthcheck_state                = var.ha_distribution == "inter-region-v2" ? "ENABLED" : ""
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
