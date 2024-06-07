@@ -602,18 +602,33 @@ resource "aws_iam_policy" "healthcheck-policy" {
   description = "Aviatrix Healthcheck Policy"
   policy      = <<EOF
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "logs:CreateLogStream",
-                "logs:CreateLogGroup",
-                "logs:PutLogEvents"
-            ],
-            "Effect": "Allow",
-            "Resource": "arn:aws:logs:*:*:*"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:CreateLogGroup",
+        "logs:PutLogEvents"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Action": "sns:Publish",
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:*:*:*"
+    },
+    {
+      "Action": "ecs:RunTask",
+      "Effect": "Allow",
+      "Resource": "arn:aws:ecs:*:*:task-definition/*"
+    },
+    {
+      "Action": "iam:PassRole",
+      "Effect": "Allow",
+      "Resource": "arn:aws:iam::*:role/*"
+    }
+  ]
 }
 EOF
 }

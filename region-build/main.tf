@@ -745,7 +745,13 @@ resource "aws_lambda_function" "healthcheck" {
 
   environment {
     variables = {
-      foo = "bar"
+      ecs_cluster        = module.ecs_cluster.cluster_name,
+      ecs_security_group = aws_security_group.AviatrixSecurityGroup.id,
+      ecs_subnet_1       = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id,
+      ecs_subnet_2       = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id,
+      ecs_task_def       = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}"),
+      region             = var.region
+      sns_topic_arn      = aws_sns_topic.controller_updates.arn
     }
   }
 }
