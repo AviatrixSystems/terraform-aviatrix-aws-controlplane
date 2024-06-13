@@ -43,3 +43,31 @@ output "lb_arn" {
 output "waf_arn" {
   value = var.configure_waf == true ? module.controller_alb_waf[0].waf_arn : ""
 }
+
+output "vpc_id" {
+  value = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+}
+
+data "aws_subnet" "subnet1" {
+  id = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id
+}
+
+data "aws_subnet" "subnet2" {
+  id = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id
+}
+
+output "subnet_cidrs" {
+  value = [data.aws_subnet.subnet1.cidr_block, data.aws_subnet.subnet2.cidr_block]
+}
+
+data "aws_vpc" "vpc" {
+  id = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+}
+
+output "vpc_cidr_block" {
+  value = data.aws_vpc.vpc.cidr_block
+}
+
+output "controller_sg_id" {
+  value = aws_security_group.AviatrixSecurityGroup.id
+}

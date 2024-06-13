@@ -731,17 +731,38 @@ resource "null_resource" "delete_sg_script" {
 
 # Inter-region V2
 
+resource "aws_security_group" "AviatrixHealthcheckSecurityGroup" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name        = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  description = "Aviatrix - Healthcheck Security Group"
+  vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  })
+}
+
+resource "aws_security_group_rule" "healthcheck_egress_rule" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.AviatrixHealthcheckSecurityGroup[0].id
+}
+
 resource "aws_lambda_function" "healthcheck" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  filename      = "healthcheck_payload.zip"
-  function_name = "aviatrix_healthcheck"
-  role          = var.healthcheck_lambda_arn
-  handler       = "healthcheck.lambda_handler"
-
+  filename         = "healthcheck_payload.zip"
+  function_name    = "aviatrix_healthcheck"
+  role             = var.healthcheck_lambda_arn
+  handler          = "healthcheck.lambda_handler"
   source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
-
-  runtime = "python3.12"
+  runtime          = "python3.12"
 
   environment {
     variables = {
@@ -753,6 +774,11 @@ resource "aws_lambda_function" "healthcheck" {
       region             = var.region
       sns_topic_arn      = aws_sns_topic.controller_updates.arn
     }
+  }
+
+  vpc_config {
+    subnet_ids         = var.use_existing_vpc ? [var.subnet_ids[0], var.subnet_ids[1]] : [aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id]
+    security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup[0].id]
   }
 }
 

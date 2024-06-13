@@ -627,6 +627,15 @@ resource "aws_iam_policy" "healthcheck-policy" {
       "Action": "iam:PassRole",
       "Effect": "Allow",
       "Resource": "arn:aws:iam::*:role/*"
+    },
+    {
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
     }
   ]
 }
@@ -638,4 +647,49 @@ resource "aws_iam_role_policy_attachment" "lambda-attach-policy" {
 
   role       = aws_iam_role.iam_for_healthcheck[0].name
   policy_arn = aws_iam_policy.healthcheck-policy[0].arn
+}
+
+resource "aws_vpc_peering_connection" "region1_to_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  vpc_id      = module.region1[0].vpc_id
+  peer_vpc_id = module.region2[0].vpc_id
+  peer_region = var.dr_region
+
+  depends_on = [module.region1, module.region2]
+}
+
+resource "aws_vpc_peering_connection_accepter" "peer" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+  auto_accept               = true
+}
+
+resource "aws_security_group_rule" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = module.region2[0].subnet_cidrs
+  security_group_id = module.region1[0].controller_sg_id
+  description       = "Aviatrix health check from ${module.region2[0].vpc_id} in ${var.dr_region}"
+}
+
+resource "aws_security_group_rule" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = module.region1[0].subnet_cidrs
+  security_group_id = module.region2[0].controller_sg_id
+  description       = "Aviatrix health check from ${module.region1[0].vpc_id} in ${var.region}"
 }
