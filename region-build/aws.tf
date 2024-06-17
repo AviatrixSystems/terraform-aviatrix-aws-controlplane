@@ -65,12 +65,17 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_route_table" "rtb" {
   count  = var.use_existing_vpc ? 0 : 1
   vpc_id = aws_vpc.vpc[0].id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw[0].id
   }
   tags = {
     Name = "${var.vpc_name}-rtb"
+  }
+
+  lifecycle {
+    ignore_changes = [route]
   }
 }
 

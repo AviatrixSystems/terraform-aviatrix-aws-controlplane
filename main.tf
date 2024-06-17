@@ -693,3 +693,106 @@ resource "aws_security_group_rule" "healthcheck_region2" {
   security_group_id = module.region2[0].controller_sg_id
   description       = "Aviatrix health check from ${module.region1[0].vpc_id} in ${var.region}"
 }
+
+
+resource "aws_route" "r1_rt1_to_r2_subnet1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  route_table_id            = module.region1[0].rt1
+  destination_cidr_block    = module.region2[0].subnet1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r1_rt1_to_r2_subnet2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  route_table_id            = module.region1[0].rt1
+  destination_cidr_block    = module.region2[0].subnet2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+# We need to determine whether the route table associated with the first subnet
+# is the same as the one associated with the second subnet. We can't use count
+# (or for_each) because Terraform complains that the count won't be known until
+# after a terraform apply.
+#
+# As a workaround, we create a dummy route table and if rt1 and rt2 are the same,
+# the route is added to the dummy route table to avoid getting a "duplicate route"
+# error.
+
+resource "aws_route" "r1_rt2_to_r2_subnet1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  route_table_id            = module.region1[0].rt1 == module.region1[0].rt2 ? aws_route_table.region1_dummy[0].id : module.region1[0].rt2
+  destination_cidr_block    = module.region2[0].subnet1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r1_rt2_to_r2_subnet2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  route_table_id            = module.region1[0].rt1 == module.region1[0].rt2 ? aws_route_table.region1_dummy[0].id : module.region1[0].rt2
+  destination_cidr_block    = module.region2[0].subnet2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route_table" "region1_dummy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  vpc_id = module.region1[0].vpc_id
+  tags = {
+    Name = "Aviatrix-Healthcheck-dummy-${module.region1[0].vpc_id}"
+  }
+}
+
+resource "aws_route" "r2_rt1_to_r1_subnet1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].rt1
+  destination_cidr_block    = module.region1[0].subnet1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r2_rt1_to_r1_subnet2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].rt1
+  destination_cidr_block    = module.region1[0].subnet2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r2_rt2_to_r1_subnet1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].rt1 == module.region2[0].rt2 ? aws_route_table.region2_dummy[0].id : module.region2[0].rt2
+  destination_cidr_block    = module.region1[0].subnet1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r2_rt2_to_r1_subnet2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].rt1 == module.region2[0].rt2 ? aws_route_table.region2_dummy[0].id : module.region2[0].rt2
+  destination_cidr_block    = module.region1[0].subnet2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route_table" "region2_dummy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  vpc_id = module.region2[0].vpc_id
+
+  tags = {
+    Name = "Aviatrix-Healthcheck-dummy-${module.region2[0].vpc_id}"
+  }
+}

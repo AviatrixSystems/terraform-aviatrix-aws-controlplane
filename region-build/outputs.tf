@@ -48,24 +48,24 @@ output "vpc_id" {
   value = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 }
 
-data "aws_subnet" "subnet1" {
-  id = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id
-}
-
-data "aws_subnet" "subnet2" {
-  id = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id
-}
-
 output "subnet_cidrs" {
   value = [data.aws_subnet.subnet1.cidr_block, data.aws_subnet.subnet2.cidr_block]
 }
 
-data "aws_vpc" "vpc" {
-  id = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+output "subnet1_cidr" {
+  value = data.aws_subnet.subnet1.cidr_block
 }
 
-output "vpc_cidr_block" {
-  value = data.aws_vpc.vpc.cidr_block
+output "subnet2_cidr" {
+  value = data.aws_subnet.subnet2.cidr_block
+}
+
+output "rt1" {
+  value = data.aws_route_table.rt1.id
+}
+
+output "rt2" {
+  value = data.aws_route_table.rt2.id
 }
 
 output "controller_sg_id" {
