@@ -517,15 +517,15 @@ resource "aws_cloudformation_stack" "cft" {
   count = var.ha_distribution == "basic" ? 1 : 0
 
   name         = "aviatrix-controlplane"
-  template_url = "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_prod.template"
+  template_url = var.use_existing_vpc ? "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_existing_vpc_prod.template" : "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_prod.template"
 
   parameters = {
     AdminEmail                  = var.admin_email
     AllowedHttpsIngressIpParam  = var.incoming_ssl_cidr[0]
     CustomerId                  = var.avx_customer_id
-    VpcCidr                     = var.vpc_cidr
-    SubnetCidr                  = cidrsubnet(var.vpc_cidr, 24 - tonumber(split("/", var.vpc_cidr)[1]), 0)
-    SubnetAZ                    = "${var.region}a"
+    VpcCidr                     = var.use_existing_vpc ? null : var.vpc_cidr
+    SubnetCidr                  = var.use_existing_vpc ? null : cidrsubnet(var.vpc_cidr, 24 - tonumber(split("/", var.vpc_cidr)[1]), 0)
+    SubnetAZ                    = var.use_existing_vpc ? null : "${var.region}a"
     AdminPassword               = var.avx_password
     AdminPasswordConfirm        = var.avx_password
     HTTPProxy                   = ""
@@ -534,6 +534,8 @@ resource "aws_cloudformation_stack" "cft" {
     DataVolSize                 = var.copilot_default_data_volume_size < 100 ? 100 : var.copilot_default_data_volume_size
     ControllerInstanceTypeParam = var.instance_type
     CoPilotInstanceTypeParam    = var.copilot_instance_type
+    VpcParam                    = var.use_existing_vpc ? var.vpc : null
+    SubnetParam                 = var.use_existing_vpc ? var.subnet_ids[0] : null
   }
 
   capabilities = ["CAPABILITY_IAM"]
@@ -552,7 +554,7 @@ locals {
 }
 
 resource "null_resource" "delete_sg_script_basic" {
-  count = var.ha_distribution == "basic" ? 1 : 0
+  count = var.ha_distribution == "basic" && !var.use_existing_vpc ? 1 : 0
 
   triggers = {
     argument_delete_sg_basic = local.argument_delete_sg_basic
