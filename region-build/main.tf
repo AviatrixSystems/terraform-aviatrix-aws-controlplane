@@ -382,7 +382,7 @@ resource "aws_security_group_rule" "ingress_rule" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = var.use_existing_vpc ? concat(var.incoming_ssl_cidr, tolist([data.aws_vpc.vpc.cidr_block])) : concat(var.incoming_ssl_cidr, tolist([var.vpc_cidr]))
   security_group_id = aws_security_group.AviatrixSecurityGroup.id
   description       = "DO NOT DELETE"
 }
