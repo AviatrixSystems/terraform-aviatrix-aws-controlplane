@@ -10,16 +10,6 @@ data "aws_subnet" "subnet2" {
   depends_on = [aws_autoscaling_group.avtx_ctrl]
 }
 
-data "aws_route_table" "rt1" {
-  subnet_id  = data.aws_subnet.subnet1.id
-  depends_on = [aws_autoscaling_group.avtx_ctrl]
-}
-
-data "aws_route_table" "rt2" {
-  subnet_id  = data.aws_subnet.subnet2.id
-  depends_on = [aws_autoscaling_group.avtx_ctrl]
-}
-
 data "aws_vpc" "vpc" {
   id = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 }

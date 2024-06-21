@@ -52,22 +52,6 @@ output "subnet_cidrs" {
   value = [data.aws_subnet.subnet1.cidr_block, data.aws_subnet.subnet2.cidr_block]
 }
 
-output "subnet1_cidr" {
-  value = data.aws_subnet.subnet1.cidr_block
-}
-
-output "subnet2_cidr" {
-  value = data.aws_subnet.subnet2.cidr_block
-}
-
-output "rt1" {
-  value = data.aws_route_table.rt1.id
-}
-
-output "rt2" {
-  value = data.aws_route_table.rt2.id
-}
-
 output "controller_sg_id" {
   value = aws_security_group.AviatrixSecurityGroup.id
 }
