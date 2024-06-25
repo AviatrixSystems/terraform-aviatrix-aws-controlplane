@@ -693,3 +693,39 @@ resource "aws_security_group_rule" "healthcheck_region2" {
   security_group_id = module.region2[0].controller_sg_id
   description       = "Aviatrix health check from ${module.region1[0].vpc_id} in ${var.region}"
 }
+
+resource "aws_route" "r1_to_r2_existing_vpc" {
+  for_each = toset(var.rt_ids_existing)
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r2_to_r1_existing_vpc" {
+  for_each = toset(var.dr_rt_ids_existing)
+
+  provider = aws.region2
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r1_to_r2_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  route_table_id            = module.region1[0].rt_id_peering
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "r2_to_r1_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].rt_id_peering
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}

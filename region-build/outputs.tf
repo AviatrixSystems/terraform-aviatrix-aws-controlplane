@@ -55,3 +55,11 @@ output "subnet_cidrs" {
 output "controller_sg_id" {
   value = aws_security_group.AviatrixSecurityGroup.id
 }
+
+output "rt_id_peering" {
+  value = var.use_existing_vpc ? "" : aws_route_table.rtb[0].id
+}
+
+output "vpc_cidr_block" {
+  value = data.aws_vpc.vpc.cidr_block
+}

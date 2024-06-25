@@ -608,13 +608,23 @@ variable "healthcheck_interval" {
 }
 
 variable "healthcheck_policy_name" {
-  type = string
+  type    = string
   default = "aviatrix-healthcheck-policy"
-
 }
 
 variable "healthcheck_role_name" {
-  type = string
+  type    = string
   default = "aviatrix-role-healthcheck"
+}
 
+variable "rt_ids_existing" {
+  type        = list(string)
+  description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+variable "dr_rt_ids_existing" {
+  type        = list(string)
+  description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
 }
