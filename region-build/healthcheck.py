@@ -1,5 +1,7 @@
 import boto3
 import os
+import socket
+import time
 import traceback
 from datetime import datetime
 from pprint import pprint
@@ -66,3 +68,31 @@ def run_ecs_task(cluster, task_def, subnets, security_groups, assign_public_ip, 
         },
     )
     return response
+
+
+def check_port(ip, port, retries=3, interval=60, timeout=5):
+    try:
+        for i in range(retries):
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            result = s.connect_ex((ip, port))
+
+            if result == 0:
+                print(f"Successfully connected to {ip} on port {port}.")
+                return True
+
+            else:
+                print(
+                    f"Failed to connect to {ip} on port {port}. Sleeping for {interval} seconds."
+                )
+                time.sleep(interval)
+
+        print(f"Failed to connect to {ip} on port {port} after {retries} retries.")
+        return False
+
+    except:
+        print(f"Failed to connect to {ip} on port {port}.")
+        return False
+
+    finally:
+        s.close()
