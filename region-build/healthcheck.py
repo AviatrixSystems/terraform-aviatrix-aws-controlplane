@@ -47,6 +47,11 @@ def _lambda_handler(event, context):
     # print("Triggering ECS")
     # run_ecs_task(ecs_cluster, ecs_task_def, subnets, security_groups, "ENABLED", region)
 
+    TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
+
+    ip = get_priv_ip("us-east-1", TASK_DEF_FAMILY)
+    print("IP is", ip)
+
 
 def publish_message_to_sns(topic_arn, message, region):
     sns_client = boto3.client("sns", region_name=region)
@@ -96,3 +101,12 @@ def check_port(ip, port, retries=3, interval=60, timeout=5):
 
     finally:
         s.close()
+
+
+def get_priv_ip(region, task_def_family):
+    ecs_client = boto3.client("ecs", region)
+    response = ecs_client.describe_task_definition(taskDefinition=task_def_family)
+    env = response["taskDefinition"]["containerDefinitions"][0]["environment"]
+    env_dict = {pair["name"]: pair["value"] for pair in env}
+    priv_ip = env_dict.get("PRIV_IP")
+    return priv_ip

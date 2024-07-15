@@ -618,11 +618,20 @@ resource "aws_iam_policy" "healthcheck-policy" {
       "Effect": "Allow",
       "Resource": "arn:aws:sns:*:*:*"
     },
-    {
-      "Action": "ecs:RunTask",
-      "Effect": "Allow",
-      "Resource": "arn:aws:ecs:*:*:task-definition/*"
-    },
+		{
+			"Action": [
+				"ecs:DescribeTaskDefinition"
+			],
+			"Effect": "Allow",
+			"Resource": "*"
+		},    
+		{
+			"Action": [
+				"ecs:RunTask"
+			],
+			"Effect": "Allow",
+			"Resource": "arn:aws:ecs:*:*:task-definition/*"
+		},
     {
       "Action": "iam:PassRole",
       "Effect": "Allow",

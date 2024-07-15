@@ -777,6 +777,7 @@ resource "aws_lambda_function" "healthcheck" {
   handler          = "healthcheck.lambda_handler"
   source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
   runtime          = "python3.12"
+  timeout          = 900
 
   environment {
     variables = {
