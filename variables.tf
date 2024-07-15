@@ -200,7 +200,7 @@ variable "copilot_type" {
 variable "copilot_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
-  default     = 25
+  default     = 30
 }
 
 variable "copilot_root_volume_type" {
