@@ -516,7 +516,7 @@ resource "aws_route53_record" "avx_primary" {
 resource "aws_cloudformation_stack" "cft" {
   count = var.ha_distribution == "basic" ? 1 : 0
 
-  name         = "aviatrix-controlplane"
+  name         = var.cft_stack_name
   template_url = var.use_existing_vpc ? "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_existing_vpc_prod.template" : "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_prod.template"
 
   parameters = {
