@@ -164,6 +164,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
 
 # Define a listener
 resource "aws_lb_listener" "avtx-copilot" {
+  #checkov:skip=CKV_AWS_2: Ensure ALB protocol is HTTPS - AVXIT-7532
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "8443"
   protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
