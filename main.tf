@@ -514,6 +514,7 @@ resource "aws_route53_record" "avx_primary" {
 # Basic deployment
 
 resource "aws_cloudformation_stack" "cft" {
+  # checkov:skip=CKV_AWS_124: Ensure that CloudFormation stacks are sending event notifications to an SNS topic - AVXIT-7528
   count = var.ha_distribution == "basic" ? 1 : 0
 
   name         = var.cft_stack_name
