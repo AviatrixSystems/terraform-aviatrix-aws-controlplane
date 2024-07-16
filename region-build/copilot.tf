@@ -51,6 +51,7 @@ resource "aws_launch_template" "avtx-copilot-cluster-main" {
 
 
 resource "aws_launch_template" "avtx-copilot" {
+  # checkov:skip=CKV_AWS_79: Ensure Instance Metadata Service Version 1 is not enabled - AVXIT-7530
   count       = var.copilot_deployment == "fault-tolerant" ? 0 : 1
   name        = "avtx-copilot"
   description = "Launch template for Aviatrix Copilot"
