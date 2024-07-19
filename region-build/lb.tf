@@ -1,4 +1,6 @@
 resource "aws_lb" "avtx-controller" {
+  #checkov:skip=CKV_AWS_150: Ensure that Load Balancer has deletion protection enabled - AVXIT-7569
+  #checkov:skip=CKV_AWS_91: Ensure the ELBv2 (Application/Network) has access logging enabled - AVXIT-7570
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
   load_balancer_type               = var.load_balancer_type
@@ -19,6 +21,7 @@ resource "aws_lb" "avtx-controller" {
 # Define a listener
 
 resource "aws_lb_listener" "avtx-ctrl" {
+  #checkov:skip=CKV_AWS_2: Ensure ALB protocol is HTTPS - AVXIT-7571
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "443"
   protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
