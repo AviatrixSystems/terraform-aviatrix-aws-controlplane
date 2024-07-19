@@ -892,6 +892,11 @@ Resources:
       CoPilotExistingIp: !Ref CoPilotExistingIp
       CoPilotExistingDrIp: !Ref CoPilotExistingDrIp
   AviatrixPlatformInitTriggerPoint:
+    #checkov:skip=CKV_AWS_115: Ensure that AWS Lambda function is configured for function-level concurrent execution limit - AVXIT-7582
+    #checkov:skip=CKV_AWS_363: Ensure Lambda Runtime is not deprecated - AVXIT-7583
+    #checkov:skip=CKV_AWS_173: Check encryption settings for Lambda environment variable - AVXIT-7584
+    #checkov:skip=CKV_AWS_116: Ensure that AWS Lambda function is configured for a Dead Letter Queue(DLQ) - AVXIT-7585
+    #checkov:skip=CKV_AWS_117: Ensure that AWS Lambda function is configured inside a VPC - AVXIT-7586
     Type: 'AWS::Lambda::Function'
     Properties:
       Description: Aviatrix Platform HA - Trigger the Codebuild project with the user parameters from CFN
