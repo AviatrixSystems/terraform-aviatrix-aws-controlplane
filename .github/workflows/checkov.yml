@@ -36,6 +36,7 @@ jobs:
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@v12.2138.0
         with:
+          directory: .
           config_file: .checkov.yml
         
       # - name: Upload SARIF file
