@@ -1,6 +1,8 @@
 resource "aws_lb" "avtx-controller" {
   #checkov:skip=CKV_AWS_150: Ensure that Load Balancer has deletion protection enabled - AVXIT-7569
   #checkov:skip=CKV_AWS_91: Ensure the ELBv2 (Application/Network) has access logging enabled - AVXIT-7570
+  #checkov:skip=CKV_AWS_150: Ensure that Load Balancer has deletion protection enabled - AVXIT-7569
+  #checkov:skip=CKV_AWS_91: Ensure the ELBv2 (Application/Network) has access logging enabled - AVXIT-7570
   name                             = "${local.name_prefix}AviatrixControllerLB"
   internal                         = false
   load_balancer_type               = var.load_balancer_type
