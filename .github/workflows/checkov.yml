@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: 
       - main
+      - dev
     paths:
       - "**.tf"
 
@@ -34,10 +35,6 @@ jobs:
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@v12.2138.0
-        with:
-          # This will add both a CLI output to the console and create a results.sarif file
-          quiet: true
-          skip_check: CKV2_GHA_1 # Skip check globally because there are cloned modules inside the repository
         
       # - name: Upload SARIF file
       #   uses: github/codeql-action/upload-sarif@v2
