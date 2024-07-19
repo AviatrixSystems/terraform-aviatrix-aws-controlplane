@@ -384,6 +384,8 @@ resource "aws_security_group_rule" "egress_rule" {
 }
 
 resource "aws_launch_template" "avtx-controller" {
+  #checkov:skip=CKV_AWS_79: Ensure Instance Metadata Service Version 1 is not enabled - AVXIT-7573
+  #checkov:skip=CKV_AWS_88: EC2 instance should not have public IP. - AVXIT-7574
   name        = "avtx-controller"
   description = "Launch template for Aviatrix Controller"
 
@@ -497,10 +499,12 @@ resource "aws_autoscaling_group" "avtx_ctrl" {
 }
 
 resource "aws_sqs_queue" "controller_updates_queue" {
+  #checkov:skip=CKV_AWS_27: Ensure all data stored in the SQS queue is encrypted - AVXIT-7575
   name = "controller-ha-updates-queue"
 }
 
 resource "aws_sns_topic" "controller_updates" {
+  #checkov:skip=CKV_AWS_26: Ensure all data stored in the SNS topic is encrypted - AVXIT-7576
   name = "controller-ha-updates"
 }
 
@@ -685,6 +689,7 @@ module "ecs_cluster" {
 }
 
 resource "aws_cloudwatch_log_group" "log_group" {
+  #checkov:skip=CKV_AWS_158: Ensure that CloudWatch Log Group is encrypted by KMS - AVXIT-7577
   name              = "/aws/ecs/avx_platform_ha"
   retention_in_days = 0
 
