@@ -165,6 +165,7 @@ resource "aws_autoscaling_group" "avtx_copilot" {
 # Define a listener
 resource "aws_lb_listener" "avtx-copilot" {
   #checkov:skip=CKV_AWS_2: Ensure ALB protocol is HTTPS - AVXIT-7532
+  #checkov:skip=CKV_AWS_103: Ensure that load balancer is using at least TLS 1.2 - AVXIT-7601
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "8443"
   protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
@@ -250,6 +251,7 @@ resource "aws_security_group_rule" "copilot_egress_rule" {
 }
 
 resource "aws_eip" "copilot_eip" {
+  #checkov:skip=CKV2_AWS_19: Ensure that all EIP addresses allocated to a VPC are attached to EC2 instances - AVXIT-7599
   count  = var.use_existing_copilot_eip ? 0 : 1
   domain = "vpc"
   tags   = local.common_tags

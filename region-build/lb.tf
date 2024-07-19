@@ -24,6 +24,7 @@ resource "aws_lb" "avtx-controller" {
 
 resource "aws_lb_listener" "avtx-ctrl" {
   #checkov:skip=CKV_AWS_2: Ensure ALB protocol is HTTPS - AVXIT-7571
+  #checkov:skip=CKV_AWS_103: Ensure that load balancer is using at least TLS 1.2 - AVXIT-7600
   load_balancer_arn = aws_lb.avtx-controller.arn
   port              = "443"
   protocol          = var.load_balancer_type == "application" ? "HTTPS" : "TCP"
