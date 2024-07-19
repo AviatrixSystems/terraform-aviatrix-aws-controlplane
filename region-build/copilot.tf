@@ -256,6 +256,7 @@ resource "aws_eip" "copilot_eip" {
 }
 
 resource "aws_eip" "copilot_data_nodes_eips" {
+  #checkov:skip=CKV2_AWS_19: Ensure that all EIP addresses allocated to a VPC are attached to EC2 instances - AVXIT-7597
   count  = var.copilot_deployment == "fault-tolerant" ? var.use_existing_copilot_eip ? 0 : var.copilot_data_node_count : 0
   domain = "vpc"
   tags = merge(local.common_tags, {

@@ -348,6 +348,7 @@ resource "aws_ecs_task_definition" "task_def" {
 }
 
 resource "aws_eip" "controller_eip" {
+  #checkov:skip=CKV2_AWS_19: Ensure that all EIP addresses allocated to a VPC are attached to EC2 instances - AVXIT-7595
   count  = var.use_existing_eip ? 0 : 1
   domain = "vpc"
   tags   = merge(local.common_tags, tomap({ "Name" = "Avx-Controller" }))

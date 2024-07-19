@@ -17,6 +17,7 @@ data "aws_subnet" "subnet" {
 }
 
 resource "aws_eip" "copilot_eip" {
+  #checkov:skip=CKV2_AWS_19: Ensure that all EIP addresses allocated to a VPC are attached to EC2 instances - AVXIT-7596
   domain = "vpc"
   tags = merge(var.tags, {
     Name = "${var.node_name}-data-${var.node_key}-eip"

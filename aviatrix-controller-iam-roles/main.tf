@@ -41,6 +41,7 @@ resource "aws_iam_role" "aviatrix-role-app" {
 }
 
 data "aws_iam_policy_document" "aviatrix-assume-role-policy" {
+  #checkov:skip=CKV_AWS_356: Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions - AVXIT-7597
   statement {
     actions = [
       "sts:AssumeRole",
