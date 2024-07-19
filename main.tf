@@ -119,6 +119,7 @@ module "region1" {
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
   healthcheck_state                = "DISABLED"
+  healthcheck_subnet_ids           = var.healthcheck_subnet_ids
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -210,6 +211,7 @@ module "region2" {
   healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
   healthcheck_interval             = var.healthcheck_interval
   healthcheck_state                = var.ha_distribution == "inter-region-v2" ? "ENABLED" : ""
+  healthcheck_subnet_ids           = var.healthcheck_dr_subnet_ids
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
@@ -684,7 +686,7 @@ resource "aws_security_group_rule" "healthcheck_region1" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = module.region2[0].subnet_cidrs
+  cidr_blocks       = [module.region2[0].vpc_cidr_block]
   security_group_id = module.region1[0].controller_sg_id
   description       = "Aviatrix health check from ${module.region2[0].vpc_id} in ${var.dr_region}"
 }
@@ -698,21 +700,40 @@ resource "aws_security_group_rule" "healthcheck_region2" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = module.region1[0].subnet_cidrs
+  cidr_blocks       = [module.region1[0].vpc_cidr_block]
   security_group_id = module.region2[0].controller_sg_id
   description       = "Aviatrix health check from ${module.region1[0].vpc_id} in ${var.region}"
 }
 
-resource "aws_route" "r1_to_r2_existing_vpc" {
-  for_each = toset(var.rt_ids_existing)
+resource "aws_route" "public_r1_to_r2_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  route_table_id            = module.region1[0].public_rt_id
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+
+}
+
+resource "aws_route" "public_r2_to_r1_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].public_rt_id
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "public_r1_to_r2_existing_vpc" {
+  for_each = toset(var.healthcheck_public_rt_ids)
 
   route_table_id            = each.key
   destination_cidr_block    = module.region2[0].vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
 }
 
-resource "aws_route" "r2_to_r1_existing_vpc" {
-  for_each = toset(var.dr_rt_ids_existing)
+resource "aws_route" "public_r2_to_r1_existing_vpc" {
+  for_each = toset(var.healthcheck_dr_public_rt_ids)
 
   provider = aws.region2
 
@@ -721,20 +742,20 @@ resource "aws_route" "r2_to_r1_existing_vpc" {
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
 }
 
-resource "aws_route" "r1_to_r2_new_vpc" {
-  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+resource "aws_route" "private_r1_to_r2_existing_vpc" {
+  for_each = toset(var.healthcheck_private_rt_ids)
 
-  route_table_id            = module.region1[0].rt_id_peering
+  route_table_id            = each.key
   destination_cidr_block    = module.region2[0].vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
 }
 
-resource "aws_route" "r2_to_r1_new_vpc" {
-  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+resource "aws_route" "private_r2_to_r1_existing_vpc" {
+  for_each = toset(var.healthcheck_dr_private_rt_ids)
 
   provider = aws.region2
 
-  route_table_id            = module.region2[0].rt_id_peering
+  route_table_id            = each.key
   destination_cidr_block    = module.region1[0].vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
 }

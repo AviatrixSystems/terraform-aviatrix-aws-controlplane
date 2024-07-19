@@ -10,6 +10,16 @@ data "aws_subnet" "subnet2" {
   depends_on = [aws_autoscaling_group.avtx_ctrl]
 }
 
+# data "aws_route_table" "rt1" {
+#   subnet_id = data.aws_subnet.subnet1.id
+#   depends_on = [ data.aws_subnet.subnet1 ]
+# }
+
+# data "aws_route_table" "rt2" {
+#   subnet_id = data.aws_subnet.subnet2.id
+#   depends_on = [ data.aws_subnet.subnet2 ]
+# }
+
 data "aws_vpc" "vpc" {
   id = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
 }
@@ -792,7 +802,7 @@ resource "aws_lambda_function" "healthcheck" {
   }
 
   vpc_config {
-    subnet_ids         = var.use_existing_vpc ? [var.subnet_ids[0], var.subnet_ids[1]] : [aws_subnet.subnet[0].id, aws_subnet.subnet_ha[0].id]
+    subnet_ids         = var.use_existing_vpc ? var.healthcheck_subnet_ids : [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id]
     security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup[0].id]
   }
 }

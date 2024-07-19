@@ -56,7 +56,7 @@ output "controller_sg_id" {
   value = aws_security_group.AviatrixSecurityGroup.id
 }
 
-output "rt_id_peering" {
+output "public_rt_id" {
   value = var.use_existing_vpc ? "" : aws_route_table.rtb[0].id
 }
 

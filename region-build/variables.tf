@@ -530,3 +530,9 @@ variable "healthcheck_state" {
   description = "Whether the Aviatrix healthcheck is enabled or disabled"
   default     = "DISABLED"
 }
+
+variable "healthcheck_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda"
+  default     = []
+}

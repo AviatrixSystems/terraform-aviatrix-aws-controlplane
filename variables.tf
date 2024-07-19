@@ -617,13 +617,39 @@ variable "healthcheck_role_name" {
   default = "aviatrix-role-healthcheck"
 }
 
-variable "rt_ids_existing" {
+variable "healthcheck_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda in the primary region"
+  default     = []
+}
+
+variable "healthcheck_dr_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda in the DR region"
+  default     = []
+}
+
+
+variable "healthcheck_public_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
   default     = []
 }
 
-variable "dr_rt_ids_existing" {
+variable "healthcheck_dr_public_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+
+variable "healthcheck_private_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+variable "healthcheck_dr_private_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
   default     = []

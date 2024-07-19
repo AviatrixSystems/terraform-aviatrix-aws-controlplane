@@ -52,6 +52,9 @@ def _lambda_handler(event, context):
     ip = get_priv_ip("us-east-1", TASK_DEF_FAMILY)
     print("IP is", ip)
 
+    print("Checking port")
+    print(check_port(ip,443))
+
 
 def publish_message_to_sns(topic_arn, message, region):
     sns_client = boto3.client("sns", region_name=region)
