@@ -269,6 +269,8 @@ resource "aws_eip" "copilot_data_nodes_eips" {
 
 
 module "data_nodes" {
+  #checkov:skip=CKV_AWS_135: Ensure that EC2 is EBS optimized - AVXIT-7613
+  #checkov:skip=CKV_AWS_126: Ensure that detailed monitoring is enabled for EC2 instances - AVXIT-7614
   count  = var.copilot_deployment == "fault-tolerant" ? var.copilot_data_node_count : 0
   source = "./modules/copilot-data-node"
 

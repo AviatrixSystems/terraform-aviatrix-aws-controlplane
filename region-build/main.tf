@@ -651,6 +651,8 @@ module "aviatrix_eventbridge" {
 }
 
 module "ecs_cluster" {
+  #checkov:skip=CKV_AWS_224: Ensure ECS Cluster logging is enabled and client to container communication uses CMK - AVXIT-7611
+  #checkov:skip=CKV_AWS_65: Ensure container insights are enabled on ECS cluster - AVXIT-7612
   source = "./modules/terraform-aws-ecs"
 
   cluster_name = "avx_platform_ha"
