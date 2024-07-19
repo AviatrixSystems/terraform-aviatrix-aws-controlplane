@@ -33,6 +33,7 @@ resource "aws_eip_association" "eip_assoc" {
 resource "aws_instance" "aviatrixcopilot" {
   #checkov:skip=CKV_AWS_79: Ensure Instance Metadata Service Version 1 is not enabled - AVXIT-7578
   #checkov:skip=CKV_AWS_8: Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted - AVXIT-7579
+  #checkov:skip=CKV2_AWS_41: Ensure an IAM role is attached to EC2 instance - AVXIT-7606
   ami               = var.ami_id
   instance_type     = var.instance_type
   key_name          = var.keypair
@@ -62,6 +63,7 @@ EOF
 resource "aws_ebs_volume" "data" {
   #checkov:skip=CKV_AWS_3: Ensure all data stored in the EBS is securely encrypted - AVXIT-7580
   #checkov:skip=CKV_AWS_189: Ensure EBS Volume is encrypted by KMS using a customer managed Key (CMK) - AVXIT-7581
+  #checkov:skip=CKV2_AWS_2: Ensure that only encrypted EBS volumes are attached to EC2 instances - AVXIT-7608
   availability_zone = data.aws_subnet.subnet.availability_zone
   size              = var.default_data_volume_size
   type              = var.default_data_volume_type

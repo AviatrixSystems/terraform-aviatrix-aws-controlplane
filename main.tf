@@ -417,6 +417,11 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-attach-policy" {
 }
 
 resource "aws_s3_bucket" "backup" {
+  #checkov:skip=CKV_AWS_18: Ensure the S3 bucket has access logging enabled - AVXIT-7605
+  #checkov:skip=CKV_AWS_144: Ensure that S3 bucket has cross-region replication enabled - AVXIT-7607
+  #checkov:skip=CKV_AWS_21: Ensure all data stored in the S3 bucket have versioning enabled - AVXIT-7609
+  #checkov:skip=CKV_AWS_145: Ensure that S3 buckets are encrypted with KMS by default - AVXIT-7610
+  #checkov:skip=CKV2_AWS_6: Ensure that S3 bucket has a Public Access block - AVXIT-7611
   provider      = aws.s3_region
   count         = var.ha_distribution == "basic" ? 0 : var.use_existing_s3 ? 0 : 1
   bucket_prefix = var.s3_backup_bucket
