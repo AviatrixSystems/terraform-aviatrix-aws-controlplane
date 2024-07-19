@@ -791,10 +791,18 @@ Resources:
       Type: String
       Value: "DR Loadbalancer DNS name - currently NA"
   S3StateAndSoftware:
+    #checkov:skip=CKV_AWS_56: Ensure S3 bucket has RestrictPublicBuckets enabled - AVXIT-7589
+    #checkov:skip=CKV_AWS_55: Ensure S3 bucket has ignore public ACLs enabled - AVXIT-7590
+    #checkov:skip=CKV_AWS_21: Ensure the S3 bucket has versioning enabled - AVXIT-7591
+    #checkov:skip=CKV_AWS_54: Ensure S3 bucket has block public policy enabled - AVXIT-7592
+    #checkov:skip=CKV_AWS_53: Ensure S3 bucket has block public ACLs enabled - AVXIT-7593
+    #checkov:skip=CKV_AWS_18: Ensure the S3 bucket has access logging enabled - AVXIT-7594
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}-avx-platform-ha-tfs'
   Adminrole:
+    #checkov:skip=CKV_AWS_62: Ensure no IAM policies that allow full "*-*" administrative privileges are not created - AVXIT-7587
+    #checkov:skip=CKV_AWS_63: Ensure no IAM policies documents allow "*" as a statement's actions - AVXIT-7588
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${AWS::StackName}-${AWS::Region}-AvxPlatformHA-codebuild'
