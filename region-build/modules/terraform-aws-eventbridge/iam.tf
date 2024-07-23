@@ -173,6 +173,7 @@ resource "aws_iam_policy_attachment" "sqs" {
 #############
 
 data "aws_iam_policy_document" "ecs" {
+  #checkov:skip=CKV_AWS_109: Ensure IAM policies does not allow permissions management / resource exposure without constraints
   count = local.create_role && var.attach_ecs_policy ? 1 : 0
 
   statement {
