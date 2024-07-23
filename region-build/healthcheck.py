@@ -1,6 +1,7 @@
 import boto3
 import os
 import socket
+import sys
 import time
 import traceback
 from datetime import datetime
@@ -53,7 +54,7 @@ def _lambda_handler(event, context):
     print("IP is", ip)
 
     print("Checking port")
-    print(check_port(ip,443))
+    print(check_port(ip, 443))
 
 
 def publish_message_to_sns(topic_arn, message, region):
@@ -97,18 +98,24 @@ def check_port(ip, port, retries=3, interval=60, timeout=5):
 
         print(f"Failed to connect to {ip} on port {port} after {retries} retries.")
         return False
-
     except:
         print(f"Failed to connect to {ip} on port {port}.")
         return False
-
     finally:
         s.close()
 
 
 def get_priv_ip(region, task_def_family):
-    ecs_client = boto3.client("ecs", region)
-    response = ecs_client.describe_task_definition(taskDefinition=task_def_family)
+    try:
+        ecs_client = boto3.client("ecs", region)
+        response = ecs_client.describe_task_definition(taskDefinition=task_def_family)
+    except Exception as e:
+        print(e)
+        print(
+            "Verify that connectivity to AWS service endpoints from the private subnets associated with the Lambda function is allowed."
+        )
+        sys.exit(1)
+
     env = response["taskDefinition"]["containerDefinitions"][0]["environment"]
     env_dict = {pair["name"]: pair["value"] for pair in env}
     priv_ip = env_dict.get("PRIV_IP")
