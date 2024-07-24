@@ -50,11 +50,11 @@ def _lambda_handler(event, context):
 
     TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
-    ip = get_priv_ip("us-east-1", TASK_DEF_FAMILY)
-    print("IP is", ip)
-
-    print("Checking port")
-    print(check_port(ip, 443))
+    peer_region = os.environ.get("peer_region")
+    ip = get_priv_ip(peer_region, TASK_DEF_FAMILY)
+    print(f"The private IP of the Controller in {peer_region} is {ip}.")
+    print(f"Checking port 443 on {ip}.")
+    print("Result of check_port is:", check_port(ip, 443))
 
 
 def publish_message_to_sns(topic_arn, message, region):

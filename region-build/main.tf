@@ -796,6 +796,7 @@ resource "aws_lambda_function" "healthcheck" {
       ecs_subnet_1       = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id,
       ecs_subnet_2       = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id,
       ecs_task_def       = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}"),
+      peer_region        = var.dr_region
       region             = var.region
       sns_topic_arn      = aws_sns_topic.controller_updates.arn
     }
