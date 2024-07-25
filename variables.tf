@@ -200,7 +200,7 @@ variable "copilot_type" {
 variable "copilot_root_volume_size" {
   type        = number
   description = "Root volume disk size for Copilot"
-  default     = 25
+  default     = 30
 }
 
 variable "copilot_root_volume_type" {
@@ -599,4 +599,10 @@ variable "dr_alb_cert_arn" {
   type        = string
   description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
+}
+
+variable "cft_stack_name" {
+  type        = string
+  description = "The name of the CloudFormation stack used for basic deployments"
+  default     = "aviatrix-controlplane"
 }

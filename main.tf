@@ -417,6 +417,11 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-attach-policy" {
 }
 
 resource "aws_s3_bucket" "backup" {
+  #checkov:skip=CKV_AWS_18: Ensure the S3 bucket has access logging enabled - AVXIT-7605
+  #checkov:skip=CKV_AWS_144: Ensure that S3 bucket has cross-region replication enabled - AVXIT-7607
+  #checkov:skip=CKV_AWS_21: Ensure all data stored in the S3 bucket have versioning enabled - AVXIT-7609
+  #checkov:skip=CKV_AWS_145: Ensure that S3 buckets are encrypted with KMS by default - AVXIT-7610
+  #checkov:skip=CKV2_AWS_6: Ensure that S3 bucket has a Public Access block - AVXIT-7611
   provider      = aws.s3_region
   count         = var.ha_distribution == "basic" ? 0 : var.use_existing_s3 ? 0 : 1
   bucket_prefix = var.s3_backup_bucket
@@ -514,18 +519,19 @@ resource "aws_route53_record" "avx_primary" {
 # Basic deployment
 
 resource "aws_cloudformation_stack" "cft" {
+  # checkov:skip=CKV_AWS_124: Ensure that CloudFormation stacks are sending event notifications to an SNS topic - AVXIT-7528
   count = var.ha_distribution == "basic" ? 1 : 0
 
-  name         = "aviatrix-controlplane"
-  template_url = "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane.template"
+  name         = var.cft_stack_name
+  template_url = var.use_existing_vpc ? "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_existing_vpc_prod.template" : "https://s3.us-east-1.amazonaws.com/avx-cloudformation-templates/avx_controlplane_prod.template"
 
   parameters = {
     AdminEmail                  = var.admin_email
     AllowedHttpsIngressIpParam  = var.incoming_ssl_cidr[0]
     CustomerId                  = var.avx_customer_id
-    VpcCidr                     = var.vpc_cidr
-    SubnetCidr                  = cidrsubnet(var.vpc_cidr, 24 - tonumber(split("/", var.vpc_cidr)[1]), 0)
-    SubnetAZ                    = "${var.region}a"
+    VpcCidr                     = var.use_existing_vpc ? null : var.vpc_cidr
+    SubnetCidr                  = var.use_existing_vpc ? null : cidrsubnet(var.vpc_cidr, 24 - tonumber(split("/", var.vpc_cidr)[1]), 0)
+    SubnetAZ                    = var.use_existing_vpc ? null : "${var.region}a"
     AdminPassword               = var.avx_password
     AdminPasswordConfirm        = var.avx_password
     HTTPProxy                   = ""
@@ -534,6 +540,8 @@ resource "aws_cloudformation_stack" "cft" {
     DataVolSize                 = var.copilot_default_data_volume_size < 100 ? 100 : var.copilot_default_data_volume_size
     ControllerInstanceTypeParam = var.instance_type
     CoPilotInstanceTypeParam    = var.copilot_instance_type
+    VpcParam                    = var.use_existing_vpc ? var.vpc : null
+    SubnetParam                 = var.use_existing_vpc ? var.subnet_ids[0] : null
   }
 
   capabilities = ["CAPABILITY_IAM"]
@@ -552,7 +560,7 @@ locals {
 }
 
 resource "null_resource" "delete_sg_script_basic" {
-  count = var.ha_distribution == "basic" ? 1 : 0
+  count = var.ha_distribution == "basic" && !var.use_existing_vpc ? 1 : 0
 
   triggers = {
     argument_delete_sg_basic = local.argument_delete_sg_basic
