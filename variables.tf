@@ -600,9 +600,3 @@ variable "dr_alb_cert_arn" {
   description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
 }
-
-variable "cloudformation_stack_name" {
-  type        = string
-  description = "The name of the CloudFormation stack"
-  default     = "AviatrixControlplaneDeployment"
-}
