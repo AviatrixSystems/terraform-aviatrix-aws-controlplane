@@ -1,4 +1,5 @@
 resource "aws_wafv2_web_acl" "waf_acl" {
+  #checkov:skip=CKV2_AWS_31: Ensure WAF2 has a Logging Configuration - AVXIT-7602
   name        = var.alb_waf_name
   scope       = var.scope
   description = join(" ", ["Aviatrix MGMT", var.scope, "WAF"])

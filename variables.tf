@@ -654,3 +654,9 @@ variable "healthcheck_dr_private_rt_ids" {
   description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
   default     = []
 }
+
+variable "cft_stack_name" {
+  type        = string
+  description = "The name of the CloudFormation stack used for basic deployments"
+  default     = "aviatrix-controlplane"
+}

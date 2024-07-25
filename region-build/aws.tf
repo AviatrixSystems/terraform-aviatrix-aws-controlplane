@@ -8,6 +8,8 @@ terraform {
 }
 
 resource "aws_vpc" "vpc" {
+  #checkov:skip=CKV2_AWS_11: Ensure VPC flow logging is enabled in all VPCs - AVXIT-7603
+  #checkov:skip=CKV2_AWS_12: Ensure the default security group of every VPC restricts all traffic - AVXIT-7604
   count      = var.use_existing_vpc ? 0 : 1
   cidr_block = var.vpc_cidr
   tags = {

@@ -33,14 +33,15 @@ data "aws_iam_policy_document" "policy_primary" {
 }
 
 resource "aws_iam_role" "aviatrix-role-app" {
-  name               = local.app_role_name
-  description        = "Aviatrix APP - Created by Terraform+Aviatrix"
-  path               = "/"
-  assume_role_policy = data.aws_iam_policy_document.policy_primary.json
+  name                 = local.app_role_name
+  description          = "Aviatrix APP - Created by Terraform+Aviatrix"
+  path                 = "/"
+  assume_role_policy   = data.aws_iam_policy_document.policy_primary.json
   max_session_duration = var.app_role_max_session_duration
 }
 
 data "aws_iam_policy_document" "aviatrix-assume-role-policy" {
+  #checkov:skip=CKV_AWS_356: Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions - AVXIT-7597
   statement {
     actions = [
       "sts:AssumeRole",

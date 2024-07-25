@@ -791,10 +791,18 @@ Resources:
       Type: String
       Value: "DR Loadbalancer DNS name - currently NA"
   S3StateAndSoftware:
+    #checkov:skip=CKV_AWS_56: Ensure S3 bucket has RestrictPublicBuckets enabled - AVXIT-7589
+    #checkov:skip=CKV_AWS_55: Ensure S3 bucket has ignore public ACLs enabled - AVXIT-7590
+    #checkov:skip=CKV_AWS_21: Ensure the S3 bucket has versioning enabled - AVXIT-7591
+    #checkov:skip=CKV_AWS_54: Ensure S3 bucket has block public policy enabled - AVXIT-7592
+    #checkov:skip=CKV_AWS_53: Ensure S3 bucket has block public ACLs enabled - AVXIT-7593
+    #checkov:skip=CKV_AWS_18: Ensure the S3 bucket has access logging enabled - AVXIT-7594
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}-avx-platform-ha-tfs'
   Adminrole:
+    #checkov:skip=CKV_AWS_62: Ensure no IAM policies that allow full "*-*" administrative privileges are not created - AVXIT-7587
+    #checkov:skip=CKV_AWS_63: Ensure no IAM policies documents allow "*" as a statement's actions - AVXIT-7588
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${AWS::StackName}-${AWS::Region}-AvxPlatformHA-codebuild'
@@ -892,6 +900,11 @@ Resources:
       CoPilotExistingIp: !Ref CoPilotExistingIp
       CoPilotExistingDrIp: !Ref CoPilotExistingDrIp
   AviatrixPlatformInitTriggerPoint:
+    #checkov:skip=CKV_AWS_115: Ensure that AWS Lambda function is configured for function-level concurrent execution limit - AVXIT-7582
+    #checkov:skip=CKV_AWS_363: Ensure Lambda Runtime is not deprecated - AVXIT-7583
+    #checkov:skip=CKV_AWS_173: Check encryption settings for Lambda environment variable - AVXIT-7584
+    #checkov:skip=CKV_AWS_116: Ensure that AWS Lambda function is configured for a Dead Letter Queue(DLQ) - AVXIT-7585
+    #checkov:skip=CKV_AWS_117: Ensure that AWS Lambda function is configured inside a VPC - AVXIT-7586
     Type: 'AWS::Lambda::Function'
     Properties:
       Description: Aviatrix Platform HA - Trigger the Codebuild project with the user parameters from CFN

@@ -1,0 +1,7 @@
+quiet: true
+skip-framework:
+  - github_actions
+  - dockerfile
+skip-path:
+  - region-build/modules/terraform-aws-eventbridge
+  - region-build/modules/terraform-aws-ecs

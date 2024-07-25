@@ -12,25 +12,21 @@ class AviatrixException(Exception):
         super(AviatrixException, self).__init__(message)
 
 
-def manage_ingress_rules(
-        ec2_client,
-        private_ip,
-        rules,
-        sg_name,
-        add = True
-):
-    filters = [{
-        'Name': 'private-ip-address',
-        'Values': [private_ip],
-    }]
+def manage_ingress_rules(ec2_client, private_ip, rules, sg_name, add=True):
+    filters = [
+        {
+            "Name": "private-ip-address",
+            "Values": [private_ip],
+        }
+    ]
 
     instance = ec2_client.describe_instances(Filters=filters)
-    security_groups = instance['Reservations'][0]['Instances'][0]['SecurityGroups']
+    security_groups = instance["Reservations"][0]["Instances"][0]["SecurityGroups"]
 
-    security_group_id = ''
+    security_group_id = ""
     for sg in security_groups:
-        if sg_name in sg['GroupName']:
-            security_group_id = sg['GroupId']
+        if sg_name in sg["GroupName"]:
+            security_group_id = sg["GroupId"]
     if not security_group_id:
         raise AviatrixException(
             message="Could not get the security group ID.",
@@ -39,16 +35,18 @@ def manage_ingress_rules(
     try:
         if add:
             response = ec2_client.authorize_security_group_ingress(
-                GroupId=security_group_id,
-                IpPermissions=rules)
+                GroupId=security_group_id, IpPermissions=rules
+            )
         else:
             response = ec2_client.revoke_security_group_ingress(
-                GroupId=security_group_id,
-                IpPermissions=rules)
+                GroupId=security_group_id, IpPermissions=rules
+            )
     except ClientError as error:
         print(f'Could not change ingress security group rule with add = "{add}".')
         if error.response["Error"]["Code"] == "InvalidPermission.Duplicate":
-            print("One or more of the rules to be added already exists. Please check the IPs and try again")
+            print(
+                "One or more of the rules to be added already exists. Please check the IPs and try again"
+            )
             print(error.response["Error"]["Message"])
         else:
             raise
@@ -57,14 +55,14 @@ def manage_ingress_rules(
 
 
 def send_aviatrix_api(
-        api_endpoint_url="https://123.123.123.123/v1/api",
-        request_method="POST",
-        payload=dict(),
-        headers=dict(),
-        retry_count=5,
-        sleep_between_retries=0,
-        timeout=None,
-        files=dict(),
+    api_endpoint_url="https://123.123.123.123/v1/api",
+    request_method="POST",
+    payload=dict(),
+    headers=dict(),
+    retry_count=5,
+    sleep_between_retries=0,
+    timeout=None,
+    files=dict(),
 ):
     response = None
     responses = list()
@@ -80,7 +78,12 @@ def send_aviatrix_api(
                 response_status_code = response.status_code
             elif request_type == "POST":
                 response = requests.post(
-                    url=api_endpoint_url, data=payload, headers=headers, verify=False, timeout=timeout, files=files
+                    url=api_endpoint_url,
+                    data=payload,
+                    headers=headers,
+                    verify=False,
+                    timeout=timeout,
+                    files=files,
                 )
                 response_status_code = response.status_code
             else:
@@ -111,15 +114,20 @@ def send_aviatrix_api(
             if i + 1 < retry_count:
                 print(f"START: retry")
                 print(f"i == {i}")
-                print(f"Wait for: {sleep_between_retries}s for the next retry", sleep_between_retries)
+                print(
+                    f"Wait for: {sleep_between_retries}s for the next retry",
+                    sleep_between_retries,
+                )
                 time.sleep(sleep_between_retries)
                 print(f"ENDED: Wait until retry")
                 # continue next iteration
             else:
                 failure_reason = (
-                        "ERROR: Failed to invoke API at " + api_endpoint_url + ". Exceed the max retry times. "
-                        + " All responses are listed as follows :  "
-                        + str(responses)
+                    "ERROR: Failed to invoke API at "
+                    + api_endpoint_url
+                    + ". Exceed the max retry times. "
+                    + " All responses are listed as follows :  "
+                    + str(responses)
                 )
                 raise AviatrixException(
                     message=failure_reason,
@@ -129,26 +137,26 @@ def send_aviatrix_api(
 
 
 def login_controller(
-        controller_ip,
-        username,
-        password,
-        hide_password=True,
+    controller_ip,
+    username,
+    password,
+    hide_password=True,
 ):
     request_method = "POST"
-    data = {
-        "action": "login",
-        "username": username,
-        "password": password
-    }
+    data = {"action": "login", "username": username, "password": password}
 
     api_endpoint_url = "https://" + controller_ip + "/v1/api"
-    print(f"API endpoint url is : {api_endpoint_url}", )
+    print(
+        f"API endpoint url is : {api_endpoint_url}",
+    )
 
     # handle if the hide_password is selected
     if hide_password:
         payload_with_hidden_password = dict(data)
         payload_with_hidden_password["password"] = "************"
-        print(f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}")
+        print(
+            f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}"
+        )
     else:
         print(f"Request payload: {json.dumps(obj=data, indent=4)}")
 
@@ -158,7 +166,7 @@ def login_controller(
         request_method=request_method,
         payload=data,
         retry_count=12,
-        sleep_between_retries=10
+        sleep_between_retries=10,
     )
 
     return response
@@ -176,7 +184,7 @@ def verify_controller_login_response(response=None):
     response_code = response.status_code
     if response_code != 200:
         err_msg = (
-                "Fail to login Aviatrix Controller. The response code is" + response_code
+            "Fail to login Aviatrix Controller. The response code is" + response_code
         )
         raise AviatrixException(message=err_msg)
 
@@ -197,18 +205,14 @@ def verify_controller_login_response(response=None):
 
 
 def login_copilot(
-        controller_ip,
-        copilot_ip,
-        username,
-        password,
-        hide_password=True,
+    controller_ip,
+    copilot_ip,
+    username,
+    password,
+    hide_password=True,
 ):
     request_method = "POST"
-    data = {
-        "controllerIp": controller_ip,
-        "username": username,
-        "password": password
-    }
+    data = {"controllerIp": controller_ip, "username": username, "password": password}
 
     api_endpoint_url = "https://" + copilot_ip + "/login"
     print(f"API endpoint url is : {api_endpoint_url}")
@@ -217,7 +221,9 @@ def login_copilot(
     if hide_password:
         payload_with_hidden_password = dict(data)
         payload_with_hidden_password["password"] = "************"
-        print(f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}")
+        print(
+            f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}"
+        )
     else:
         print(f"Request payload: {json.dumps(obj=data, indent=4)}")
 
@@ -227,7 +233,7 @@ def login_copilot(
         request_method=request_method,
         payload=data,
         retry_count=12,
-        sleep_between_retries=10
+        sleep_between_retries=10,
     )
 
     return response
@@ -240,18 +246,15 @@ def copilot_login_driver(controller_ip, login_info):
 
 
 def init_copilot_cluster(
-        controller_username,
-        controller_password,
-        main_copilot_ip,
-        init_info,
-        CID,
-        hide_password=True
+    controller_username,
+    controller_password,
+    main_copilot_ip,
+    init_info,
+    CID,
+    hide_password=True,
 ):
     request_method = "POST"
-    headers = {
-        "content-type": "application/json",
-        "cid": CID
-    }
+    headers = {"content-type": "application/json", "cid": CID}
 
     cluster_db = []
     for private_ip, volume, name in init_info:
@@ -260,7 +263,7 @@ def init_copilot_cluster(
             "clusterNodeName": name,
             "clusterNodeEIP": private_ip,
             "clusterNodeInterIp": private_ip,
-            "clusterUUID": str(uuid.uuid4())
+            "clusterUUID": str(uuid.uuid4()),
         }
         cluster_db.append(cluster)
 
@@ -270,8 +273,8 @@ def init_copilot_cluster(
         "clusterDB": cluster_db,
         "taskserver": {
             "username": controller_username,
-            "password": controller_password
-        }
+            "password": controller_password,
+        },
     }
 
     api_endpoint_url = "https://" + main_copilot_ip + "/v1/api/cluster"
@@ -281,7 +284,9 @@ def init_copilot_cluster(
     if hide_password:
         payload_with_hidden_password = dict(data)
         payload_with_hidden_password["taskserver"]["password"] = "************"
-        print(f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}")
+        print(
+            f"Request payload: {json.dumps(obj=payload_with_hidden_password, indent=4)}"
+        )
         data["taskserver"]["password"] = controller_password
     else:
         print(f"Request payload: {str(json.dumps(obj=data, indent=4))}")
@@ -291,21 +296,18 @@ def init_copilot_cluster(
         api_endpoint_url=api_endpoint_url,
         request_method=request_method,
         payload=json.dumps(data),
-        headers=headers
+        headers=headers,
     )
 
     return response
 
 
 def get_copilot_init_status(
-        main_copilot_ip,
-        CID,
+    main_copilot_ip,
+    CID,
 ):
     request_method = "GET"
-    headers = {
-        "content-type": "application/json",
-        "cid": CID
-    }
+    headers = {"content-type": "application/json", "cid": CID}
 
     api_endpoint_url = "https://" + main_copilot_ip + "/v1/api/cluster"
     print(f"API endpoint url is : {api_endpoint_url}")
@@ -319,18 +321,21 @@ def get_copilot_init_status(
 
     return response
 
-def manage_sg_rules(ec2_client,
-                 controller_sg_name,
-                 main_copilot_sg_name,
-                 node_copilot_sg_names,
-                 controller_private_ip,
-                 main_copilot_public_ip,
-                 node_copilot_public_ips,
-                 main_copilot_private_ip,
-                 node_copilot_private_ips,
-                 cluster_init=True,
-                 private_mode=False,
-                 add=True):
+
+def manage_sg_rules(
+    ec2_client,
+    controller_sg_name,
+    main_copilot_sg_name,
+    node_copilot_sg_names,
+    controller_private_ip,
+    main_copilot_public_ip,
+    node_copilot_public_ips,
+    main_copilot_private_ip,
+    node_copilot_private_ips,
+    cluster_init=True,
+    private_mode=False,
+    add=True,
+):
     # 1. update controller rules
     controller_rules = []
     if private_mode:
@@ -341,10 +346,12 @@ def manage_sg_rules(ec2_client,
                 "IpProtocol": "tcp",
                 "FromPort": 443,
                 "ToPort": 443,
-                "IpRanges": [{
-                    "CidrIp": main_copilot_private_ip + "/32",
-                    "Description": "Main CoPilot private IP"
-                }]
+                "IpRanges": [
+                    {
+                        "CidrIp": main_copilot_private_ip + "/32",
+                        "Description": "Main CoPilot private IP",
+                    }
+                ],
             }
         )
         # if it's a new deployment (not a restore), add the IPs for the data nodes as well
@@ -355,10 +362,12 @@ def manage_sg_rules(ec2_client,
                         "IpProtocol": "tcp",
                         "FromPort": 443,
                         "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32",
-                            "Description": "Node CoPilot private IP"
-                        }]
+                        "IpRanges": [
+                            {
+                                "CidrIp": ip + "/32",
+                                "Description": "Node CoPilot private IP",
+                            }
+                        ],
                     }
                 )
     else:
@@ -369,10 +378,12 @@ def manage_sg_rules(ec2_client,
                 "IpProtocol": "tcp",
                 "FromPort": 443,
                 "ToPort": 443,
-                "IpRanges": [{
-                    "CidrIp": main_copilot_public_ip + "/32",
-                    "Description": "Main CoPilot public IP"
-                }]
+                "IpRanges": [
+                    {
+                        "CidrIp": main_copilot_public_ip + "/32",
+                        "Description": "Main CoPilot public IP",
+                    }
+                ],
             }
         )
         # if it's a new deployment (not a restore), add the IPs for the data nodes as well
@@ -383,10 +394,12 @@ def manage_sg_rules(ec2_client,
                         "IpProtocol": "tcp",
                         "FromPort": 443,
                         "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32",
-                            "Description": "Node CoPilot public IP"
-                        }]
+                        "IpRanges": [
+                            {
+                                "CidrIp": ip + "/32",
+                                "Description": "Node CoPilot public IP",
+                            }
+                        ],
                     }
                 )
     # add the rules to the controller SG
@@ -395,7 +408,7 @@ def manage_sg_rules(ec2_client,
         private_ip=controller_private_ip,
         rules=controller_rules,
         sg_name=controller_sg_name,
-        add=add
+        add=add,
     )
     # 2. update copilot rules
     main_copilot_rules = []
@@ -408,29 +421,35 @@ def manage_sg_rules(ec2_client,
                 "IpProtocol": "tcp",
                 "FromPort": 443,
                 "ToPort": 443,
-                "IpRanges": [{
-                    "CidrIp": main_copilot_private_ip + "/32",
-                    "Description": "Main CoPilot private IP"
-                }]
+                "IpRanges": [
+                    {
+                        "CidrIp": main_copilot_private_ip + "/32",
+                        "Description": "Main CoPilot private IP",
+                    }
+                ],
             },
             {
                 "IpProtocol": "tcp",
                 "FromPort": 9200,
                 "ToPort": 9200,
-                "IpRanges": [{
-                    "CidrIp": main_copilot_private_ip + "/32",
-                    "Description": "Main CoPilot private IP"
-                }]
+                "IpRanges": [
+                    {
+                        "CidrIp": main_copilot_private_ip + "/32",
+                        "Description": "Main CoPilot private IP",
+                    }
+                ],
             },
             {
                 "IpProtocol": "tcp",
                 "FromPort": 9300,
                 "ToPort": 9300,
-                "IpRanges": [{
-                    "CidrIp": main_copilot_private_ip + "/32",
-                    "Description": "Main CoPilot private IP"
-                }]
-            }
+                "IpRanges": [
+                    {
+                        "CidrIp": main_copilot_private_ip + "/32",
+                        "Description": "Main CoPilot private IP",
+                    }
+                ],
+            },
         ]
     )
     for ip in node_copilot_private_ips:
@@ -440,29 +459,26 @@ def manage_sg_rules(ec2_client,
                     "IpProtocol": "tcp",
                     "FromPort": 443,
                     "ToPort": 443,
-                    "IpRanges": [{
-                        "CidrIp": ip + "/32",
-                        "Description": "Node CoPilot private IP"
-                    }]
+                    "IpRanges": [
+                        {"CidrIp": ip + "/32", "Description": "Node CoPilot private IP"}
+                    ],
                 },
                 {
                     "IpProtocol": "tcp",
                     "FromPort": 9200,
                     "ToPort": 9200,
-                    "IpRanges": [{
-                        "CidrIp": ip + "/32",
-                        "Description": "Node CoPilot private IP"
-                    }]
+                    "IpRanges": [
+                        {"CidrIp": ip + "/32", "Description": "Node CoPilot private IP"}
+                    ],
                 },
                 {
                     "IpProtocol": "tcp",
                     "FromPort": 9300,
                     "ToPort": 9300,
-                    "IpRanges": [{
-                        "CidrIp": ip + "/32",
-                        "Description": "Node CoPilot private IP"
-                    }]
-                }
+                    "IpRanges": [
+                        {"CidrIp": ip + "/32", "Description": "Node CoPilot private IP"}
+                    ],
+                },
             ]
         )
     if not private_mode:
@@ -474,29 +490,35 @@ def manage_sg_rules(ec2_client,
                     "IpProtocol": "tcp",
                     "FromPort": 443,
                     "ToPort": 443,
-                    "IpRanges": [{
-                        "CidrIp": main_copilot_public_ip + "/32",
-                        "Description": "Main CoPilot public IP"
-                    }]
+                    "IpRanges": [
+                        {
+                            "CidrIp": main_copilot_public_ip + "/32",
+                            "Description": "Main CoPilot public IP",
+                        }
+                    ],
                 },
                 {
                     "IpProtocol": "tcp",
                     "FromPort": 9200,
                     "ToPort": 9200,
-                    "IpRanges": [{
-                        "CidrIp": main_copilot_public_ip + "/32",
-                        "Description": "Main CoPilot public IP"
-                    }]
+                    "IpRanges": [
+                        {
+                            "CidrIp": main_copilot_public_ip + "/32",
+                            "Description": "Main CoPilot public IP",
+                        }
+                    ],
                 },
                 {
                     "IpProtocol": "tcp",
                     "FromPort": 9300,
                     "ToPort": 9300,
-                    "IpRanges": [{
-                        "CidrIp": main_copilot_public_ip + "/32",
-                        "Description": "Main CoPilot public IP"
-                    }]
-                }
+                    "IpRanges": [
+                        {
+                            "CidrIp": main_copilot_public_ip + "/32",
+                            "Description": "Main CoPilot public IP",
+                        }
+                    ],
+                },
             ]
         )
         for ip in node_copilot_public_ips:
@@ -506,29 +528,35 @@ def manage_sg_rules(ec2_client,
                         "IpProtocol": "tcp",
                         "FromPort": 443,
                         "ToPort": 443,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32",
-                            "Description": "Node CoPilot public IP"
-                        }]
+                        "IpRanges": [
+                            {
+                                "CidrIp": ip + "/32",
+                                "Description": "Node CoPilot public IP",
+                            }
+                        ],
                     },
                     {
                         "IpProtocol": "tcp",
                         "FromPort": 9200,
                         "ToPort": 9200,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32",
-                            "Description": "Node CoPilot public IP"
-                        }]
+                        "IpRanges": [
+                            {
+                                "CidrIp": ip + "/32",
+                                "Description": "Node CoPilot public IP",
+                            }
+                        ],
                     },
                     {
                         "IpProtocol": "tcp",
                         "FromPort": 9300,
                         "ToPort": 9300,
-                        "IpRanges": [{
-                            "CidrIp": ip + "/32",
-                            "Description": "Node CoPilot public IP"
-                        }]
-                    }
+                        "IpRanges": [
+                            {
+                                "CidrIp": ip + "/32",
+                                "Description": "Node CoPilot public IP",
+                            }
+                        ],
+                    },
                 ]
             )
 
@@ -540,7 +568,7 @@ def manage_sg_rules(ec2_client,
         private_ip=main_copilot_private_ip,
         rules=node_copilot_rules,
         sg_name=main_copilot_sg_name,
-        add=add
+        add=add,
     )
     # 2. add IPs of the new copilot for TCP ports 443, 9200, and 9300 to all existing node copilots
     for i in range(len(node_copilot_private_ips)):
@@ -549,7 +577,7 @@ def manage_sg_rules(ec2_client,
             private_ip=node_copilot_private_ips[i],
             rules=main_copilot_rules,
             sg_name=node_copilot_sg_names[i],
-            add=add
+            add=add,
         )
     # if it's a new deployment (not a restore), we also want to add the rules for the data nodes to
     # every other copilot data node
@@ -560,14 +588,14 @@ def manage_sg_rules(ec2_client,
                 private_ip=node_copilot_private_ips[i],
                 rules=node_copilot_rules,
                 sg_name=node_copilot_sg_names[i],
-                add=add
+                add=add,
             )
 
 
 def function_handler(event):
     # aws_access_key = event["aws_access_key"]
     # aws_secret_access_key = event["aws_secret_access_key"]
-    
+
     ec2_client = event["ec2_client"]
 
     controller_public_ip = event["controller_public_ip"]
@@ -596,17 +624,30 @@ def function_handler(event):
     main_copilot_sg_name = event["main_copilot_sg_name"]
     node_copilot_sg_names = event["node_copilot_sg_names"]
 
-    controller_login_ip = controller_private_ip if private_mode else controller_public_ip
-    main_copilot_login_ip = main_copilot_private_ip if private_mode else main_copilot_public_ip
+    controller_login_ip = (
+        controller_private_ip if private_mode else controller_public_ip
+    )
+    main_copilot_login_ip = (
+        main_copilot_private_ip if private_mode else main_copilot_public_ip
+    )
 
-    login_info = zip([main_copilot_private_ip] + node_copilot_private_ips,
-                     [main_copilot_username] + node_copilot_usernames,
-                     [main_copilot_password] + node_copilot_passwords) if private_mode else \
-        zip([main_copilot_public_ip] + node_copilot_public_ips,
+    login_info = (
+        zip(
+            [main_copilot_private_ip] + node_copilot_private_ips,
             [main_copilot_username] + node_copilot_usernames,
-            [main_copilot_password] + node_copilot_passwords)
+            [main_copilot_password] + node_copilot_passwords,
+        )
+        if private_mode
+        else zip(
+            [main_copilot_public_ip] + node_copilot_public_ips,
+            [main_copilot_username] + node_copilot_usernames,
+            [main_copilot_password] + node_copilot_passwords,
+        )
+    )
 
-    init_info = zip(node_copilot_private_ips, node_copilot_data_volumes, node_copilot_names)
+    init_info = zip(
+        node_copilot_private_ips, node_copilot_data_volumes, node_copilot_names
+    )
 
     all_copilot_public_ips = [main_copilot_public_ip] + node_copilot_public_ips
     all_copilot_private_ips = [main_copilot_private_ip] + node_copilot_private_ips
@@ -621,13 +662,17 @@ def function_handler(event):
     time.sleep(10)
 
     print(f"STEP 1 ENDED: Slept 10 seconds.")
-    
+
     ###########################################################################
     # Step 2: Modify the security groups for controller and copilot instances #
     ###########################################################################
-    print(f"STEP 2 START: Modify the security groups for controller and copilot instances.")
+    print(
+        f"STEP 2 START: Modify the security groups for controller and copilot instances."
+    )
     print(f"STEP 2 - already completed")
-    print(f"STEP 2 ENDED: Modified the security groups for controller and copilot instances.")
+    print(
+        f"STEP 2 ENDED: Modified the security groups for controller and copilot instances."
+    )
 
     ###################################
     # Step 3: Try to login controller #
@@ -637,7 +682,7 @@ def function_handler(event):
     response = login_controller(
         controller_ip=controller_login_ip,
         username=controller_username,
-        password=controller_password
+        password=controller_password,
     )
 
     verify_controller_login_response(response=response)
@@ -647,7 +692,9 @@ def function_handler(event):
     #################################################################################
     # Step 4: Try to login main copilot and cluster nodes. Retry every 10s for 2min #
     #################################################################################
-    print(f"STEP 4 START: Try to login main copilot and cluster nodes. Retry every 10s for 2min.")
+    print(
+        f"STEP 4 START: Try to login main copilot and cluster nodes. Retry every 10s for 2min."
+    )
 
     copilot_login_driver(controller_ip=controller_login_ip, login_info=login_info)
 
@@ -661,7 +708,7 @@ def function_handler(event):
     response = login_controller(
         controller_ip=controller_login_ip,
         username=controller_username,
-        password=controller_password
+        password=controller_password,
     )
 
     verify_controller_login_response(response=response)
@@ -679,7 +726,7 @@ def function_handler(event):
         controller_password=controller_password,
         main_copilot_ip=main_copilot_login_ip,
         init_info=init_info,
-        CID=CID
+        CID=CID,
     )
 
     if response.status_code != 200:
@@ -698,8 +745,7 @@ def function_handler(event):
 
     for i in range(retry_count):
         response = get_copilot_init_status(
-            main_copilot_ip=main_copilot_login_ip,
-            CID=CID
+            main_copilot_ip=main_copilot_login_ip, CID=CID
         )
 
         py_dict = response.json()
@@ -726,7 +772,7 @@ def function_handler(event):
     print(f"STEP 7 ENDED: Initialization status check is done.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     i = 1
     aws_access_key = sys.argv[i]
     i += 1
@@ -797,7 +843,7 @@ if __name__ == '__main__':
         "private_mode": True if private_mode == "true" else False,
         "controller_sg_name": controller_sg_name,
         "main_copilot_sg_name": main_copilot_sg_name,
-        "node_copilot_sg_names": node_copilot_sg_names
+        "node_copilot_sg_names": node_copilot_sg_names,
     }
 
     try:
