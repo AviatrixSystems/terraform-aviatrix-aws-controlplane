@@ -1,4 +1,5 @@
 """ Aviatrix Controller Deployment with HA script """
+
 import time
 import copy
 import os
@@ -19,7 +20,6 @@ import boto3
 import botocore
 import copilot_main as cp_lib
 import aws_utils as aws_utils
-
 
 
 urllib3.disable_warnings(InsecureRequestWarning)
@@ -126,7 +126,9 @@ def ecs_handler():
         and os.environ.get("STATE", "") != "INIT"
         and asg == os.environ.get("CTRL_ASG")
     ):
-        print("ECS probably did not complete last time. Trying to revert sg %s" % tmp_sg)
+        print(
+            "ECS probably did not complete last time. Trying to revert sg %s" % tmp_sg
+        )
         restored_access = restore_security_group_access(ec2_client, tmp_sg, ecs_client)
         if restored_access:
             update_env_dict(ecs_client, {"TMP_SG_GRP": ""})
@@ -168,7 +170,9 @@ def ecs_handler():
         handle_ctrl_inter_region_event(pri_region, dr_region)
         update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
         if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
-                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
+            update_env_dict(
+                ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""}
+            )
     elif msg_event == "autoscaling:EC2_INSTANCE_LAUNCHING_ERROR":
         print("Instance launch error, refer to logs for failure reason ")
 
@@ -194,7 +198,9 @@ def ecs_handler():
             )
             update_env_dict(ecs_client, {"CONTROLLER_RUNNING": ""})
             if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "":
-                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
+                update_env_dict(
+                    ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""}
+                )
         elif msg_asg == os.environ.get("COP_ASG"):
             update_env_dict(ecs_client, {"COPILOT_RUNNING": "running"})
             handle_cop_ha_event(
@@ -206,8 +212,13 @@ def ecs_handler():
                 msg_dest,
             )
             update_env_dict(ecs_client, {"COPILOT_RUNNING": ""})
-            if aws_utils.get_task_def_env(ecs_client).get("CONTROLLER_RUNNING", "") == "":
-                update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""})
+            if (
+                aws_utils.get_task_def_env(ecs_client).get("CONTROLLER_RUNNING", "")
+                == ""
+            ):
+                update_env_dict(
+                    ecs_client, {"CONTROLLER_TMP_SG_GRP": "", "COP_TMP_SG_GRP": ""}
+                )
 
 
 def create_new_sg(client):
@@ -297,10 +308,18 @@ def update_env_dict(ecs_client, replace_dict={}):
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         "TAGS": os.environ.get("TAGS", "[]"),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
-        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
-        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
-        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
-        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
+        "COP_TMP_SG_GRP": task_def_env_dict.get(
+            "COP_TMP_SG_GRP", ""
+        ),  # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get(
+            "CONTROLLER_TMP_SG_GRP", ""
+        ),  # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get(
+            "CONTROLLER_RUNNING", ""
+        ),  # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get(
+            "COPILOT_RUNNING", ""
+        ),  # update from task_def_env
         "VERSION": VERSION,
         "VPC_ID": os.environ.get("VPC_ID"),
         "PRIMARY_ACC_NAME": os.environ.get("PRIMARY_ACC_NAME"),
@@ -541,10 +560,18 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "DISKS": json.dumps(disks),
         "TAGS": json.dumps(tags_stripped),
         "TMP_SG_GRP": os.environ.get("TMP_SG_GRP", ""),
-        "COP_TMP_SG_GRP": task_def_env_dict.get("COP_TMP_SG_GRP", ""), # update from task_def_env
-        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get("CONTROLLER_TMP_SG_GRP", ""), # update from task_def_env
-        "CONTROLLER_RUNNING": task_def_env_dict.get("CONTROLLER_RUNNING", ""), # update from task_def_env
-        "COPILOT_RUNNING": task_def_env_dict.get("COPILOT_RUNNING", ""), # update from task_def_env
+        "COP_TMP_SG_GRP": task_def_env_dict.get(
+            "COP_TMP_SG_GRP", ""
+        ),  # update from task_def_env
+        "CONTROLLER_TMP_SG_GRP": task_def_env_dict.get(
+            "CONTROLLER_TMP_SG_GRP", ""
+        ),  # update from task_def_env
+        "CONTROLLER_RUNNING": task_def_env_dict.get(
+            "CONTROLLER_RUNNING", ""
+        ),  # update from task_def_env
+        "COPILOT_RUNNING": task_def_env_dict.get(
+            "COPILOT_RUNNING", ""
+        ),  # update from task_def_env
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "INTER_REGION": os.environ.get("INTER_REGION"),
@@ -556,7 +583,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
-        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
+        "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
+            "AVX_COPILOT_PASSWORD_SSM_PATH", ""
+        ),
         "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
@@ -975,7 +1004,7 @@ def create_cloud_account(cid, controller_ip, account_name):
     print(f"Creating {account_name} account")
     client = boto3.client("sts")
     ec2_client = boto3.client("ec2")
-    region_list = ec2_client.describe_regions()['Regions']
+    region_list = ec2_client.describe_regions()["Regions"]
 
     aws_acc_num = client.get_caller_identity()["Account"]
     base_url = "https://%s/v1/api" % controller_ip
@@ -983,29 +1012,29 @@ def create_cloud_account(cid, controller_ip, account_name):
     if region_list[0]["RegionName"].startswith("cn-") == True:
         print("cn- identification is true")
         post_data = {
-        "action": "setup_account_profile",
-        "account_name": account_name,
-        "aws_china_account_number": aws_acc_num,
-        "aws_china_role_arn": "arn:aws-cn:iam::%s:role/%s"
-        % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
-        "aws_china_role_ec2": "arn:aws-cn:iam::%s:role/%s"
-        % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": "1024",
-        "aws_china_iam": "true",
-    }
+            "action": "setup_account_profile",
+            "account_name": account_name,
+            "aws_china_account_number": aws_acc_num,
+            "aws_china_role_arn": "arn:aws-cn:iam::%s:role/%s"
+            % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
+            "aws_china_role_ec2": "arn:aws-cn:iam::%s:role/%s"
+            % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
+            "cloud_type": "1024",
+            "aws_china_iam": "true",
+        }
     else:
         print("cn- identification is false")
         post_data = {
-        "action": "setup_account_profile",
-        "account_name": account_name,
-        "aws_account_number": aws_acc_num,
-        "aws_role_arn": "arn:aws:iam::%s:role/%s"
-        % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
-        "aws_role_ec2": "arn:aws:iam::%s:role/%s"
-        % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
-        "cloud_type": "1",
-        "aws_iam": "true",
-    }
+            "action": "setup_account_profile",
+            "account_name": account_name,
+            "aws_account_number": aws_acc_num,
+            "aws_role_arn": "arn:aws:iam::%s:role/%s"
+            % (aws_acc_num, get_role("AWS_ROLE_APP_NAME", "aviatrix-role-app")),
+            "aws_role_ec2": "arn:aws:iam::%s:role/%s"
+            % (aws_acc_num, get_role("AWS_ROLE_EC2_NAME", "aviatrix-role-ec2")),
+            "cloud_type": "1",
+            "aws_iam": "true",
+        }
 
     print("Trying to create account with data %s\n" % str(post_data))
     post_data["CID"] = cid
@@ -1034,7 +1063,7 @@ def create_cloud_account(cid, controller_ip, account_name):
 def restore_backup(cid, controller_ip, s3_file, account_name):
     """Restore backup from the s3 bucket"""
     ec2_client = boto3.client("ec2")
-    region_list = ec2_client.describe_regions().get('Regions')
+    region_list = ec2_client.describe_regions().get("Regions")
     if region_list[0]["RegionName"].startswith("cn-"):
         cloud_type = "1024"
     else:
@@ -1161,7 +1190,7 @@ def set_customer_id(cid, controller_api_ip):
 def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     """Enable S3 backup"""
     ec2_client = boto3.client("ec2")
-    region_list = ec2_client.describe_regions().get('Regions')
+    region_list = ec2_client.describe_regions().get("Regions")
     if region_list[0]["RegionName"].startswith("cn-"):
         cloud_type = "1024"
     else:
@@ -1383,10 +1412,14 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     # 2. Trying to find Instance in DR region
     if dr_env.get("INST_ID"):
         print(f"INST_ID: {dr_env.get('INST_ID')}")
-        dr_instanceobj = aws_utils.get_ec2_instance(dr_client, "", dr_env.get("INST_ID"))
+        dr_instanceobj = aws_utils.get_ec2_instance(
+            dr_client, "", dr_env.get("INST_ID")
+        )
     elif dr_env.get("AVIATRIX_TAG"):
         print(f"AVIATRIX_TAG : {dr_env.get('AVIATRIX_TAG')}")
-        dr_instanceobj = aws_utils.get_ec2_instance(dr_client, dr_env.get("AVIATRIX_TAG"), "")
+        dr_instanceobj = aws_utils.get_ec2_instance(
+            dr_client, dr_env.get("AVIATRIX_TAG"), ""
+        )
     else:
         dr_instanceobj = {}
 
@@ -1416,7 +1449,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     )
     if not dr_duplicate:
         update_env_dict(dr_ecs_client, {"CONTROLLER_TMP_SG_GRP": dr_sg_modified})
-        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
+        print(
+            f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
+        )
     print(
         "0.0.0.0/0:443 rule is %s present %s"
         % (
@@ -1552,7 +1587,9 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
                 state = ""
             if not dr_duplicate:
                 print(f"Reverting sg {dr_sg_modified}")
-                restored_access = restore_security_group_access(dr_client, dr_sg_modified, dr_ecs_client)
+                restored_access = restore_security_group_access(
+                    dr_client, dr_sg_modified, dr_ecs_client
+                )
                 if restored_access:
                     update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
             sync_env_var(
@@ -1655,7 +1692,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
     )
     if not duplicate:
         update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": sg_modified})
-        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
+        print(
+            f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
+        )
     print(
         "0.0.0.0/0:443 rule is %s present %s"
         % (
@@ -1780,15 +1819,21 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                         client, controller_instanceobj, api_private_access
                     )
                     if not duplicate:
-                        update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": sg_modified})
-                        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}")
+                        update_env_dict(
+                            ecs_client, {"CONTROLLER_TMP_SG_GRP": sg_modified}
+                        )
+                        print(
+                            f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
+                        )
                     print(
                         "Default rule is %s present %s"
                         % (
                             "already" if duplicate else "not",
-                            ""
-                            if duplicate
-                            else ". Modified Security group %s" % sg_modified,
+                            (
+                                ""
+                                if duplicate
+                                else ". Modified Security group %s" % sg_modified
+                            ),
                         )
                     )
                     sleep = False
@@ -2017,7 +2062,9 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             )
             env = {env_var["name"]: env_var["value"] for env_var in env_vars}
             sync_env_var(ecs_client, env, {"TMP_SG_GRP": ""})
-            restored_access = restore_security_group_access(client, sg_modified, ecs_client)
+            restored_access = restore_security_group_access(
+                client, sg_modified, ecs_client
+            )
             if restored_access:
                 update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
         else:
@@ -2041,7 +2088,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             instance_name = f"{instance_name}-Main"
 
         # get current region copilot to restore eip
-        curr_region_cop_instanceobj = aws_utils.get_ec2_instance(client, instance_name, "")
+        curr_region_cop_instanceobj = aws_utils.get_ec2_instance(
+            client, instance_name, ""
+        )
         if curr_region_cop_instanceobj == {}:
             raise AvxError(f"Unable to find copilot {instance_name}")
         print(f"curr_region_cop_instanceobj: {curr_region_cop_instanceobj}")
@@ -2070,7 +2119,9 @@ def handle_cop_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest)
             )
             print(f"Complete lifecycle action response {response}")
         except Exception as err:  # pylint: disable=broad-except
-            print(f"Complete lifecycle action did not succeed. Lifecycle action may be completed already: {str(err)}")
+            print(
+                f"Complete lifecycle action did not succeed. Lifecycle action may be completed already: {str(err)}"
+            )
         print("- Completed function -")
         return
 

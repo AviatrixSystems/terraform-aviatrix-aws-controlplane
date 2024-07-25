@@ -64,3 +64,15 @@ variable "tags" {
   description = "Map of common tags which should be used for module resources"
   default     = {}
 }
+
+variable "ebs_optimized" {
+  type        = bool
+  description = "Whether EBS optimization is enabled. Applies to both the Controller and CoPilot."
+  default     = false
+}
+
+variable "monitoring" {
+  type        = bool
+  description = "Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot."
+  default     = false
+}

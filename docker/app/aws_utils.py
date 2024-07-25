@@ -2,6 +2,7 @@ import time
 
 TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
+
 def get_task_def(ecs_client):
     """this function returns the task definition"""
     current_task_def = ecs_client.describe_task_definition(
@@ -15,9 +16,12 @@ def get_task_def_env(ecs_client):
     current_task_def = get_task_def(ecs_client)
     task_def_env_dict = {
         item["name"]: item["value"]
-        for item in current_task_def["taskDefinition"]["containerDefinitions"][0]["environment"]
+        for item in current_task_def["taskDefinition"]["containerDefinitions"][0][
+            "environment"
+        ]
     }
     return task_def_env_dict
+
 
 def get_ec2_instance(ec2_client, inst_name="", inst_id=""):
     """given an instance ID or name, this function returns the EC2 instance"""
