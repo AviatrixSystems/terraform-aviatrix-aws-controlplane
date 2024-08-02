@@ -116,15 +116,19 @@ module "region1" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
+  healthcheck_interval             = var.healthcheck_interval
+  healthcheck_state                = "DISABLED"
+  healthcheck_subnet_ids           = var.healthcheck_subnet_ids
+  # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
+  ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
 
 module "region2" {
   providers = {
     aws = aws.region2
   }
-  count                            = var.ha_distribution == "inter-region" ? 1 : 0
+  count                            = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   source                           = "./region-build"
   region                           = var.dr_region
   vpc_cidr                         = var.dr_vpc_cidr
@@ -204,8 +208,12 @@ module "region2" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  # ecr_image                     = "${aws_ecr_repository.repo.repository_url}:latest"
+  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
+  healthcheck_interval             = var.healthcheck_interval
+  healthcheck_state                = var.ha_distribution == "inter-region-v2" ? "ENABLED" : ""
+  healthcheck_subnet_ids           = var.healthcheck_dr_subnet_ids
+  # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
+  ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
 }
 
@@ -438,59 +446,59 @@ locals {
   image_tag  = "latest"
 }
 
-# resource "aws_ecr_repository" "repo" {
-#   name         = "avx_platform_ha"
-#   force_delete = true
-#   tags         = local.common_tags
-# }
+resource "aws_ecr_repository" "repo" {
+  name         = "avx_platform_ha"
+  force_delete = true
+  tags         = local.common_tags
+}
 
-# resource "docker_image" "ecr_image" {
-#   name = local.image_name
+resource "docker_image" "ecr_image" {
+  name = local.image_name
 
-#   build {
-#     context    = local.image_path
-#     dockerfile = "Dockerfile.aws"
-#     no_cache   = true
-#     tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
-#   }
-#   triggers = {
-#     source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
-#   }
-#   depends_on = [
-#     aws_ecr_repository.repo
-#   ]
-# }
+  build {
+    context    = local.image_path
+    dockerfile = "Dockerfile.aws"
+    no_cache   = true
+    tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
+  }
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+  }
+  depends_on = [
+    aws_ecr_repository.repo
+  ]
+}
 
-# resource "null_resource" "push_ecr_image" {
-#   triggers = {
-#     source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
-#   }
+resource "null_resource" "push_ecr_image" {
+  triggers = {
+    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+  }
 
-#   provisioner "local-exec" {
-#     command = <<-EOF
-#     aws ecr get-login-password \
-#       --region ${var.region} \
-#       | docker login \
-#       --username AWS \
-#       --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.${local.ecr_url}
-#     docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
-#     EOF
-#   }
-#   depends_on = [
-#     docker_image.ecr_image
-#   ]
-# }
+  provisioner "local-exec" {
+    command = <<-EOF
+    aws ecr get-login-password \
+      --region ${var.region} \
+      | docker login \
+      --username AWS \
+      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.${local.ecr_url}
+    docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
+    EOF
+  }
+  depends_on = [
+    docker_image.ecr_image
+  ]
+}
 
 data "aws_caller_identity" "current" {}
 
 data "aws_route53_zone" "avx_zone" {
-  count        = var.ha_distribution == "inter-region" ? 1 : 0
+  count        = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   name         = var.zone_name
   private_zone = var.private_zone
 }
 
 resource "aws_route53_record" "avx_primary" {
-  count   = var.ha_distribution == "inter-region" ? 1 : 0
+  count   = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
   zone_id = data.aws_route53_zone.avx_zone[0].zone_id
   name    = var.record_name
   type    = "A"
@@ -571,4 +579,191 @@ resource "null_resource" "delete_sg_script_basic" {
     command    = "python3 -W ignore ${path.module}/region-build/delete_sg.py ${self.triggers.argument_delete_sg_basic}"
     on_failure = continue
   }
+}
+
+# Inter-region V2
+
+resource "aws_iam_role" "iam_for_healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name               = "${var.healthcheck_role_name}-${random_id.aviatrix.hex}"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "healthcheck-policy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name        = "${var.healthcheck_policy_name}-${random_id.aviatrix.hex}"
+  path        = "/"
+  description = "Aviatrix Healthcheck Policy"
+  policy      = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:CreateLogGroup",
+        "logs:PutLogEvents"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Action": "sns:Publish",
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:*:*:*"
+    },
+		{
+			"Action": [
+				"ecs:DescribeTaskDefinition"
+			],
+			"Effect": "Allow",
+			"Resource": "*"
+		},    
+		{
+			"Action": [
+				"ecs:RunTask"
+			],
+			"Effect": "Allow",
+			"Resource": "arn:aws:ecs:*:*:task-definition/*"
+		},
+    {
+      "Action": "iam:PassRole",
+      "Effect": "Allow",
+      "Resource": "arn:aws:iam::*:role/*"
+    },
+    {
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "lambda-attach-policy" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  role       = aws_iam_role.iam_for_healthcheck[0].name
+  policy_arn = aws_iam_policy.healthcheck-policy[0].arn
+}
+
+resource "aws_vpc_peering_connection" "region1_to_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  vpc_id      = module.region1[0].vpc_id
+  peer_vpc_id = module.region2[0].vpc_id
+  peer_region = var.dr_region
+
+  depends_on = [module.region1, module.region2]
+}
+
+resource "aws_vpc_peering_connection_accepter" "peer" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+  auto_accept               = true
+}
+
+resource "aws_security_group_rule" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = [module.region2[0].vpc_cidr_block]
+  security_group_id = module.region1[0].controller_sg_id
+  description       = "Aviatrix health check from ${module.region2[0].vpc_id} in ${var.dr_region}"
+}
+
+resource "aws_security_group_rule" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = [module.region1[0].vpc_cidr_block]
+  security_group_id = module.region2[0].controller_sg_id
+  description       = "Aviatrix health check from ${module.region1[0].vpc_id} in ${var.region}"
+}
+
+resource "aws_route" "public_r1_to_r2_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  route_table_id            = module.region1[0].public_rt_id
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+
+}
+
+resource "aws_route" "public_r2_to_r1_new_vpc" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  provider = aws.region2
+
+  route_table_id            = module.region2[0].public_rt_id
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "public_r1_to_r2_existing_vpc" {
+  for_each = toset(var.healthcheck_public_rt_ids)
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "public_r2_to_r1_existing_vpc" {
+  for_each = toset(var.healthcheck_dr_public_rt_ids)
+
+  provider = aws.region2
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "private_r1_to_r2_existing_vpc" {
+  for_each = toset(var.healthcheck_private_rt_ids)
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region2[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+resource "aws_route" "private_r2_to_r1_existing_vpc" {
+  for_each = toset(var.healthcheck_dr_private_rt_ids)
+
+  provider = aws.region2
+
+  route_table_id            = each.key
+  destination_cidr_block    = module.region1[0].vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
 }

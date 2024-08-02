@@ -6,8 +6,8 @@ variable "ha_distribution" {
   default     = "single-az"
 
   validation {
-    condition     = contains(["inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (inter-az, single-az and inter-region)."
+    condition     = contains(["inter-az", "single-az", "inter-region", "inter-region-v2"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (inter-az, single-az, inter-region and inter-region-v2)."
   }
 }
 
@@ -511,4 +511,28 @@ variable "alb_cert_arn" {
   type        = string
   description = "The ARN of the ACM certificate to use with the application load balancer"
   default     = ""
+}
+
+variable "healthcheck_lambda_arn" {
+  type        = string
+  description = "The ARN of the role used for the healthcheck Lambda"
+  default     = ""
+}
+
+variable "healthcheck_interval" {
+  type        = number
+  description = "The number of minutes to wait between healthchecks"
+  default     = 5
+}
+
+variable "healthcheck_state" {
+  type        = string
+  description = "Whether the Aviatrix healthcheck is enabled or disabled"
+  default     = "DISABLED"
+}
+
+variable "healthcheck_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda"
+  default     = []
 }

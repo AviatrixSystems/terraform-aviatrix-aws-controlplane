@@ -43,3 +43,23 @@ output "lb_arn" {
 output "waf_arn" {
   value = var.configure_waf == true ? module.controller_alb_waf[0].waf_arn : ""
 }
+
+output "vpc_id" {
+  value = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
+}
+
+output "subnet_cidrs" {
+  value = [data.aws_subnet.subnet1.cidr_block, data.aws_subnet.subnet2.cidr_block]
+}
+
+output "controller_sg_id" {
+  value = aws_security_group.AviatrixSecurityGroup.id
+}
+
+output "public_rt_id" {
+  value = var.use_existing_vpc ? "" : aws_route_table.rtb[0].id
+}
+
+output "vpc_cidr_block" {
+  value = data.aws_vpc.vpc.cidr_block
+}

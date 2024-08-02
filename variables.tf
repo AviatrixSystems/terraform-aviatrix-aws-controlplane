@@ -6,8 +6,8 @@ variable "ha_distribution" {
   default     = "basic"
 
   validation {
-    condition     = contains(["basic", "inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az and inter-region)."
+    condition     = contains(["basic", "inter-az", "single-az", "inter-region", "inter-region-v2"], var.ha_distribution)
+    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az, inter-region and inter-region-v2)."
   }
 }
 
@@ -599,6 +599,60 @@ variable "dr_alb_cert_arn" {
   type        = string
   description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
   default     = ""
+}
+
+variable "healthcheck_interval" {
+  type        = number
+  description = "The number of minutes to wait between healthchecks"
+  default     = 5
+}
+
+variable "healthcheck_policy_name" {
+  type    = string
+  default = "aviatrix-healthcheck-policy"
+}
+
+variable "healthcheck_role_name" {
+  type    = string
+  default = "aviatrix-role-healthcheck"
+}
+
+variable "healthcheck_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda in the primary region"
+  default     = []
+}
+
+variable "healthcheck_dr_subnet_ids" {
+  type        = list(string)
+  description = "The list of private subnets to use for the healthcheck Lambda in the DR region"
+  default     = []
+}
+
+
+variable "healthcheck_public_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+variable "healthcheck_dr_public_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+
+variable "healthcheck_private_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
+}
+
+variable "healthcheck_dr_private_rt_ids" {
+  type        = list(string)
+  description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
+  default     = []
 }
 
 variable "cft_stack_name" {

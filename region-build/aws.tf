@@ -67,12 +67,17 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_route_table" "rtb" {
   count  = var.use_existing_vpc ? 0 : 1
   vpc_id = aws_vpc.vpc[0].id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw[0].id
   }
   tags = {
     Name = "${var.vpc_name}-rtb"
+  }
+
+  lifecycle {
+    ignore_changes = [route]
   }
 }
 
@@ -98,4 +103,110 @@ resource "aws_key_pair" "key_pair" {
   count      = var.use_existing_keypair ? 0 : 1
   key_name   = var.keypair
   public_key = tls_private_key.key_pair_material[0].public_key_openssh
+}
+
+# Inter-region-v2
+
+resource "aws_subnet" "subnet_private_1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  vpc_id               = aws_vpc.vpc[0].id
+  cidr_block           = cidrsubnet(var.vpc_cidr, 4, 3)
+  availability_zone_id = data.aws_availability_zones.available.zone_ids[0]
+  tags = {
+    Name = "${var.subnet_name}-private-1"
+  }
+}
+
+resource "aws_subnet" "subnet_private_2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  vpc_id               = aws_vpc.vpc[0].id
+  cidr_block           = cidrsubnet(var.vpc_cidr, 4, 4)
+  availability_zone_id = data.aws_availability_zones.available.zone_ids[1]
+  tags = {
+    Name = "${var.subnet_name}-private-2"
+  }
+}
+
+resource "aws_eip" "natgw_1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  domain = "vpc"
+  tags   = merge(local.common_tags, tomap({ "Name" = "Aviatrix-HA-NAT-GW-1" }))
+}
+
+resource "aws_eip" "natgw_2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  domain = "vpc"
+  tags   = merge(local.common_tags, tomap({ "Name" = "Aviatrix-HA-NAT-GW-2" }))
+}
+
+resource "aws_nat_gateway" "natgw_1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  allocation_id = aws_eip.natgw_1[0].id
+  subnet_id     = aws_subnet.subnet[0].id
+  tags = {
+    Name = "${var.vpc_name}-natgw-1"
+  }
+}
+
+resource "aws_nat_gateway" "natgw_2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  allocation_id = aws_eip.natgw_2[0].id
+  subnet_id     = aws_subnet.subnet_ha[0].id
+  tags = {
+    Name = "${var.vpc_name}-natgw-2"
+  }
+}
+
+resource "aws_route_table" "rtb_private_1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  vpc_id = aws_vpc.vpc[0].id
+  tags = {
+    Name = "${var.vpc_name}-private-rtb-1"
+  }
+}
+
+resource "aws_route" "r1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  route_table_id         = aws_route_table.rtb_private_1[0].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.natgw_1[0].id
+}
+
+resource "aws_route_table" "rtb_private_2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  vpc_id = aws_vpc.vpc[0].id
+  tags = {
+    Name = "${var.vpc_name}-private-rtb-2"
+  }
+}
+
+resource "aws_route" "r2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  route_table_id         = aws_route_table.rtb_private_2[0].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.natgw_2[0].id
+}
+
+resource "aws_route_table_association" "private_1" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  subnet_id      = aws_subnet.subnet_private_1[0].id
+  route_table_id = aws_route_table.rtb_private_1[0].id
+}
+
+resource "aws_route_table_association" "private_2" {
+  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
+
+  subnet_id      = aws_subnet.subnet_private_2[0].id
+  route_table_id = aws_route_table.rtb_private_2[0].id
 }
