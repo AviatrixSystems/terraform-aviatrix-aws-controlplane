@@ -205,7 +205,7 @@ resource "aws_security_group_rule" "copilot_https_ingress_rule" {
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([data.aws_vpc.vpc.cidr_block]))
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot HTTPS Ingress - DO NOT DELETE"
 }
@@ -235,7 +235,7 @@ resource "aws_security_group_rule" "copilot_alb_ingress_rule" {
   from_port         = 8443
   to_port           = 8443
   protocol          = "tcp"
-  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([var.vpc_cidr]))
+  cidr_blocks       = concat(var.copilot_incoming_https_cidr, tolist([data.aws_vpc.vpc.cidr_block]))
   security_group_id = aws_security_group.AviatrixCopilotSecurityGroup.id
   description       = "CoPilot ALB Ingress - DO NOT DELETE"
 }
