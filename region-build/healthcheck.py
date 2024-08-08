@@ -56,6 +56,24 @@ def _lambda_handler(event, context):
     print(f"Checking port 443 on {ip}.")
     print("Result of check_port is:", check_port(ip, 443))
 
+    env_vars = get_task_def_env_vars(peer_region, TASK_DEF_FAMILY)
+    print("env_vars:", env_vars)
+
+    state = env_vars.get("STATE", "NotSpecified")
+
+    ssm_path = env_vars.get("AVX_PASSWORD_SSM_PATH")
+    ssm_region = env_vars.get("AVX_PASSWORD_SSM_REGION")
+
+    if env_vars.get("AVX_PASSWORD") == "":
+        password = get_ssm_parameter_value(ssm_path, ssm_region)
+    else:
+        password = env_vars.get("AVX_PASSWORD")
+
+    print("state:", state)
+    print("ssm_path:", ssm_path)
+    print("ssm_region:", ssm_region)
+    print("password:", password)
+
 
 def publish_message_to_sns(topic_arn, message, region):
     sns_client = boto3.client("sns", region_name=region)
@@ -120,3 +138,29 @@ def get_priv_ip(region, task_def_family):
     env_dict = {pair["name"]: pair["value"] for pair in env}
     priv_ip = env_dict.get("PRIV_IP")
     return priv_ip
+
+
+def get_task_def_env_vars(region, task_def_family):
+    try:
+        ecs_client = boto3.client("ecs", region)
+        response = ecs_client.describe_task_definition(taskDefinition=task_def_family)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
+    env = response["taskDefinition"]["containerDefinitions"][0]["environment"]
+    taskDefinitionArn = response["taskDefinition"]["taskDefinitionArn"]
+    print("taskDefinitionArn:", taskDefinitionArn)
+    env_dict = {pair["name"]: pair["value"] for pair in env}
+    print("env_dict:", env_dict)
+    return env_dict
+
+
+def get_ssm_parameter_value(path, region):
+    try:
+        ssm_client = boto3.client("ssm", region)
+        resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
+        return resp["Parameter"]["Value"]
+    except Exception as e:
+        print(e)
+        sys.exit(1)

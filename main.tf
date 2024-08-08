@@ -616,17 +616,12 @@ resource "aws_iam_policy" "healthcheck-policy" {
   "Statement": [
     {
       "Action": [
-        "logs:CreateLogStream",
-        "logs:CreateLogGroup",
-        "logs:PutLogEvents"
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:logs:*:*:*"
-    },
-    {
-      "Action": "sns:Publish",
-      "Effect": "Allow",
-      "Resource": "arn:aws:sns:*:*:*"
+      "Resource": "*"
     },
 		{
 			"Action": [
@@ -649,12 +644,24 @@ resource "aws_iam_policy" "healthcheck-policy" {
     },
     {
       "Action": [
-        "ec2:CreateNetworkInterface",
-        "ec2:DeleteNetworkInterface",
-        "ec2:DescribeNetworkInterfaces"
+        "logs:CreateLogStream",
+        "logs:CreateLogGroup",
+        "logs:PutLogEvents"
       ],
       "Effect": "Allow",
-      "Resource": "*"
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Action": "sns:Publish",
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:*:*:*"
+    },
+    {
+      "Effect":"Allow",
+      "Action":[
+        "ssm:GetParameter"
+      ],
+      "Resource": "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}"
     }
   ]
 }
