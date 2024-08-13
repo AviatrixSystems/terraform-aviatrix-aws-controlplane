@@ -815,6 +815,11 @@ resource "aws_lambda_function" "healthcheck" {
     subnet_ids         = var.use_existing_vpc ? var.healthcheck_subnet_ids : [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id]
     security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup[0].id]
   }
+
+  depends_on = [
+    aws_autoscaling_group.avtx_ctrl,
+    aws_autoscaling_group.avtx_copilot
+  ]
 }
 
 resource "aws_cloudwatch_event_rule" "healthcheck" {
