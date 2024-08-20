@@ -538,7 +538,7 @@ resource "aws_sns_topic_subscription" "asg_updates_for_sqs" {
   topic_arn           = aws_sns_topic.controller_updates.arn
   protocol            = "sqs"
   endpoint            = aws_sqs_queue.controller_updates_queue.arn
-  filter_policy       = jsonencode({ "LifecycleTransition" = ["autoscaling:EC2_INSTANCE_LAUNCHING"] })
+  filter_policy       = jsonencode({ "$or" : [{ "LifecycleTransition" = ["autoscaling:EC2_INSTANCE_LAUNCHING"] }, { "Service" = ["Health Check"] }] })
   filter_policy_scope = "MessageBody"
 }
 
