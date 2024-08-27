@@ -20,6 +20,7 @@ import boto3
 import botocore
 import copilot_main as cp_lib
 import aws_utils as aws_utils
+import inter_region_v2
 
 
 urllib3.disable_warnings(InsecureRequestWarning)
@@ -109,6 +110,29 @@ def ecs_handler():
         ]
     )
     print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
+
+    ### Beginning of Inter-Region V2 code
+
+    # Check for healthcheck code
+    print(event)
+    try:
+        msg_json = json.loads(event["Message"])
+        msg_service = msg_json.get("Service")
+        print("The Service is", msg_service)
+
+        if msg_service == "Health Check":
+            pri_region = msg_json.get("FailingRegion")
+            dr_region = msg_json.get("Region")
+            print("Primary Region:", pri_region, "DR Region:", dr_region)
+            inter_region_v2.health_check_handler(pri_region, dr_region)
+            return
+        else:
+            print("The Service is not Health Check, continuing with existing code")
+
+    except (KeyError, IndexError, ValueError) as err:
+        raise AvxError("Could not parse message %s" % str(err)) from err
+
+    ### End of Inter-Region V2 code
 
     try:
         region = event["TopicArn"].split(":")[3]

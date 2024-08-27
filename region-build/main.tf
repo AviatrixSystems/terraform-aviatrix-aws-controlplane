@@ -50,7 +50,7 @@ resource "aws_ecs_task_definition" "task_def" {
           "awslogs-stream-prefix" = "fargate"
         }
       }
-      environment = var.ha_distribution == "inter-region" ? [
+      environment = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2"? [
         {
           name  = "AVIATRIX_TAG",
           value = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name
@@ -154,7 +154,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "INTER_REGION",
-          value = var.ha_distribution == "inter-region" ? "True" : "False"
+          value = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? "True" : "False"
         },
         {
           name  = "DR_REGION",
@@ -308,7 +308,7 @@ resource "aws_ecs_task_definition" "task_def" {
         },
         {
           name  = "INTER_REGION",
-          value = var.ha_distribution == "inter-region" ? "True" : "False"
+          value = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? "True" : "False"
         },
         {
           name  = "SQS_QUEUE_NAME",

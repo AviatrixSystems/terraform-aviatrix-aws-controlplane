@@ -6,13 +6,14 @@ import sys
 import time
 import traceback
 import urllib3
-from urllib3.exceptions import InsecureRequestWarning
+
+# from urllib3.exceptions import InsecureRequestWarning
 from datetime import datetime
 from pip._vendor import requests
 from pprint import pprint
 
 
-urllib3.disable_warnings(InsecureRequestWarning)
+# urllib3.disable_warnings(InsecureRequestWarning)
 
 
 class AvxError(Exception):
@@ -42,11 +43,6 @@ def _lambda_handler(event, context):
 
     region = os.environ.get("region")
     sns_topic_arn = os.environ.get("sns_topic_arn")
-
-    test_message = json.dumps({"Service": "Health Check"})
-
-    # print("Publishing Message to SNS")
-    # publish_message_to_sns(sns_topic_arn, test_message, region)
 
     ecs_cluster = os.environ.get("ecs_cluster")
     ecs_task_def = os.environ.get("ecs_task_def")
@@ -87,16 +83,30 @@ def _lambda_handler(event, context):
     print(f"The private IP of the Controller in {peer_region} is {ip}.")
     print(f"Checking port 443 on {ip}.")
 
+    test_message = json.dumps(
+        {
+            "FailingRegion": os.environ.get("peer_region"),
+            "Region": os.environ.get("region"),
+            "Service": "Health Check",
+        }
+    )
+
+    # print("Publishing Message to SNS")
+    # publish_message_to_sns(sns_topic_arn, test_message, region)
+
     if check_port(ip, 443):
         print(f"In check_port: {ip}:443 is accessible")
     else:
         print(f"In check_port: {ip}:443 is not accessible")
-        print("publishing message to sns")
-        publish_message_to_sns(sns_topic_arn, test_message, region)
-        print("triggering ECS")
-        run_ecs_task(
+        print("Publishing message to SNS")
+
+        response = publish_message_to_sns(sns_topic_arn, test_message, region)
+        print(response)
+        print("Triggering ECS")
+        response = run_ecs_task(
             ecs_cluster, ecs_task_def, subnets, security_groups, "ENABLED", region
         )
+        print(response)
 
 
 def publish_message_to_sns(topic_arn, message, region):
@@ -109,6 +119,7 @@ def run_ecs_task(cluster, task_def, subnets, security_groups, assign_public_ip, 
     ecs_client = boto3.client("ecs", region_name=region)
     response = ecs_client.run_task(
         cluster=cluster,
+        count=1,
         taskDefinition=task_def,
         networkConfiguration={
             "awsvpcConfiguration": {
