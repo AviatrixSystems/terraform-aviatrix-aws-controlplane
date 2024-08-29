@@ -63,3 +63,31 @@ output "public_rt_id" {
 output "vpc_cidr_block" {
   value = data.aws_vpc.vpc.cidr_block
 }
+
+output "sns_topic_arn" {
+  value = aws_sns_topic.controller_updates.arn
+}
+
+output "healthcheck_subnet_ids" {
+  value = var.use_existing_vpc ? [] : [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id]
+}
+
+output "ecs_task_def" {
+  value = aws_ecs_task_definition.task_def
+}
+
+output "ecs_cluster_name" {
+  value = module.ecs_cluster.cluster_name
+}
+
+output "aviatrix_sg_id" {
+  value = aws_security_group.AviatrixSecurityGroup.id
+}
+
+output "subnet_id1" {
+  value = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id
+}
+
+output "subnet_id2" {
+  value = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id
+}

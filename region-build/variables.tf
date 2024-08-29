@@ -512,27 +512,3 @@ variable "alb_cert_arn" {
   description = "The ARN of the ACM certificate to use with the application load balancer"
   default     = ""
 }
-
-variable "healthcheck_lambda_arn" {
-  type        = string
-  description = "The ARN of the role used for the healthcheck Lambda"
-  default     = ""
-}
-
-variable "healthcheck_interval" {
-  type        = number
-  description = "The number of minutes to wait between healthchecks"
-  default     = 5
-}
-
-variable "healthcheck_state" {
-  type        = string
-  description = "Whether the Aviatrix healthcheck is enabled or disabled"
-  default     = "DISABLED"
-}
-
-variable "healthcheck_subnet_ids" {
-  type        = list(string)
-  description = "The list of private subnets to use for the healthcheck Lambda"
-  default     = []
-}

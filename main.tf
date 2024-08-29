@@ -116,10 +116,6 @@ module "region1" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
-  healthcheck_interval             = var.healthcheck_interval
-  healthcheck_state                = "DISABLED"
-  healthcheck_subnet_ids           = var.healthcheck_subnet_ids
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
 }
@@ -208,10 +204,6 @@ module "region2" {
   controller_json_url              = var.controller_json_url
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
-  healthcheck_lambda_arn           = var.ha_distribution == "inter-region-v2" ? aws_iam_role.iam_for_healthcheck[0].arn : null
-  healthcheck_interval             = var.healthcheck_interval
-  healthcheck_state                = var.ha_distribution == "inter-region-v2" ? "ENABLED" : ""
-  healthcheck_subnet_ids           = var.healthcheck_dr_subnet_ids
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
   depends_on = [null_resource.region_conflict]
@@ -773,4 +765,211 @@ resource "aws_route" "private_r2_to_r1_existing_vpc" {
   route_table_id            = each.key
   destination_cidr_block    = module.region1[0].vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
+}
+
+
+data "archive_file" "healthcheck" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type        = "zip"
+  source_file = "${path.module}/healthcheck.py"
+  output_path = "healthcheck_payload.zip"
+}
+
+# Region 1
+
+resource "aws_security_group" "AviatrixHealthcheckSecurityGroup_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name        = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  description = "Aviatrix - Healthcheck Security Group"
+  vpc_id      = module.region1[0].vpc_id
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  })
+}
+
+resource "aws_security_group_rule" "healthcheck_egress_rule_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.AviatrixHealthcheckSecurityGroup_region1[0].id
+}
+
+resource "aws_lambda_function" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  filename         = "healthcheck_payload.zip"
+  function_name    = "aviatrix_healthcheck"
+  role             = aws_iam_role.iam_for_healthcheck[0].arn
+  handler          = "healthcheck.lambda_handler"
+  source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
+  runtime          = "python3.12"
+  timeout          = 900
+
+  environment {
+    variables = {
+      ecs_cluster        = module.region1[0].ecs_cluster_name
+      ecs_security_group = module.region1[0].aviatrix_sg_id,
+      ecs_subnet_1       = module.region1[0].subnet_id1,
+      ecs_subnet_2       = module.region1[0].subnet_id2,
+      ecs_task_def       = trimsuffix(module.region1[0].ecs_task_def.arn, ":${module.region1[0].ecs_task_def.revision}"),
+      peer_region        = var.dr_region
+      region             = var.region
+      sns_topic_arn      = module.region1[0].sns_topic_arn
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.use_existing_vpc ? var.healthcheck_subnet_ids : module.region1[0].healthcheck_subnet_ids
+    security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup_region1[0].id]
+  }
+
+  depends_on = [
+    aws_vpc_peering_connection.region1_to_region2,
+    aws_vpc_peering_connection_accepter.peer
+  ]
+}
+
+resource "aws_cloudwatch_event_rule" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  name                = "aviatrix-healthcheck-rule"
+  description         = "Aviatrix Healthcheck"
+  schedule_expression = "rate(${var.healthcheck_interval} minutes)"
+  state               = "DISABLED"
+
+  lifecycle {
+    ignore_changes = [
+      state
+    ]
+  }
+}
+
+resource "aws_cloudwatch_event_target" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  target_id = "AviatrixHealthcheck"
+  rule      = aws_cloudwatch_event_rule.healthcheck_region1[0].name
+  arn       = aws_lambda_function.healthcheck_region1[0].arn
+}
+
+resource "aws_lambda_permission" "healthcheck_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.healthcheck_region1[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.healthcheck_region1[0].arn
+}
+
+# Region 2
+
+resource "aws_security_group" "AviatrixHealthcheckSecurityGroup_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  name        = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  description = "Aviatrix - Healthcheck Security Group"
+  vpc_id      = module.region2[0].vpc_id
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
+  })
+}
+
+resource "aws_security_group_rule" "healthcheck_egress_rule_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.AviatrixHealthcheckSecurityGroup_region2[0].id
+}
+
+resource "aws_lambda_function" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  filename         = "healthcheck_payload.zip"
+  function_name    = "aviatrix_healthcheck"
+  role             = aws_iam_role.iam_for_healthcheck[0].arn
+  handler          = "healthcheck.lambda_handler"
+  source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
+  runtime          = "python3.12"
+  timeout          = 900
+
+  environment {
+    variables = {
+      ecs_cluster        = module.region2[0].ecs_cluster_name
+      ecs_security_group = module.region2[0].aviatrix_sg_id,
+      ecs_subnet_1       = module.region2[0].subnet_id1,
+      ecs_subnet_2       = module.region2[0].subnet_id2,
+      ecs_task_def       = trimsuffix(module.region2[0].ecs_task_def.arn, ":${module.region2[0].ecs_task_def.revision}"),
+      peer_region        = var.dr_region
+      region             = var.region
+      sns_topic_arn      = module.region2[0].sns_topic_arn
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.use_existing_vpc ? var.healthcheck_dr_subnet_ids : module.region2[0].healthcheck_subnet_ids
+    security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup_region2[0].id]
+  }
+
+  depends_on = [
+    aws_vpc_peering_connection.region1_to_region2,
+    aws_vpc_peering_connection_accepter.peer
+  ]
+}
+
+resource "aws_cloudwatch_event_rule" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  provider = aws.region2
+
+  name                = "aviatrix-healthcheck-rule"
+  description         = "Aviatrix Healthcheck"
+  schedule_expression = "rate(${var.healthcheck_interval} minutes)"
+  state               = "ENABLED"
+
+  lifecycle {
+    ignore_changes = [
+      state
+    ]
+  }
+}
+
+resource "aws_cloudwatch_event_target" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+
+  provider = aws.region2
+
+  target_id = "AviatrixHealthcheck"
+  rule      = aws_cloudwatch_event_rule.healthcheck_region2[0].name
+  arn       = aws_lambda_function.healthcheck_region2[0].arn
+}
+
+resource "aws_lambda_permission" "healthcheck_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+
+  provider = aws.region2
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.healthcheck_region2[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.healthcheck_region2[0].arn
 }

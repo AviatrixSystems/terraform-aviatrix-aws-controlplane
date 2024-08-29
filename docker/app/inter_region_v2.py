@@ -202,10 +202,10 @@ def health_check_handler(pri_region, dr_region):
                 init_ver = s3_ctrl_version
             else:
                 init_ver = dr_env.get("CTRL_INIT_VER")
-            if failover and failover == "completed":
-                state = "ACTIVE"
-            else:
-                state = ""
+            # if failover and failover == "completed":
+            #     state = "ACTIVE"
+            # else:
+            #     state = ""
             # if not dr_duplicate:
             #     print(f"Reverting sg {dr_sg_modified}")
             #     restored_access = aws_controller.restore_security_group_access(
@@ -213,11 +213,11 @@ def health_check_handler(pri_region, dr_region):
             #     )
             #     if restored_access:
             #         aws_controller.update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
-            aws_controller.sync_env_var(
-                dr_ecs_client,
-                dr_env,
-                {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
-            )
+            # aws_controller.sync_env_var(
+            #     dr_ecs_client,
+            #     dr_env,
+            #     {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
+            # )
             print("- Completed function -")
 
     elif pri_region == pri_env.get("STANDBY_REGION"):

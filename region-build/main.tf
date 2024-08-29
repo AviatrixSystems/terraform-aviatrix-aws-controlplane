@@ -50,7 +50,7 @@ resource "aws_ecs_task_definition" "task_def" {
           "awslogs-stream-prefix" = "fargate"
         }
       }
-      environment = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2"? [
+      environment = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? [
         {
           name  = "AVIATRIX_TAG",
           value = aws_launch_template.avtx-controller.tag_specifications[0].tags.Name
@@ -760,104 +760,4 @@ resource "null_resource" "delete_sg_script" {
   depends_on = [
     aws_vpc.vpc[0]
   ]
-}
-
-# Inter-region V2
-
-resource "aws_security_group" "AviatrixHealthcheckSecurityGroup" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  name        = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
-  description = "Aviatrix - Healthcheck Security Group"
-  vpc_id      = var.use_existing_vpc ? var.vpc : aws_vpc.vpc[0].id
-
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
-  })
-}
-
-resource "aws_security_group_rule" "healthcheck_egress_rule" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.AviatrixHealthcheckSecurityGroup[0].id
-}
-
-resource "aws_lambda_function" "healthcheck" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  filename         = "healthcheck_payload.zip"
-  function_name    = "aviatrix_healthcheck"
-  role             = var.healthcheck_lambda_arn
-  handler          = "healthcheck.lambda_handler"
-  source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
-  runtime          = "python3.12"
-  timeout          = 900
-
-  environment {
-    variables = {
-      ecs_cluster        = module.ecs_cluster.cluster_name,
-      ecs_security_group = aws_security_group.AviatrixSecurityGroup.id,
-      ecs_subnet_1       = var.use_existing_vpc ? var.subnet_ids[0] : aws_subnet.subnet[0].id,
-      ecs_subnet_2       = var.use_existing_vpc ? var.subnet_ids[1] : aws_subnet.subnet_ha[0].id,
-      ecs_task_def       = trimsuffix(aws_ecs_task_definition.task_def.arn, ":${aws_ecs_task_definition.task_def.revision}"),
-      peer_region        = var.dr_region
-      region             = var.region
-      sns_topic_arn      = aws_sns_topic.controller_updates.arn
-    }
-  }
-
-  vpc_config {
-    subnet_ids         = var.use_existing_vpc ? var.healthcheck_subnet_ids : [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id]
-    security_group_ids = [aws_security_group.AviatrixHealthcheckSecurityGroup[0].id]
-  }
-
-  depends_on = [
-    aws_autoscaling_group.avtx_ctrl,
-    aws_autoscaling_group.avtx_copilot
-  ]
-}
-
-resource "aws_cloudwatch_event_rule" "healthcheck" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  name                = "aviatrix-healthcheck-rule"
-  description         = "Aviatrix Healthcheck"
-  schedule_expression = "rate(${var.healthcheck_interval} minutes)"
-  state               = var.healthcheck_state
-
-  lifecycle {
-    ignore_changes = [
-      state
-    ]
-  }
-}
-
-resource "aws_cloudwatch_event_target" "healthcheck" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  target_id = "AviatrixHealthcheck"
-  rule      = aws_cloudwatch_event_rule.healthcheck[0].name
-  arn       = aws_lambda_function.healthcheck[0].arn
-}
-
-resource "aws_lambda_permission" "healthcheck" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.healthcheck[0].function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.healthcheck[0].arn
-}
-
-data "archive_file" "healthcheck" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-  type        = "zip"
-  source_file = "${path.module}/healthcheck.py"
-  output_path = "healthcheck_payload.zip"
 }
