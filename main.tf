@@ -454,7 +454,7 @@ resource "docker_image" "ecr_image" {
     tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
   }
   triggers = {
-    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+    dir_sha1 = sha1(join("", [for f in fileset(local.image_path, "app/*") : filesha1("${local.image_path}/${f}")]))
   }
   depends_on = [
     aws_ecr_repository.repo
@@ -463,7 +463,7 @@ resource "docker_image" "ecr_image" {
 
 resource "null_resource" "push_ecr_image" {
   triggers = {
-    source_file = filebase64sha256("${local.image_path}/app/aws_controller.py")
+    dir_sha1 = sha1(join("", [for f in fileset(local.image_path, "app/*") : filesha1("${local.image_path}/${f}")]))
   }
 
   provisioner "local-exec" {
