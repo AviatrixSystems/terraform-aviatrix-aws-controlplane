@@ -13,6 +13,16 @@ WAIT_DELAY = 30
 def health_check_handler(pri_region, dr_region):
     print("Using inter_region_v2 code")
     start_time = time.time()
+
+    # Disable health check Lambda
+
+    client = boto3.client("events", region_name="us-east-2")
+    print(client.list_rules())
+
+    print("Disabling health check rule")
+    response = client.disable_rule(Name="aviatrix-healthcheck-rule")
+    print(response)
+
     # 1. Fetching all env variables in between regions
     pri_client = boto3.client("ec2", pri_region)
     pri_ecs_client = boto3.client("ecs", pri_region)

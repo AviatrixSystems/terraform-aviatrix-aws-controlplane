@@ -281,7 +281,9 @@ resource "aws_iam_policy" "ecs-policy" {
         "route53:ChangeResourceRecordSets",
         "route53:ListHostedZonesByName",
         "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeTargetGroups"
+        "elasticloadbalancing:DescribeTargetGroups",
+        "events:DisableRule",
+        "events:ListRules"
       ],
       "Resource": "*"
     },
