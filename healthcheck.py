@@ -86,7 +86,7 @@ def _lambda_handler(event, context):
     test_message = json.dumps(
         {
             "FailingRegion": os.environ.get("peer_region"),
-            "Region": os.environ.get("region"),
+            "LocalRegion": os.environ.get("region"),
             "Service": "Health Check",
         }
     )
