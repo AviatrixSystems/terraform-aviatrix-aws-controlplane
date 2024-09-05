@@ -73,7 +73,6 @@ def health_check_handler(local_region, failing_region):
         version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
 
     print("API Access to Controller will use IP : " + str(local_priv_ip))
-    api_private_access = failing_env["API_PRIVATE_ACCESS"]
 
     total_time = 0
 
@@ -84,10 +83,6 @@ def health_check_handler(local_region, failing_region):
         )
     else:
         creds = os.environ.get("AVX_PASSWORD", "")
-
-    # Check if this is the Active or Standby region
-    # if local_region == local_env.get("ACTIVE_REGION"):
-    print("This event happened in the active region:", local_env.get("ACTIVE_REGION"))
 
     try:
 
@@ -140,16 +135,13 @@ def health_check_handler(local_region, failing_region):
                 % failing_env["EIP"]
             )
 
-        current_active_region = local_env.get("ACTIVE_REGION")
-        current_standby_region = local_env.get("STANDBY_REGION")
-
         print("Update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables")
         aws_controller.sync_env_var(
             failing_ecs_client,
             failing_env,
             {
-                "ACTIVE_REGION": current_standby_region,
-                "STANDBY_REGION": current_active_region,
+                "ACTIVE_REGION": local_region,
+                "STANDBY_REGION": failing_region,
             },
         )
 
@@ -160,16 +152,16 @@ def health_check_handler(local_region, failing_region):
             local_ecs_client,
             local_env,
             {
-                "ACTIVE_REGION": current_standby_region,
-                "STANDBY_REGION": current_active_region,
+                "ACTIVE_REGION": local_region,
+                "STANDBY_REGION": failing_region,
             },
         )
 
         # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
         os.environ.update(
             {
-                "ACTIVE_REGION": current_standby_region,
-                "STANDBY_REGION": current_active_region,
+                "ACTIVE_REGION": local_region,
+                "STANDBY_REGION": failing_region,
             }
         )
 
@@ -178,11 +170,11 @@ def health_check_handler(local_region, failing_region):
             local_env.get("ZONE_NAME"),
             local_env.get("RECORD_NAME"),
             local_env.get("CTRL_ASG"),
-            failing_region,
+            local_region,
         )
         print(
             "Updating %s to point to the LB in %s"
-            % (local_env.get("RECORD_NAME"), failing_region)
+            % (local_env.get("RECORD_NAME"), local_region)
         )
 
     finally:
@@ -207,9 +199,3 @@ def health_check_handler(local_region, failing_region):
         #     {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
         # )
         print("- Completed function -")
-
-    # elif local_region == local_env.get("STANDBY_REGION"):
-    #     print(
-    #         "This event happened in the standby region:",
-    #         local_env.get("STANDBY_REGION"),
-    #     )
