@@ -39,26 +39,24 @@ def health_check_handler(local_region, failing_region):
     local_env = {env_var["name"]: env_var["value"] for env_var in local_env_var}
     failing_env = {env_var["name"]: env_var["value"] for env_var in failing_env_var}
 
-    # 2. Trying to find Instance in DR region
-    if failing_env.get("INST_ID"):
-        print(f"INST_ID: {failing_env.get('INST_ID')}")
-        failing_instanceobj = aws_utils.get_ec2_instance(
-            failing_client, "", failing_env.get("INST_ID")
+    # 2. Trying to find Instance in local region
+    if local_env.get("INST_ID"):
+        print(f"INST_ID: {local_env.get('INST_ID')}")
+        local_instanceobj = aws_utils.get_ec2_instance(
+            local_client, "", local_env.get("INST_ID")
         )
-    elif failing_env.get("AVIATRIX_TAG"):
-        print(f"AVIATRIX_TAG : {failing_env.get('AVIATRIX_TAG')}")
-        failing_instanceobj = aws_utils.get_ec2_instance(
-            failing_client, failing_env.get("AVIATRIX_TAG"), ""
+    elif local_env.get("AVIATRIX_TAG"):
+        print(f"AVIATRIX_TAG : {local_env.get('AVIATRIX_TAG')}")
+        local_instanceobj = aws_utils.get_ec2_instance(
+            local_client, local_env.get("AVIATRIX_TAG"), ""
         )
     else:
-        failing_instanceobj = {}
+        local_instanceobj = {}
 
-    if failing_instanceobj == {}:
-        raise aws_controller.AvxError(f"Cannot find Controller in {failing_region}")
+    if local_instanceobj == {}:
+        raise aws_controller.AvxError(f"Cannot find Controller in {local_region}")
 
-    failing_private_ip = failing_instanceobj.get("NetworkInterfaces")[0].get(
-        "PrivateIpAddress"
-    )
+    failing_private_ip = failing_env.get("PRIV_IP")
 
     print(f"failing_private_ip : {failing_private_ip}")
 
@@ -74,8 +72,7 @@ def health_check_handler(local_region, failing_region):
         s3_file = "CloudN_" + local_priv_ip + "_save_cloudx_config.enc"
         version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
 
-    dr_api_ip = failing_instanceobj["PublicIpAddress"]
-    print("DR API Access to Controller will use IP : " + str(dr_api_ip))
+    print("API Access to Controller will use IP : " + str(local_priv_ip))
     api_private_access = failing_env["API_PRIVATE_ACCESS"]
 
     total_time = 0
@@ -99,9 +96,9 @@ def health_check_handler(local_region, failing_region):
         # while total_time <= MAX_LOGIN_TIMEOUT:
         while time.time() - start_time < HANDLE_HA_TIMEOUT:
             try:
-                cid = aws_controller.login_to_controller(dr_api_ip, "admin", creds)
+                cid = aws_controller.login_to_controller(local_priv_ip, "admin", creds)
                 s3_ctrl_version = aws_controller.retrieve_controller_version(
-                    version_file, dr_api_ip, cid
+                    version_file, local_priv_ip, cid
                 )
             except Exception as err:
                 print(str(err))
@@ -112,14 +109,14 @@ def health_check_handler(local_region, failing_region):
                 break
 
         # 5. Upgrade controller if needed
-        if s3_ctrl_version != aws_controller.controller_version(dr_api_ip, cid):
+        if s3_ctrl_version != aws_controller.controller_version(local_priv_ip, cid):
             print(f"Upgrading controller to {s3_ctrl_version}")
-            aws_controller.upgrade_controller(dr_api_ip, cid, s3_ctrl_version)
+            aws_controller.upgrade_controller(local_priv_ip, cid, s3_ctrl_version)
 
         # Restore controller
-        cid = aws_controller.login_to_controller(dr_api_ip, "admin", creds)
+        cid = aws_controller.login_to_controller(local_priv_ip, "admin", creds)
         response_json = aws_controller.restore_backup(
-            cid, dr_api_ip, s3_file, local_env["PRIMARY_ACC_NAME"]
+            cid, local_priv_ip, s3_file, local_env["PRIMARY_ACC_NAME"]
         )
         print(response_json)
         if response_json["return"] == True:
@@ -128,19 +125,19 @@ def health_check_handler(local_region, failing_region):
         # 5. Migrate IP
 
         if s3_ctrl_version and int(s3_ctrl_version.split(".")[0]) >= 7:
-            if aws_controller.is_controller_ready_v2(dr_api_ip, cid) == True:
+            if aws_controller.is_controller_ready_v2(local_priv_ip, cid) == True:
                 print("START: Migrate IP")
-                aws_controller.migrate_ip(dr_api_ip, cid, local_env["EIP"])
+                aws_controller.migrate_ip(local_priv_ip, cid, failing_env["EIP"])
                 print("END: Migrate IP")
             else:
                 print(
                     "Controller is still restoring, migrate previous ip: %s manually"
-                    % local_env["EIP"]
+                    % failing_env["EIP"]
                 )
         else:
             print(
                 "Once the restore process is completed, migrate previous ip: %s manually"
-                % local_env["EIP"]
+                % failing_env["EIP"]
             )
 
         current_active_region = local_env.get("ACTIVE_REGION")
