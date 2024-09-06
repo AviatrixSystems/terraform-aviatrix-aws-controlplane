@@ -124,7 +124,7 @@ def ecs_handler():
             failing_region = msg_json.get("FailingRegion")
             local_region = msg_json.get("LocalRegion")
             print("Failing Region:", failing_region, "Local Region:", local_region)
-            inter_region_v2.health_check_handler(local_region, failing_region)
+            inter_region_v2.health_check_handler(msg_json)
             return
         else:
             print("The Service is not Health Check, continuing with existing code")

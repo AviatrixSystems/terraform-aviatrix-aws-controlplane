@@ -10,17 +10,20 @@ TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 WAIT_DELAY = 30
 
 
-def health_check_handler(local_region, failing_region):
+def health_check_handler(msg_json):
     print("Using inter_region_v2 code")
     start_time = time.time()
 
-    # Disable health check Lambda
+    local_region = msg_json.get("LocalRegion")
+    failing_region = msg_json.get("FailingRegion")
+    health_check_rule = msg_json.get("HealthCheckRule")
 
+    # Disable health check Lambda in local region
     local_events_client = boto3.client("events", region_name=local_region)
     print(local_events_client.list_rules())
 
-    print("Disabling health check rule")
-    response = local_events_client.disable_rule(Name="aviatrix-healthcheck-rule")
+    print("Disabling health check rule in", local_region)
+    response = local_events_client.disable_rule(Name=health_check_rule)
     print(response)
 
     # 1. Fetching all env variables in between regions
@@ -176,6 +179,14 @@ def health_check_handler(local_region, failing_region):
             "Updating %s to point to the LB in %s"
             % (local_env.get("RECORD_NAME"), local_region)
         )
+
+        # Enable health check Lambda in failing region
+        failing_events_client = boto3.client("events", region_name=failing_region)
+        print(failing_events_client.list_rules())
+
+        print("Enabling health check rule in", failing_region)
+        response = failing_events_client.enable_rule(Name=health_check_rule)
+        print(response)
 
     finally:
         if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):

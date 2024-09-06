@@ -283,6 +283,7 @@ resource "aws_iam_policy" "ecs-policy" {
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeTargetGroups",
         "events:DisableRule",
+        "events:EnableRule",
         "events:ListRules"
       ],
       "Resource": "*"
@@ -821,6 +822,7 @@ resource "aws_lambda_function" "healthcheck_region1" {
       ecs_subnet_1       = module.region1[0].subnet_id1,
       ecs_subnet_2       = module.region1[0].subnet_id2,
       ecs_task_def       = trimsuffix(module.region1[0].ecs_task_def.arn, ":${module.region1[0].ecs_task_def.revision}"),
+      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region1[0].name,
       peer_region        = var.dr_region
       region             = var.region
       sns_topic_arn      = module.region1[0].sns_topic_arn
@@ -919,6 +921,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
       ecs_subnet_1       = module.region2[0].subnet_id1,
       ecs_subnet_2       = module.region2[0].subnet_id2,
       ecs_task_def       = trimsuffix(module.region2[0].ecs_task_def.arn, ":${module.region2[0].ecs_task_def.revision}"),
+      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region2[0].name,
       peer_region        = var.region
       region             = var.dr_region
       sns_topic_arn      = module.region2[0].sns_topic_arn
