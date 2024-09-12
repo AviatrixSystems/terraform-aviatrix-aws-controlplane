@@ -157,6 +157,10 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? "True" : "False"
         },
         {
+          name  = "HA_DISTRIBUTION",
+          value = var.ha_distribution
+        },
+        {
           name  = "DR_REGION",
           value = var.dr_region
         },
@@ -309,6 +313,10 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "INTER_REGION",
           value = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? "True" : "False"
+        },
+        {
+          name  = "HA_DISTRIBUTION",
+          value = var.ha_distribution
         },
         {
           name  = "SQS_QUEUE_NAME",
