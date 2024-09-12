@@ -42,6 +42,7 @@ def _lambda_handler(event, context):
     # pprint(dict(os.environ))
 
     region = os.environ.get("region")
+    peer_region = os.environ.get("peer_region")
     sns_topic_arn = os.environ.get("sns_topic_arn")
 
     ecs_cluster = os.environ.get("ecs_cluster")
@@ -54,8 +55,17 @@ def _lambda_handler(event, context):
 
     TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
-    peer_region = os.environ.get("peer_region")
-    ip = get_priv_ip(peer_region, TASK_DEF_FAMILY)
+    ip = os.environ.get("peer_priv_ip")
+
+    # Get the peer private IP if not set
+    if os.environ.get("peer_priv_ip") == "":
+        print("peer_priv_ip not set, retrieving from peer region")
+        ip = get_priv_ip(peer_region, TASK_DEF_FAMILY)
+        print("Setting peer_priv_ip to", ip)
+        response = update_lamba_env_vars(
+            "aviatrix_healthcheck", region, "peer_priv_ip", ip
+        )
+        print(response)
 
     # env_vars = get_task_def_env_vars(peer_region, TASK_DEF_FAMILY)
     # print("env_vars:", env_vars)
@@ -83,8 +93,9 @@ def _lambda_handler(event, context):
     print(f"The private IP of the Controller in {peer_region} is {ip}.")
     print(f"Checking port 443 on {ip}.")
 
-    test_message = json.dumps(
+    message = json.dumps(
         {
+            "FailingPrivIP": ip,
             "FailingRegion": os.environ.get("peer_region"),
             "HealthCheckRule": os.environ.get("health_check_rule"),
             "LocalRegion": os.environ.get("region"),
@@ -93,16 +104,17 @@ def _lambda_handler(event, context):
     )
 
     # print("Publishing Message to SNS")
-    # publish_message_to_sns(sns_topic_arn, test_message, region)
+    # publish_message_to_sns(sns_topic_arn, message, region)
 
     if check_port(ip, 443):
-        print(f"In check_port: {ip}:443 is accessible")
+        print(f"Checking port: {ip}:443 is accessible")
     else:
-        print(f"In check_port: {ip}:443 is not accessible")
-        print("Publishing message to SNS")
+        print(f"Checking port: {ip}:443 is not accessible")
 
-        response = publish_message_to_sns(sns_topic_arn, test_message, region)
+        print("Publishing message to SNS")
+        response = publish_message_to_sns(sns_topic_arn, message, region)
         print(response)
+
         print("Triggering ECS")
         response = run_ecs_task(
             ecs_cluster, ecs_task_def, subnets, security_groups, "ENABLED", region
@@ -174,6 +186,17 @@ def get_priv_ip(region, task_def_family):
     env_dict = {pair["name"]: pair["value"] for pair in env}
     priv_ip = env_dict.get("PRIV_IP")
     return priv_ip
+
+
+def update_lamba_env_vars(function_name, region, key, value):
+    client = boto3.client("lambda", region)
+    response = client.get_function_configuration(FunctionName=function_name)
+    current_env = response["Environment"]
+    current_env["Variables"][key] = value
+    response = client.update_function_configuration(
+        FunctionName=function_name, Environment=current_env
+    )
+    return response
 
 
 # def get_task_def_env_vars(region, task_def_family):

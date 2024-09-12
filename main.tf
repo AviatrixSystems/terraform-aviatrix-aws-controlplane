@@ -638,6 +638,14 @@ resource "aws_iam_policy" "healthcheck-policy" {
       "Resource": "arn:aws:iam::*:role/*"
     },
     {
+			"Action": [
+				"lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionConfiguration"
+			],
+			"Effect": "Allow",
+      "Resource": "arn:aws:lambda:*:*:function:*"
+		},    
+    {
       "Action": [
         "logs:CreateLogStream",
         "logs:CreateLogGroup",
@@ -823,6 +831,7 @@ resource "aws_lambda_function" "healthcheck_region1" {
       ecs_subnet_2       = module.region1[0].subnet_id2,
       ecs_task_def       = trimsuffix(module.region1[0].ecs_task_def.arn, ":${module.region1[0].ecs_task_def.revision}"),
       health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region1[0].name,
+      peer_priv_ip       = ""
       peer_region        = var.dr_region
       region             = var.region
       sns_topic_arn      = module.region1[0].sns_topic_arn
@@ -838,6 +847,10 @@ resource "aws_lambda_function" "healthcheck_region1" {
     aws_vpc_peering_connection.region1_to_region2,
     aws_vpc_peering_connection_accepter.peer
   ]
+
+  lifecycle {
+    ignore_changes = [environment]
+  }
 }
 
 resource "aws_cloudwatch_event_rule" "healthcheck_region1" {
@@ -922,6 +935,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
       ecs_subnet_2       = module.region2[0].subnet_id2,
       ecs_task_def       = trimsuffix(module.region2[0].ecs_task_def.arn, ":${module.region2[0].ecs_task_def.revision}"),
       health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region2[0].name,
+      peer_priv_ip       = ""
       peer_region        = var.region
       region             = var.dr_region
       sns_topic_arn      = module.region2[0].sns_topic_arn
@@ -937,6 +951,10 @@ resource "aws_lambda_function" "healthcheck_region2" {
     aws_vpc_peering_connection.region1_to_region2,
     aws_vpc_peering_connection_accepter.peer
   ]
+
+  lifecycle {
+    ignore_changes = [environment]
+  }
 }
 
 resource "aws_cloudwatch_event_rule" "healthcheck_region2" {
