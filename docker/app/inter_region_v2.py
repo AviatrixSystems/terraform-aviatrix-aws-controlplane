@@ -59,7 +59,7 @@ def health_check_handler(msg_json):
     if local_instanceobj == {}:
         raise aws_controller.AvxError(f"Cannot find Controller in {local_region}")
 
-    failing_private_ip = failing_env.get("PRIV_IP")
+    failing_private_ip = msg_json.get("FailingPrivIP")
 
     print(f"failing_private_ip : {failing_private_ip}")
 
