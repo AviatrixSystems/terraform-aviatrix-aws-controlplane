@@ -35,3 +35,4 @@ override.tf.json
 __pycache__/
 # ignore tmp directories
 docker/tmp
+.DS_Store
