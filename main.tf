@@ -246,58 +246,71 @@ resource "aws_iam_policy" "ecs-policy" {
   count       = var.ha_distribution == "basic" ? 0 : 1
   name        = "${var.ecs_policy_name}-${random_id.aviatrix.hex}"
   path        = "/"
-  description = "Policy for creating aviatrix-controller"
+  description = "Policy for ECS"
   policy      = <<EOF
 {
-  "Version": "2012-10-17",
   "Statement": [
     {
-      "Effect": "Allow",
       "Action": [
-        "ec2:DescribeInstances",
-        "ec2:DescribeInstanceAttribute",
-        "ec2:DescribeAddresses",
-        "ec2:DescribeVolumes",
-        "ec2:DescribeRegions",
-        "ec2:StopInstances",
-        "ec2:AssociateAddress",
-        "ec2:CreateSecurityGroup",
-        "ec2:CreateTags",
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:RevokeSecurityGroupIngress",
-        "ec2:DescribeSecurityGroups",
-        "ec2:StopInstances",
         "autoscaling:DescribeLoadBalancerTargetGroups",
         "autoscaling:DetachLoadBalancerTargetGroups",
         "autoscaling:CompleteLifecycleAction",
         "autoscaling:DescribeAutoScalingGroups",
         "cloudwatch:DescribeAlarmHistory",
-        "ssm:SendCommand",
-        "ssm:ListCommandInvocations",
-        "iam:PassRole",
-        "s3:GetBucketLocation",
-        "s3:ListBucket",
-        "s3:GetObject",
-        "route53:ChangeResourceRecordSets",
-        "route53:ListHostedZonesByName",
+        "ec2:AssociateAddress",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateTags",
+        "ec2:DescribeAddresses",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceAttribute",
+        "ec2:DescribeRegions",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeVolumes",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:StopInstances",
+        "ec2:StopInstances",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetAuthorizationToken",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:PutImage",
+        "ecs:DescribeTaskDefinition",
+        "ecs:RegisterTaskDefinition",
+        "ecs:TagResource",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeTargetGroups",
         "events:DisableRule",
         "events:EnableRule",
-        "events:ListRules"
+        "events:ListRules",
+        "iam:PassRole",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListHostedZonesByName",
+        "s3:GetBucketLocation",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage",
+        "ssm:SendCommand",
+        "ssm:ListCommandInvocations"
       ],
+      "Effect": "Allow",
       "Resource": "*"
     },
     {
-      "Effect":"Allow",
-      "Action":[
-        "ssm:GetParameter"
-      ],
-      "Resource":[
+      "Action": ["ssm:GetParameter"],
+      "Effect": "Allow",
+      "Resource": [
         "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
         "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
         "arn:${local.iam_type}:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
-        ]
+      ]
     },
     {
       "Action": [
@@ -307,30 +320,9 @@ resource "aws_iam_policy" "ecs-policy" {
       ],
       "Effect": "Allow",
       "Resource": "arn:${local.iam_type}:logs:*:*:*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecs:DescribeTaskDefinition",
-        "ecs:RegisterTaskDefinition",
-        "ecs:TagResource",
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:PutImage",
-        "sqs:SendMessage",
-        "sqs:ReceiveMessage",
-        "sqs:ChangeMessageVisibility",
-        "sqs:GetQueueUrl",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ],
-      "Resource": "*"
     }
-  ]
+  ],
+  "Version": "2012-10-17"
 }
 EOF
 }
@@ -826,11 +818,12 @@ resource "aws_lambda_function" "healthcheck_region1" {
   environment {
     variables = {
       ecs_cluster        = module.region1[0].ecs_cluster_name
-      ecs_security_group = module.region1[0].aviatrix_sg_id,
-      ecs_subnet_1       = module.region1[0].subnet_id1,
-      ecs_subnet_2       = module.region1[0].subnet_id2,
-      ecs_task_def       = trimsuffix(module.region1[0].ecs_task_def.arn, ":${module.region1[0].ecs_task_def.revision}"),
-      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region1[0].name,
+      ecs_security_group = module.region1[0].aviatrix_sg_id
+      ecs_subnet_1       = module.region1[0].subnet_id1
+      ecs_subnet_2       = module.region1[0].subnet_id2
+      ecs_task_def       = trimsuffix(module.region1[0].ecs_task_def.arn, ":${module.region1[0].ecs_task_def.revision}")
+      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region1[0].name
+      peer_eip           = ""
       peer_priv_ip       = ""
       peer_region        = var.dr_region
       region             = var.region
@@ -930,11 +923,12 @@ resource "aws_lambda_function" "healthcheck_region2" {
   environment {
     variables = {
       ecs_cluster        = module.region2[0].ecs_cluster_name
-      ecs_security_group = module.region2[0].aviatrix_sg_id,
-      ecs_subnet_1       = module.region2[0].subnet_id1,
-      ecs_subnet_2       = module.region2[0].subnet_id2,
-      ecs_task_def       = trimsuffix(module.region2[0].ecs_task_def.arn, ":${module.region2[0].ecs_task_def.revision}"),
-      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region2[0].name,
+      ecs_security_group = module.region2[0].aviatrix_sg_id
+      ecs_subnet_1       = module.region2[0].subnet_id1
+      ecs_subnet_2       = module.region2[0].subnet_id2
+      ecs_task_def       = trimsuffix(module.region2[0].ecs_task_def.arn, ":${module.region2[0].ecs_task_def.revision}")
+      health_check_rule  = aws_cloudwatch_event_rule.healthcheck_region2[0].name
+      peer_eip           = ""
       peer_priv_ip       = ""
       peer_region        = var.region
       region             = var.dr_region
