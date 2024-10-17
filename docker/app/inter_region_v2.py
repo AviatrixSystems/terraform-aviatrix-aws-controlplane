@@ -3,6 +3,7 @@ import os
 import time
 import aws_controller
 import aws_utils
+from tenacity import retry
 
 
 HANDLE_HA_TIMEOUT = 1200
@@ -181,11 +182,7 @@ def health_check_handler(msg_json):
         )
 
         # Enable health check Lambda in failing region
-        failing_events_client = boto3.client("events", region_name=failing_region)
-        print(failing_events_client.list_rules())
-
-        print("Enabling health check rule in", failing_region)
-        response = failing_events_client.enable_rule(Name=health_check_rule)
+        response = enable_health_check(failing_region, health_check_rule)
         print(response)
 
     finally:
@@ -210,3 +207,13 @@ def health_check_handler(msg_json):
         #     {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
         # )
         print("- Completed function -")
+
+
+# Enable health check in failing region to monitor new Controller
+# Retry indefinitely because the failing region may be inaccessible at this point
+@retry
+def enable_health_check(region, rule):
+    print("Enabling health check rule in", region)
+    events_client = boto3.client("events", region_name=region)
+    response = events_client.enable_rule(Name=rule)
+    return response
