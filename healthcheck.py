@@ -45,12 +45,22 @@ def _lambda_handler(event, context):
 
     TASK_DEF_FAMILY = "AVX_PLATFORM_HA"
 
-    ip = os.environ.get("peer_priv_ip")
+    # Get the peer EIP if not set
+    eip = os.environ.get("peer_eip")
+    if eip == "":
+        print("peer_eip not set, retrieving from peer region")
+        eip = get_task_def_env_value(peer_region, TASK_DEF_FAMILY, "EIP")
+        print("Setting peer_eip to", eip)
+        response = update_lamba_env_vars(
+            "aviatrix_healthcheck", region, "peer_eip", eip
+        )
+        print(response)
 
     # Get the peer private IP if not set
-    if os.environ.get("peer_priv_ip") == "":
+    ip = os.environ.get("peer_priv_ip")
+    if ip == "":
         print("peer_priv_ip not set, retrieving from peer region")
-        ip = get_priv_ip(peer_region, TASK_DEF_FAMILY)
+        ip = get_task_def_env_value(peer_region, TASK_DEF_FAMILY, "PRIV_IP")
         print("Setting peer_priv_ip to", ip)
         response = update_lamba_env_vars(
             "aviatrix_healthcheck", region, "peer_priv_ip", ip
@@ -62,6 +72,7 @@ def _lambda_handler(event, context):
 
     message = json.dumps(
         {
+            "FailingEIP": eip,
             "FailingPrivIP": ip,
             "FailingRegion": os.environ.get("peer_region"),
             "HealthCheckRule": os.environ.get("health_check_rule"),
@@ -152,12 +163,35 @@ def get_priv_ip(region, task_def_family):
     return priv_ip
 
 
+def get_task_def_env_value(region, task_def_family, key):
+    try:
+        ecs_client = boto3.client("ecs", region)
+        response = ecs_client.describe_task_definition(taskDefinition=task_def_family)
+    except Exception as e:
+        print(e)
+        print(
+            "Verify that connectivity to AWS service endpoints from the private subnets associated with the Lambda function is allowed."
+        )
+        sys.exit(1)
+
+    env = response["taskDefinition"]["containerDefinitions"][0]["environment"]
+    env_dict = {pair["name"]: pair["value"] for pair in env}
+    return env_dict.get(key)
+
+
 def update_lamba_env_vars(function_name, region, key, value):
     client = boto3.client("lambda", region)
     response = client.get_function_configuration(FunctionName=function_name)
     current_env = response["Environment"]
     current_env["Variables"][key] = value
-    response = client.update_function_configuration(
-        FunctionName=function_name, Environment=current_env
-    )
+    try:
+        response = client.update_function_configuration(
+            FunctionName=function_name, Environment=current_env
+        )
+    except client.exceptions.ResourceConflictException as e:
+        # Retry if there's already an update in progress
+        time.sleep(60)
+        response = client.update_function_configuration(
+            FunctionName=function_name, Environment=current_env
+        )
     return response

@@ -21,8 +21,6 @@ def health_check_handler(msg_json):
 
     # Disable health check Lambda in local region
     local_events_client = boto3.client("events", region_name=local_region)
-    print(local_events_client.list_rules())
-
     print("Disabling health check rule in", local_region)
     response = local_events_client.disable_rule(Name=health_check_rule)
     print(response)
@@ -30,18 +28,19 @@ def health_check_handler(msg_json):
     # 1. Fetching all env variables in between regions
     local_client = boto3.client("ec2", local_region)
     local_ecs_client = boto3.client("ecs", local_region)
-    failing_client = boto3.client("ec2", failing_region)
-    failing_ecs_client = boto3.client("ecs", failing_region)
     local_env_var = local_ecs_client.describe_task_definition(
         taskDefinition=TASK_DEF_FAMILY
     )["taskDefinition"]["containerDefinitions"][0]["environment"]
-    failing_env_var = failing_ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY
-    )["taskDefinition"]["containerDefinitions"][0]["environment"]
-
-    # Convert lists to dicts
     local_env = {env_var["name"]: env_var["value"] for env_var in local_env_var}
-    failing_env = {env_var["name"]: env_var["value"] for env_var in failing_env_var}
+
+    try:
+        failing_ecs_client = boto3.client("ecs", failing_region)
+        failing_env_var = failing_ecs_client.describe_task_definition(
+            taskDefinition=TASK_DEF_FAMILY
+        )["taskDefinition"]["containerDefinitions"][0]["environment"]
+        failing_env = {env_var["name"]: env_var["value"] for env_var in failing_env_var}
+    except:
+        print("Unable to get environment variables in failing region", failing_region)
 
     # 2. Trying to find Instance in local region
     if local_env.get("INST_ID"):
@@ -61,12 +60,13 @@ def health_check_handler(msg_json):
         raise aws_controller.AvxError(f"Cannot find Controller in {local_region}")
 
     failing_private_ip = msg_json.get("FailingPrivIP")
-
     print(f"failing_private_ip : {failing_private_ip}")
 
     local_priv_ip = local_env.get("PRIV_IP")
-
     print(f"local_priv_ip : {local_priv_ip}")
+
+    failing_eip = msg_json.get("FailingEIP")
+    print(f"failing_eip : {failing_eip}")
 
     # 3. Trying to find Instance in DR region
     if aws_controller.is_region2_latest_backup_file(local_priv_ip, failing_private_ip):
@@ -89,8 +89,14 @@ def health_check_handler(msg_json):
         creds = os.environ.get("AVX_PASSWORD", "")
 
     try:
-
-        aws_controller.sync_env_var(failing_ecs_client, failing_env, {"STATE": "INIT"})
+        try:
+            aws_controller.sync_env_var(
+                failing_ecs_client, failing_env, {"STATE": "INIT"}
+            )
+        except:
+            print(
+                "Unable to sync environment variables in failing region", failing_region
+            )
 
         # while total_time <= MAX_LOGIN_TIMEOUT:
         while time.time() - start_time < HANDLE_HA_TIMEOUT:
@@ -126,28 +132,36 @@ def health_check_handler(msg_json):
         if s3_ctrl_version and int(s3_ctrl_version.split(".")[0]) >= 7:
             if aws_controller.is_controller_ready_v2(local_priv_ip, cid) == True:
                 print("START: Migrate IP")
-                aws_controller.migrate_ip(local_priv_ip, cid, failing_env["EIP"])
+                aws_controller.migrate_ip(local_priv_ip, cid, failing_eip)
                 print("END: Migrate IP")
             else:
                 print(
                     "Controller is still restoring, migrate previous ip: %s manually"
-                    % failing_env["EIP"]
+                    % failing_eip
                 )
         else:
             print(
                 "Once the restore process is completed, migrate previous ip: %s manually"
-                % failing_env["EIP"]
+                % failing_eip
             )
 
-        print("Update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables")
-        aws_controller.sync_env_var(
-            failing_ecs_client,
-            failing_env,
-            {
-                "ACTIVE_REGION": local_region,
-                "STANDBY_REGION": failing_region,
-            },
-        )
+        try:
+
+            print(
+                "Update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables"
+            )
+            aws_controller.sync_env_var(
+                failing_ecs_client,
+                failing_env,
+                {
+                    "ACTIVE_REGION": local_region,
+                    "STANDBY_REGION": failing_region,
+                },
+            )
+        except:
+            print(
+                "Unable to update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables"
+            )
 
         print(
             "Update ACTIVE_REGION & STANDBY_REGION in primary ECS environment variables"
@@ -181,15 +195,26 @@ def health_check_handler(msg_json):
             % (local_env.get("RECORD_NAME"), local_region)
         )
 
+        # Clear cached values in Lambda environment variables
+        print("Clearing cached values for peer_priv_ip and peer_eip")
+        response = update_lamba_env_vars(
+            "aviatrix_healthcheck", local_region, "peer_priv_ip", ""
+        )
+        print("Clearing peer_priv_ip:", response)
+        response = update_lamba_env_vars(
+            "aviatrix_healthcheck", local_region, "peer_eip", ""
+        )
+        print("Clearing peer_ip:", response)
+
         # Enable health check Lambda in failing region
         response = enable_health_check(failing_region, health_check_rule)
         print(response)
 
     finally:
-        if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):
-            init_ver = s3_ctrl_version
-        else:
-            init_ver = failing_env.get("CTRL_INIT_VER")
+        # if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):
+        #     init_ver = s3_ctrl_version
+        # else:
+        #     init_ver = failing_env.get("CTRL_INIT_VER")
         # if failover and failover == "completed":
         #     state = "ACTIVE"
         # else:
@@ -216,4 +241,22 @@ def enable_health_check(region, rule):
     print("Enabling health check rule in", region)
     events_client = boto3.client("events", region_name=region)
     response = events_client.enable_rule(Name=rule)
+    return response
+
+
+def update_lamba_env_vars(function_name, region, key, value):
+    client = boto3.client("lambda", region)
+    response = client.get_function_configuration(FunctionName=function_name)
+    current_env = response["Environment"]
+    current_env["Variables"][key] = value
+    try:
+        response = client.update_function_configuration(
+            FunctionName=function_name, Environment=current_env
+        )
+    except client.exceptions.ResourceConflictException as e:
+        # Retry if there's already an update in progress
+        time.sleep(60)
+        response = client.update_function_configuration(
+            FunctionName=function_name, Environment=current_env
+        )
     return response

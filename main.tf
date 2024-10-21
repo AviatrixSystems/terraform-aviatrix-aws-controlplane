@@ -284,6 +284,8 @@ resource "aws_iam_policy" "ecs-policy" {
         "events:EnableRule",
         "events:ListRules",
         "iam:PassRole",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionConfiguration",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "route53:ChangeResourceRecordSets",
