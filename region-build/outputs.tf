@@ -69,7 +69,7 @@ output "sns_topic_arn" {
 }
 
 output "healthcheck_subnet_ids" {
-  value = var.use_existing_vpc ? [] : [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id]
+  value = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? [aws_subnet.subnet_private_1[0].id, aws_subnet.subnet_private_2[0].id] : []
 }
 
 output "ecs_task_def" {

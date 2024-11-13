@@ -487,7 +487,7 @@ data "aws_route53_zone" "avx_zone" {
 }
 
 resource "aws_route53_record" "avx_primary" {
-  count   = var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2" ? 1 : 0
+  count   = var.ha_distribution == "inter-region" ? 1 : 0
   zone_id = data.aws_route53_zone.avx_zone[0].zone_id
   name    = var.record_name
   type    = "A"
@@ -683,8 +683,7 @@ resource "aws_vpc_peering_connection" "region1_to_region2" {
 }
 
 resource "aws_vpc_peering_connection_accepter" "peer" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   vpc_peering_connection_id = aws_vpc_peering_connection.region1_to_region2[0].id
@@ -704,8 +703,7 @@ resource "aws_security_group_rule" "healthcheck_region1" {
 }
 
 resource "aws_security_group_rule" "healthcheck_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   type              = "ingress"
@@ -727,8 +725,7 @@ resource "aws_route" "public_r1_to_r2_new_vpc" {
 }
 
 resource "aws_route" "public_r2_to_r1_new_vpc" {
-  count = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" && !var.use_existing_vpc ? 1 : 0
   provider = aws.region2
 
   route_table_id            = module.region2[0].public_rt_id
@@ -746,7 +743,6 @@ resource "aws_route" "public_r1_to_r2_existing_vpc" {
 
 resource "aws_route" "public_r2_to_r1_existing_vpc" {
   for_each = toset(var.healthcheck_dr_public_rt_ids)
-
   provider = aws.region2
 
   route_table_id            = each.key
@@ -764,7 +760,6 @@ resource "aws_route" "private_r1_to_r2_existing_vpc" {
 
 resource "aws_route" "private_r2_to_r1_existing_vpc" {
   for_each = toset(var.healthcheck_dr_private_rt_ids)
-
   provider = aws.region2
 
   route_table_id            = each.key
@@ -883,8 +878,7 @@ resource "aws_lambda_permission" "healthcheck_region1" {
 # Region 2
 
 resource "aws_security_group" "AviatrixHealthcheckSecurityGroup_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   name        = "${local.name_prefix}AviatrixHealthcheckSecurityGroup"
@@ -897,8 +891,7 @@ resource "aws_security_group" "AviatrixHealthcheckSecurityGroup_region2" {
 }
 
 resource "aws_security_group_rule" "healthcheck_egress_rule_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   type              = "egress"
@@ -910,8 +903,7 @@ resource "aws_security_group_rule" "healthcheck_egress_rule_region2" {
 }
 
 resource "aws_lambda_function" "healthcheck_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   filename         = "healthcheck_payload.zip"
@@ -954,8 +946,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
 }
 
 resource "aws_cloudwatch_event_rule" "healthcheck_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   name                = "aviatrix-healthcheck-rule"
@@ -971,9 +962,7 @@ resource "aws_cloudwatch_event_rule" "healthcheck_region2" {
 }
 
 resource "aws_cloudwatch_event_target" "healthcheck_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   target_id = "AviatrixHealthcheck"
@@ -982,13 +971,110 @@ resource "aws_cloudwatch_event_target" "healthcheck_region2" {
 }
 
 resource "aws_lambda_permission" "healthcheck_region2" {
-  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
-
-
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.healthcheck_region2[0].function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.healthcheck_region2[0].arn
+}
+
+### STOP (Standby Takes Over Primary)
+### https://aws.amazon.com/blogs/networking-and-content-delivery/creating-disaster-recovery-mechanisms-using-amazon-route-53/
+
+resource "aws_route53_record" "primary" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  zone_id = data.aws_route53_zone.avx_zone[0].zone_id
+  name    = var.record_name
+  type    = "CNAME"
+  ttl     = 60
+  records = [module.region1[0].lb_dns_name]
+
+  failover_routing_policy {
+    type = "PRIMARY"
+  }
+
+  set_identifier  = "primary-stop"
+  health_check_id = aws_route53_health_check.stop[0].id
+}
+
+resource "aws_route53_record" "secondary" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  zone_id = data.aws_route53_zone.avx_zone[0].zone_id
+  name    = var.record_name
+  type    = "CNAME"
+  ttl     = 60
+  records = [module.region2[0].lb_dns_name]
+
+  failover_routing_policy {
+    type = "SECONDARY"
+  }
+
+  set_identifier = "secondary-stop"
+}
+
+resource "aws_s3_bucket" "stop" {
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  provider = aws.region2
+
+  bucket_prefix = "aviatrix-ha-stop-"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "stop" {
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  provider = aws.region2
+
+  bucket                  = aws_s3_bucket.stop[0].id
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "allow_access_from_another_account" {
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  provider = aws.region2
+
+  bucket = aws_s3_bucket.stop[0].id
+  policy = data.aws_iam_policy_document.getobject[0].json
+}
+
+data "aws_iam_policy_document" "getobject" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    actions = [
+      "s3:GetObject",
+    ]
+
+    resources = [
+      aws_s3_bucket.stop[0].arn,
+      "${aws_s3_bucket.stop[0].arn}/*",
+    ]
+  }
+}
+
+resource "aws_route53_health_check" "stop" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  fqdn               = aws_s3_bucket.stop[0].bucket_regional_domain_name
+  port               = 443
+  type               = "HTTPS"
+  resource_path      = "/initiate-failover.html"
+  failure_threshold  = "5"
+  request_interval   = "30"
+  invert_healthcheck = true
+
+  tags = {
+    Name = "HC-Initiate-Disaster-Recovery"
+  }
 }
