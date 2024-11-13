@@ -72,6 +72,7 @@ def _lambda_handler(event, context):
 
     message = json.dumps(
         {
+            "BucketName": os.environ.get("bucket_name"),
             "FailingEIP": eip,
             "FailingPrivIP": ip,
             "FailingRegion": os.environ.get("peer_region"),
@@ -131,13 +132,15 @@ def check_port(ip, port, retries=3, interval=60, timeout=5):
                 print(f"Successfully connected to {ip} on port {port}.")
                 return True
 
-            else:
+            if i < retries - 1:
                 print(
                     f"Failed to connect to {ip} on port {port}. Sleeping for {interval} seconds."
                 )
                 time.sleep(interval)
-
-        print(f"Failed to connect to {ip} on port {port} after {retries} retries.")
+            else:
+                print(
+                    f"Failed to connect to {ip} on port {port} after {retries} retries."
+                )
         return False
     except:
         print(f"Failed to connect to {ip} on port {port}.")
