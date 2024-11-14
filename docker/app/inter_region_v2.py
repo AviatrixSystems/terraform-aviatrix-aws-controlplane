@@ -15,6 +15,7 @@ def health_check_handler(msg_json):
     print("Using inter_region_v2 code")
     start_time = time.time()
 
+    bucket_name = msg_json.get("BucketName")
     local_region = msg_json.get("LocalRegion")
     failing_region = msg_json.get("FailingRegion")
     health_check_rule = msg_json.get("HealthCheckRule")
@@ -183,17 +184,16 @@ def health_check_handler(msg_json):
             }
         )
 
-        # Update Route 53
-        aws_controller.update_record(
-            local_env.get("ZONE_NAME"),
-            local_env.get("RECORD_NAME"),
-            local_env.get("CTRL_ASG"),
-            local_region,
-        )
+        # Initiate failover
+
         print(
-            "Updating %s to point to the LB in %s"
+            "Updating %s to use the Controller in %s"
             % (local_env.get("RECORD_NAME"), local_region)
         )
+
+        create_file_in_s3(bucket_name, "initiate-failover.html", "aviatrix-ha")
+
+        delete_file_from_s3(bucket_name, "initiate-failover.html")
 
         # Clear cached values in Lambda environment variables
         print("Clearing cached values for peer_priv_ip and peer_eip")
@@ -260,3 +260,21 @@ def update_lamba_env_vars(function_name, region, key, value):
             FunctionName=function_name, Environment=current_env
         )
     return response
+
+
+def create_file_in_s3(bucket_name, file_name, file_content):
+    s3 = boto3.client("s3")
+    try:
+        s3.put_object(Body=file_content, Bucket=bucket_name, Key=file_name)
+        print(f"File {file_name} successfully created in {bucket_name}")
+    except Exception as e:
+        print(f"Error creating file: {e}")
+
+
+def delete_file_from_s3(bucket_name, file_name):
+    s3 = boto3.client("s3")
+    try:
+        s3.delete_object(Bucket=bucket_name, Key=file_name)
+        print(f"File {file_name} successfully deleted from {bucket_name}")
+    except Exception as e:
+        print(f"Error deleting file: {e}")

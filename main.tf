@@ -290,9 +290,11 @@ resource "aws_iam_policy" "ecs-policy" {
         "logs:PutLogEvents",
         "route53:ChangeResourceRecordSets",
         "route53:ListHostedZonesByName",
+        "s3:DeleteObject",
         "s3:GetBucketLocation",
         "s3:GetObject",
         "s3:ListBucket",
+        "s3:PutObject",
         "sqs:ChangeMessageVisibility",
         "sqs:DeleteMessage",
         "sqs:GetQueueAttributes",
@@ -814,6 +816,7 @@ resource "aws_lambda_function" "healthcheck_region1" {
 
   environment {
     variables = {
+      bucket_name        = aws_s3_bucket.stop[0].id
       ecs_cluster        = module.region1[0].ecs_cluster_name
       ecs_security_group = module.region1[0].aviatrix_sg_id
       ecs_subnet_1       = module.region1[0].subnet_id1
@@ -916,6 +919,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
 
   environment {
     variables = {
+      bucket_name        = aws_s3_bucket.stop[0].id
       ecs_cluster        = module.region2[0].ecs_cluster_name
       ecs_security_group = module.region2[0].aviatrix_sg_id
       ecs_subnet_1       = module.region2[0].subnet_id1
