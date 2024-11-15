@@ -19,6 +19,8 @@ def health_check_handler(msg_json):
     local_region = msg_json.get("LocalRegion")
     failing_region = msg_json.get("FailingRegion")
     health_check_rule = msg_json.get("HealthCheckRule")
+    region1 = msg_json.get("Region1")
+    region2 = msg_json.get("Region2")
 
     # Disable health check Lambda in local region
     local_events_client = boto3.client("events", region_name=local_region)
@@ -185,15 +187,26 @@ def health_check_handler(msg_json):
         )
 
         # Initiate failover
-
         print(
-            "Updating %s to use the Controller in %s"
+            "Updating %s to the Controller in %s"
             % (local_env.get("RECORD_NAME"), local_region)
         )
 
-        create_file_in_s3(bucket_name, "initiate-failover.html", "aviatrix-ha")
+        # Creating a file in S3 causes the standby in region2 to take over.
+        # Deleting the file in S3 reverts back to region1.
+        if failing_region == region1:
+            print(
+                "Failing region is region1 %s. Creating failover trigger file in S3."
+                % region1
+            )
+            create_file_in_s3(bucket_name, "initiate-failover.html", "aviatrix-ha")
 
-        delete_file_from_s3(bucket_name, "initiate-failover.html")
+        else:
+            print(
+                "Failing region is region2 %s. Deleting failover trigger file from S3."
+                % region2
+            )
+            delete_file_from_s3(bucket_name, "initiate-failover.html")
 
         # Clear cached values in Lambda environment variables
         print("Clearing cached values for peer_priv_ip and peer_eip")

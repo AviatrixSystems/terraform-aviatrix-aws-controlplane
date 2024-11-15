@@ -827,6 +827,8 @@ resource "aws_lambda_function" "healthcheck_region1" {
       peer_priv_ip       = ""
       peer_region        = var.dr_region
       region             = var.region
+      region1            = var.region
+      region2            = var.dr_region
       sns_topic_arn      = module.region1[0].sns_topic_arn
     }
   }
@@ -930,6 +932,8 @@ resource "aws_lambda_function" "healthcheck_region2" {
       peer_priv_ip       = ""
       peer_region        = var.region
       region             = var.dr_region
+      region1            = var.region
+      region2            = var.dr_region
       sns_topic_arn      = module.region2[0].sns_topic_arn
     }
   }

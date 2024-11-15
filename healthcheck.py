@@ -78,6 +78,8 @@ def _lambda_handler(event, context):
             "FailingRegion": os.environ.get("peer_region"),
             "HealthCheckRule": os.environ.get("health_check_rule"),
             "LocalRegion": os.environ.get("region"),
+            "Region1": os.environ.get("region1"),
+            "Region2": os.environ.get("region2"),
             "Service": "Health Check",
         }
     )
