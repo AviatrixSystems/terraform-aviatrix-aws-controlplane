@@ -824,11 +824,14 @@ def controller_version(ip_addr, cid):
 
         buf = py_dict["results"]["current_version"]
         try:
-            ctrl_version = ".".join((buf[12:]).split("."))
+            if buf.startswith("UserConnect-"):
+                ctrl_version = ".".join((buf[12:]).split("."))
+            else:
+                ctrl_version = buf
         except (KeyboardInterrupt, IndexError, ValueError) as err:
             raise AvxError("Could not decode version from the controller") from err
         else:
-            print(f"Parsed version sucessfully {ctrl_version}")
+            print(f"Parsed version successfully {ctrl_version}")
             return ctrl_version
 
     except Exception as err:
