@@ -148,8 +148,6 @@ def health_check_handler(msg_json):
                 % failing_eip
             )
 
-
-
         # Initiate failover
         print(
             "Updating %s to the Controller in %s"
@@ -182,8 +180,6 @@ def health_check_handler(msg_json):
             "aviatrix_healthcheck", local_region, "peer_eip", ""
         )
         print("Clearing peer_ip:", response)
-
-
 
         # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
         os.environ.update(
@@ -224,14 +220,14 @@ def health_check_handler(msg_json):
         print(response)
 
     finally:
-        # if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):
-        #     init_ver = s3_ctrl_version
-        # else:
-        #     init_ver = failing_env.get("CTRL_INIT_VER")
-        # if failover and failover == "completed":
-        #     state = "ACTIVE"
-        # else:
-        #     state = ""
+        if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):
+            init_ver = s3_ctrl_version
+        else:
+            init_ver = failing_env.get("CTRL_INIT_VER")
+        if failover and failover == "completed":
+            state = "ACTIVE"
+        else:
+            state = ""
         # if not dr_duplicate:
         #     print(f"Reverting sg {dr_sg_modified}")
         #     restored_access = aws_controller.restore_security_group_access(
@@ -239,11 +235,16 @@ def health_check_handler(msg_json):
         #     )
         #     if restored_access:
         #         aws_controller.update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
-        # aws_controller.sync_env_var(
-        #     failing_ecs_client,
-        #     failing_env,
-        #     {"CTRL_INIT_VER": init_ver, "TMP_SG_GRP": "", "STATE": state},
-        # )
+        try:
+            aws_controller.sync_env_var(
+                failing_ecs_client,
+                failing_env,
+                {"CTRL_INIT_VER": init_ver, "STATE": state},
+            )
+        except:
+            print(
+                "Unable to update ACTIVE_REGION & STANDBY_REGION in new standby region"
+            )
         print("- Completed function -")
 
 
