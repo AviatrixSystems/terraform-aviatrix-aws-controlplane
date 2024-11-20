@@ -148,43 +148,7 @@ def health_check_handler(msg_json):
                 % failing_eip
             )
 
-        try:
 
-            print(
-                "Update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables"
-            )
-            aws_controller.sync_env_var(
-                failing_ecs_client,
-                failing_env,
-                {
-                    "ACTIVE_REGION": local_region,
-                    "STANDBY_REGION": failing_region,
-                },
-            )
-        except:
-            print(
-                "Unable to update ACTIVE_REGION & STANDBY_REGION in DR ECS environment variables"
-            )
-
-        print(
-            "Update ACTIVE_REGION & STANDBY_REGION in primary ECS environment variables"
-        )
-        aws_controller.sync_env_var(
-            local_ecs_client,
-            local_env,
-            {
-                "ACTIVE_REGION": local_region,
-                "STANDBY_REGION": failing_region,
-            },
-        )
-
-        # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
-        os.environ.update(
-            {
-                "ACTIVE_REGION": local_region,
-                "STANDBY_REGION": failing_region,
-            }
-        )
 
         # Initiate failover
         print(
@@ -218,6 +182,42 @@ def health_check_handler(msg_json):
             "aviatrix_healthcheck", local_region, "peer_eip", ""
         )
         print("Clearing peer_ip:", response)
+
+
+
+        # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
+        os.environ.update(
+            {
+                "ACTIVE_REGION": local_region,
+                "STANDBY_REGION": failing_region,
+            }
+        )
+
+        # Update ECS environment variables
+        print("Update ACTIVE_REGION & STANDBY_REGION in new active region")
+        aws_controller.sync_env_var(
+            local_ecs_client,
+            local_env,
+            {
+                "ACTIVE_REGION": local_region,
+                "STANDBY_REGION": failing_region,
+            },
+        )
+
+        try:
+            print("Update ACTIVE_REGION & STANDBY_REGION in new standby region")
+            aws_controller.sync_env_var(
+                failing_ecs_client,
+                failing_env,
+                {
+                    "ACTIVE_REGION": local_region,
+                    "STANDBY_REGION": failing_region,
+                },
+            )
+        except:
+            print(
+                "Unable to update ACTIVE_REGION & STANDBY_REGION in new standby region"
+            )
 
         # Enable health check Lambda in failing region
         response = enable_health_check(failing_region, health_check_rule)
