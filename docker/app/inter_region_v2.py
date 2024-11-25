@@ -83,12 +83,15 @@ def health_check_handler(msg_json):
 
     try:
         try:
+            failing_ecs_client = boto3.client("ecs", failing_region)
             aws_controller.sync_env_var(
                 failing_ecs_client, failing_env, {"STATE": "INIT"}
             )
-        except:
+        except Exception as err:
             print(
-                "Unable to sync environment variables in failing region", failing_region
+                "Unable to sync environment variables in",
+                failing_region,
+                err,
             )
 
         # while total_time <= MAX_LOGIN_TIMEOUT:
