@@ -31,19 +31,9 @@ def health_check_handler(msg_json):
     # 1. Fetching all env variables in between regions
     local_client = boto3.client("ec2", local_region)
     local_ecs_client = boto3.client("ecs", local_region)
-    local_env_var = local_ecs_client.describe_task_definition(
-        taskDefinition=TASK_DEF_FAMILY
-    )["taskDefinition"]["containerDefinitions"][0]["environment"]
-    local_env = {env_var["name"]: env_var["value"] for env_var in local_env_var}
 
-    try:
-        failing_ecs_client = boto3.client("ecs", failing_region)
-        failing_env_var = failing_ecs_client.describe_task_definition(
-            taskDefinition=TASK_DEF_FAMILY
-        )["taskDefinition"]["containerDefinitions"][0]["environment"]
-        failing_env = {env_var["name"]: env_var["value"] for env_var in failing_env_var}
-    except:
-        print("Unable to get environment variables in failing region", failing_region)
+    local_env = fetch_environment_variables(local_region, TASK_DEF_FAMILY)
+    failing_env = fetch_environment_variables(failing_region, TASK_DEF_FAMILY)
 
     # 2. Trying to find Instance in local region
     if local_env.get("INST_ID"):
@@ -181,14 +171,6 @@ def health_check_handler(msg_json):
         )
         print("Clearing peer_ip:", response)
 
-        # Update environment so that ACTIVE_REGION and STANDBY_REGION are set correctly
-        os.environ.update(
-            {
-                "ACTIVE_REGION": local_region,
-                "STANDBY_REGION": failing_region,
-            }
-        )
-
         # Update ECS environment variables
         print("Update ACTIVE_REGION & STANDBY_REGION in new active region")
         aws_controller.sync_env_var(
@@ -200,30 +182,15 @@ def health_check_handler(msg_json):
             },
         )
 
-        try:
-            print("Update ACTIVE_REGION & STANDBY_REGION in new standby region")
-            aws_controller.sync_env_var(
-                failing_ecs_client,
-                failing_env,
-                {
-                    "ACTIVE_REGION": local_region,
-                    "STANDBY_REGION": failing_region,
-                },
-            )
-        except:
-            print(
-                "Unable to update ACTIVE_REGION & STANDBY_REGION in new standby region"
-            )
-
         # Enable health check Lambda in failing region
         response = enable_health_check(failing_region, health_check_rule)
         print(response)
 
     finally:
-        if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER"):
+        if s3_ctrl_version and s3_ctrl_version != failing_env.get("CTRL_INIT_VER", ""):
             init_ver = s3_ctrl_version
         else:
-            init_ver = failing_env.get("CTRL_INIT_VER")
+            init_ver = failing_env.get("CTRL_INIT_VER", "")
         if failover and failover == "completed":
             state = "ACTIVE"
         else:
@@ -236,10 +203,27 @@ def health_check_handler(msg_json):
         #     if restored_access:
         #         aws_controller.update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
         try:
+
+            # PRIV_IP may have changed while this code was running
+            # so try to refetch the env vars from the failing region
+            updated_failing_env = fetch_environment_variables(
+                failing_region, TASK_DEF_FAMILY
+            )
+
+            if updated_failing_env != {}:
+                failing_env = updated_failing_env
+
+            failing_ecs_client = boto3.client("ecs", failing_region)
+
             aws_controller.sync_env_var(
                 failing_ecs_client,
                 failing_env,
-                {"CTRL_INIT_VER": init_ver, "STATE": state},
+                {
+                    "ACTIVE_REGION": local_region,
+                    "STANDBY_REGION": failing_region,
+                    "CTRL_INIT_VER": init_ver,
+                    "STATE": state,
+                },
             )
         except:
             print(
@@ -292,3 +276,20 @@ def delete_file_from_s3(bucket_name, file_name):
         print(f"File {file_name} successfully deleted from {bucket_name}")
     except Exception as e:
         print(f"Error deleting file: {e}")
+
+
+def fetch_environment_variables(region, task_def_family):
+    """
+    Fetches environment variables for a given ECS task definition.
+    """
+    try:
+        client = boto3.client("ecs", region)
+        container_definitions = client.describe_task_definition(
+            taskDefinition=task_def_family
+        )["taskDefinition"]["containerDefinitions"]
+        return {
+            env["name"]: env["value"] for env in container_definitions[0]["environment"]
+        }
+    except Exception as e:
+        print(f"Error fetching environment variables: {e}")
+        return {}

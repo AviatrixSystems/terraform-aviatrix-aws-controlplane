@@ -1623,7 +1623,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
                     dr_client, dr_sg_modified, dr_ecs_client
                 )
                 if restored_access:
-                    update_env_dict(ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
+                    update_env_dict(dr_ecs_client, {"CONTROLLER_TMP_SG_GRP": ""})
             sync_env_var(
                 dr_ecs_client,
                 dr_env,
