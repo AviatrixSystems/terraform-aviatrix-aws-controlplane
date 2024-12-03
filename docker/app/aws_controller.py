@@ -248,52 +248,6 @@ def ecs_handler():
                 )
 
 
-# def create_new_sg(client):
-#     """Creates a new security group"""
-
-#     instance_name = os.environ.get("AVIATRIX_TAG")
-#     vpc_id = os.environ.get("VPC_ID")
-
-#     try:
-#         resp = client.create_security_group(
-#             Description="Aviatrix Controller", GroupName=instance_name, VpcId=vpc_id
-#         )
-#         sg_id = resp["GroupId"]
-#     except (botocore.exceptions.ClientError, KeyError) as err:
-#         if "InvalidGroup.Duplicate" in str(err):
-#             rsp = client.describe_security_groups(GroupNames=[instance_name])
-#             sg_id = rsp["SecurityGroups"][0]["GroupId"]
-#         else:
-#             raise AvxError(str(err)) from err
-
-#     try:
-#         client.authorize_security_group_ingress(
-#             GroupId=sg_id,
-#             IpPermissions=[
-#                 {
-#                     "IpProtocol": "tcp",
-#                     "FromPort": 443,
-#                     "ToPort": 443,
-#                     "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
-#                 },
-#                 {
-#                     "IpProtocol": "tcp",
-#                     "FromPort": 80,
-#                     "ToPort": 80,
-#                     "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
-#                 },
-#             ],
-#         )
-#     except botocore.exceptions.ClientError as err:
-#         if "InvalidGroup.Duplicate" in str(err) or "InvalidPermission.Duplicate" in str(
-#             err
-#         ):
-#             pass
-#         else:
-#             raise AvxError(str(err)) from err
-#     return sg_id
-
-
 def update_env_dict(ecs_client, replace_dict={}):
     """Update particular variables in the Environment variables in ECS"""
 
@@ -940,8 +894,24 @@ def run_initial_setup(ip_addr, cid, ctrl_version):
     return False
 
 
+def get_public_ip():
+    """
+    Fetches the public IP address from https://checkip.amazonaws.com/
+
+    Returns:
+        str: The public IP address as a string, or None if request fails.
+    """
+    try:
+        response = requests.get("https://checkip.amazonaws.com/")
+        response.raise_for_status()  # Raise exception for non-2xx status codes
+        return response.text.strip()
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting public IP: {e}")
+        return None
+
+
 def temp_add_security_group_access(client, controller_instanceobj, api_private_access):
-    """Temporarily add 0.0.0.0/0 rule in one security group"""
+    """Temporarily add ECS IP rule in one security group"""
 
     sgs = [sg_["GroupId"] for sg_ in controller_instanceobj["SecurityGroups"]]
     if api_private_access == "True":
@@ -949,6 +919,8 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
 
     if not sgs:
         raise AvxError("No security groups were attached to controller")
+
+    ip = get_public_ip()
 
     try:
         client.authorize_security_group_ingress(
@@ -958,10 +930,12 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
                     "IpProtocol": "tcp",
                     "FromPort": 443,
                     "ToPort": 443,
-                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                    "IpRanges": [{"CidrIp": f"{ip}/32"}],
                 }
             ],
         )
+        print(f"Temporarily added {ip} to security group {sgs[0]}")
+
     except botocore.exceptions.ClientError as err:
         if "InvalidPermission.Duplicate" in str(err):
             return True, sgs[0]
@@ -973,11 +947,14 @@ def temp_add_security_group_access(client, controller_instanceobj, api_private_a
 
 
 def restore_security_group_access(client, sg_id, ecs_client):
-    """Remove 0.0.0.0/0 rule in previously added security group"""
+    """Remove rule in previously added security group"""
 
-    if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
-        print(f"Abort SG restore - COPILOT_RUNNING is set")
-        return
+    # Since we are only allowing the specific IP, we no longer care if CoPilot is running
+    # if aws_utils.get_task_def_env(ecs_client).get("COPILOT_RUNNING", "") == "running":
+    #     print(f"Abort SG restore - COPILOT_RUNNING is set")
+    #     return
+
+    ip = get_public_ip()
 
     try:
         client.revoke_security_group_ingress(
@@ -987,10 +964,12 @@ def restore_security_group_access(client, sg_id, ecs_client):
                     "IpProtocol": "tcp",
                     "FromPort": 443,
                     "ToPort": 443,
-                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                    "IpRanges": [{"CidrIp": f"{ip}/32"}],
                 }
             ],
         )
+        print(f"Successfully removed {ip} from security group {sg_id}")
+
     except botocore.exceptions.ClientError as err:
         if "InvalidPermission.NotFound" not in str(err) and "InvalidGroup" not in str(
             err
@@ -2241,88 +2220,6 @@ def detach_autoscaling_target_group(region, env):
             raise AvxError(
                 f"Not able to detach target group from asg in region {region}: {err}"
             )
-
-
-def get_public_ip():
-    """
-    Fetches the public IP address from https://checkip.amazonaws.com/
-
-    Returns:
-        str: The public IP address as a string, or None if request fails.
-    """
-    try:
-        response = requests.get("https://checkip.amazonaws.com/")
-        response.raise_for_status()  # Raise exception for non-2xx status codes
-        return response.text.strip()
-    except requests.exceptions.RequestException as e:
-        print(f"Error getting public IP: {e}")
-        return None
-
-
-def add_ip_to_security_group(sg_id, ip_address, port, protocol, region_name):
-    """
-    Add an IP address to the inbound rules of a security group.
-
-    :param sg_id: ID of the security group
-    :param ip_address: IP address to allow
-    :param port: Port to allow traffic on
-    :param protocol: Protocol
-    :param region_name: AWS region where the security group is located
-    """
-    ec2 = boto3.client("ec2", region_name=region_name)
-
-    try:
-        response = ec2.authorize_security_group_ingress(
-            GroupId=sg_id,
-            IpPermissions=[
-                {
-                    "IpProtocol": protocol,
-                    "FromPort": port,
-                    "ToPort": port,
-                    "IpRanges": [{"CidrIp": ip_address}],
-                }
-            ],
-        )
-        print(
-            f"Successfully added {ip_address} to security group {sg_id} in region {region_name}"
-        )
-        return response
-    except ec2.exceptions.ClientError as e:
-        print(f"Error adding IP: {e}")
-        return None
-
-
-def remove_ip_from_security_group(sg_id, ip_address, port, protocol, region_name):
-    """
-    Remove an IP address from the inbound rules of a security group.
-
-    :param sg_id: ID of the security group
-    :param ip_address: IP address to remove
-    :param port: Port to remove traffic from
-    :param protocol: Protocol
-    :param region_name: AWS region where the security group is located
-    """
-    ec2 = boto3.client("ec2", region_name=region_name)
-
-    try:
-        response = ec2.revoke_security_group_ingress(
-            GroupId=sg_id,
-            IpPermissions=[
-                {
-                    "IpProtocol": protocol,
-                    "FromPort": port,
-                    "ToPort": port,
-                    "IpRanges": [{"CidrIp": ip_address}],
-                }
-            ],
-        )
-        print(
-            f"Successfully removed {ip_address} from security group {sg_id} in region {region_name}"
-        )
-        return response
-    except ec2.exceptions.ClientError as e:
-        print(f"Error removing IP: {e}")
-        return None
 
 
 if __name__ == "__main__":
