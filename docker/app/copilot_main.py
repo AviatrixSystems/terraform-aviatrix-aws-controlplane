@@ -4,6 +4,7 @@ import datetime
 import traceback
 import os
 import json
+import requests
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 import aws_utils as aws_utils
@@ -201,6 +202,22 @@ def log_failover_status(type):
         print(no_recent_reboot_log)
 
 
+def get_public_ip():
+    """
+    Fetches the public IP address from https://checkip.amazonaws.com/
+
+    Returns:
+        str: The public IP address as a string, or None if request fails.
+    """
+    try:
+        response = requests.get("https://checkip.amazonaws.com/")
+        response.raise_for_status()  # Raise exception for non-2xx status codes
+        return response.text.strip()
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting public IP: {e}")
+        return None
+
+
 # operation = 'add_rule' OR 'del_rule'
 # rule = {from_port: int, to_port: int, protocol: str, cidr_list, description}
 def modify_sg_rules(ec2_client, operation, security_group_id, sg_rule) -> None:
@@ -257,13 +274,15 @@ def check_if_rule_exists(ec2_client, security_group_id: str, check_rule):
 
 
 def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> None:
+    ip = get_public_ip()
+
     if operation == "add_rule":
         try:
             print(f"Enabling access - Creating tmp rules for SG: {security_group_id}")
             add_rule = check_if_rule_exists(
                 ec2_client,
                 security_group_id,
-                {"IpProtocol": "tcp", "FromPort": 443, "CidrIp": "0.0.0.0/0"},
+                {"IpProtocol": "tcp", "FromPort": 443, "CidrIp": f"{ip}/32"},
             )
             if add_rule:
                 print(f"Enabling tmp access on SG: {security_group_id}")
@@ -271,14 +290,16 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
                     "from_port": 443,
                     "to_port": 443,
                     "protocol": "tcp",
-                    "cidr_list": ["0.0.0.0/0"],
+                    "cidr_list": [f"{ip}/32"],
                     "description": "TMP OPEN HTTPS",
                 }
                 modified_sg_id = modify_sg_rules(
                     ec2_client, "add_rule", security_group_id, open_https_rule
                 )
                 if modified_sg_id:
-                    print("Successfully enabled temporary access")
+                    print(
+                        f"Temporarily added {ip} to security group {security_group_id}"
+                    )
                     return security_group_id
                 else:
                     print(f"Unable to open TMP access in SG: {security_group_id}")
@@ -295,14 +316,16 @@ def manage_tmp_access(ec2_client, security_group_id: str, operation: str) -> Non
                 "from_port": 443,
                 "to_port": 443,
                 "protocol": "tcp",
-                "cidr_list": ["0.0.0.0/0"],
+                "cidr_list": [f"{ip}/32"],
                 "description": "TMP OPEN HTTPS",
             }
             modified_sg_id = modify_sg_rules(
                 ec2_client, "del_rule", security_group_id, open_https_rule
             )
             if modified_sg_id:
-                print("Successfully disabled temporary access")
+                print(
+                    f"Successfully removed {ip} from security group {security_group_id}"
+                )
                 return security_group_id
             else:
                 print(f"Unable to close TMP access in SG: {security_group_id}")
@@ -549,25 +572,16 @@ def handle_copilot_ha():
     )
 
     # enable tmp access on the controller
-    controller_tmp_sg = aws_utils.get_task_def_env(restore_ecs_client).get(
-        "CONTROLLER_TMP_SG_GRP", ""
+    controller_tmp_sg = manage_tmp_access(
+        restore_client,
+        controller_instanceobj["SecurityGroups"][0]["GroupId"],
+        "add_rule",
     )
-    if controller_tmp_sg == "":
-        controller_tmp_sg = manage_tmp_access(
-            restore_client,
-            controller_instanceobj["SecurityGroups"][0]["GroupId"],
-            "add_rule",
-        )
 
     handle_event(copilot_event)
 
     # disable tmp access on the controller
-    if (
-        aws_utils.get_task_def_env(restore_ecs_client).get("CONTROLLER_RUNNING", "")
-        == "running"
-    ):
-        print(f"Abort SG restore - CONTROLLER_RUNNING is set")
-    elif controller_tmp_sg:
+    if controller_tmp_sg:
         print(f"Restore controller SG access")
         manage_tmp_access(restore_client, controller_tmp_sg, "del_rule")
 

@@ -1464,7 +1464,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
             f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
         )
     print(
-        "0.0.0.0/0:443 rule is %s present %s"
+        "Temporary rule is %s present %s"
         % (
             "already" if dr_duplicate else "not",
             "" if dr_duplicate else ". Modified Security group %s" % dr_sg_modified,
@@ -1707,7 +1707,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
         )
     print(
-        "0.0.0.0/0:443 rule is %s present %s"
+        "Temporary rule is %s present %s"
         % (
             "already" if duplicate else "not",
             "" if duplicate else ". Modified Security group %s" % sg_modified,
