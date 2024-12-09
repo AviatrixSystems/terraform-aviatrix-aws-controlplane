@@ -1,15 +1,14 @@
 terraform {
+  required_version = ">= 1.3"
+
   required_providers {
-    aviatrix = {
-      source = "aviatrixsystems/aviatrix"
-    }
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.27"
+      version = "5.80.0"
     }
-    # docker = {
-    #   source = "kreuzwerker/docker"
-    # }
   }
-  required_version = ">= 0.13"
+}
+
+provider "aws" {
+  region = var.region
 }

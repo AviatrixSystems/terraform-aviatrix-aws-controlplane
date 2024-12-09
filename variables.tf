@@ -1,608 +1,149 @@
-data "aws_region" "current" {}
-
-variable "ha_distribution" {
+variable "account_email" {
   type        = string
-  description = "Desired Controller high availability distribution"
-  default     = "basic"
-
-  validation {
-    condition     = contains(["basic", "inter-az", "single-az", "inter-region"], var.ha_distribution)
-    error_message = "Valid values for var: ha_distribution are (basic, single-az, inter-az and inter-region)."
-  }
+  description = "aviatrix controller access account email"
 }
 
-variable "standby_instance_state" {
+variable "customer_id" {
   type        = string
-  description = "Standby instance state definition"
-  default     = "Running"
-  validation {
-    condition     = contains(["Running", "Stopped"], var.standby_instance_state)
-    error_message = "Valid values for var: standby_instance_state are (Running and Stopped)."
-  }
-}
-
-variable "controller_ha_enabled" {
-  type        = bool
-  description = "Whether HA is enabled for the Controller"
-  default     = true
-}
-
-variable "copilot_ha_enabled" {
-  type        = bool
-  description = "Whether HA is enabled for CoPilot"
-  default     = true
-}
-
-variable "keypair" {
-  type        = string
-  description = "Key pair which should be used by Aviatrix controller"
-  default     = "aviatrix-ha-keypair"
-}
-
-variable "region" {
-  type        = string
-  description = "The region to deploy this module in"
-  default     = "us-east-1"
-}
-
-variable "create_iam_roles" {
-  type    = bool
-  default = true
-}
-
-variable "ec2_role_name" {
-  type    = string
-  default = "aviatrix-role-ec2"
-}
-
-variable "app_role_name" {
-  type    = string
-  default = "aviatrix-role-app"
-}
-
-variable "app_role_max_session_duration" {
-  type        = number
-  description = "The max session duration for the Aviatrix app role"
-  default     = 43200
-}
-
-variable "ecs_role_name" {
-  type    = string
-  default = "aviatrix-role-ecs"
-}
-
-variable "ecs_policy_name" {
-  type    = string
-  default = "aviatrix-ecs-policy"
-}
-
-variable "eventbridge_role_name" {
-  type    = string
-  default = "aviatrix-role-eventbridge"
-}
-
-variable "eventbridge_policy_name" {
-  type    = string
-  default = "aviatrix-eventbridge-policy"
-}
-
-variable "ecs_task_execution_role_name" {
-  type    = string
-  default = "aviatrix-role-ecs-task-exec"
-}
-
-variable "vpc_name" {
-  type    = string
-  default = "Aviatrix-VPC"
-}
-
-variable "subnet_name" {
-  type    = string
-  default = "Aviatrix-Public-Subnet"
-}
-
-variable "vpc_cidr" {
-  type    = string
-  default = "10.0.0.0/24"
-}
-
-variable "instance_type" {
-  type        = string
-  description = "Controller instance size"
-  default     = "t3.large"
-}
-
-variable "copilot_deployment" {
-  type        = string
-  description = "Desired CoPilot deployment type"
-  default     = "simple"
-
-  validation {
-    condition     = contains(["simple", "fault-tolerant"], var.copilot_deployment)
-    error_message = "Valid values for var:copilot_deployment are (simple, fault-tolerant)."
-  }
-}
-
-variable "copilot_data_node_count" {
-  type        = number
-  description = "Desired number of CoPilot data nodes in a Fault-Tolerant deployment"
-  default     = 3
-
-  validation {
-    condition = (
-      var.copilot_data_node_count >= 3 && var.copilot_data_node_count <= 9
-    )
-    error_message = "CoPilot data node count must be between 3 and 9, inclusive."
-  }
-}
-
-variable "copilot_instance_type" {
-  type        = string
-  description = "CoPilot instance size"
-  default     = "t3.2xlarge"
-}
-
-variable "root_volume_type" {
-  type        = string
-  description = "Root volume type for Controller"
-  default     = "gp3"
-}
-
-# This is the default root volume size as suggested by Aviatrix
-variable "root_volume_size" {
-  type        = number
-  description = "Root volume disk size for controller"
-  default     = 64
-}
-
-variable "ebs_optimized" {
-  type        = bool
-  description = "Whether EBS optimization is enabled. Applies to both the Controller and CoPilot."
-  default     = false
-}
-
-variable "monitoring" {
-  type        = bool
-  description = "Whether detailed monitoring is enabled. Applies both to the Controller and CoPilot."
-  default     = false
-}
-
-variable "controller_name" {
-  default     = ""
-  type        = string
-  description = "Name of controller that will be launched"
-}
-
-variable "copilot_name" {
-  default     = ""
-  type        = string
-  description = "Name of copilot that will be launched"
-}
-
-variable "copilot_username" {
-  default     = ""
-  type        = string
-  description = "CoPilot service account username, if desired"
-}
-
-variable "copilot_email" {
-  default     = ""
-  type        = string
-  description = "CoPilot user email address, if desired"
-}
-
-variable "copilot_type" {
-  type        = string
-  description = "Type of billing, can be 'Copilot' or 'CopilotARM'"
-  default     = "Copilot"
-}
-
-variable "copilot_root_volume_size" {
-  type        = number
-  description = "Root volume disk size for Copilot"
-  default     = 30
-}
-
-variable "copilot_root_volume_type" {
-  type        = string
-  description = "Root volume type for Copilot"
-  default     = "gp3"
-}
-
-variable "copilot_default_data_volume_size" {
-  type        = number
-  description = "Default data volume disk size for Copilot"
-  default     = 8
-}
-
-variable "copilot_default_data_volume_type" {
-  type        = string
-  description = "Default data volume type for Copilot"
-  default     = "gp3"
-}
-
-variable "cop_controller_auth_ip" {
-  type        = string
-  description = "Controller IP type to be used by CoPilot for authentication - public, or private"
-  default     = "public"
-}
-
-variable "incoming_ssl_cidr" {
-  type        = list(string)
-  description = "Incoming cidr for security group used by controller"
-}
-
-variable "copilot_incoming_https_cidr" {
-  type        = list(string)
-  description = "Incoming CIDR for HTTPS access to the CoPilot"
-  default     = null
-}
-
-variable "copilot_incoming_syslog_cidr" {
-  type        = list(string)
-  description = "Incoming CIDR for Syslog sources to the CoPilot"
-  default     = ["0.0.0.0/0"]
-}
-
-variable "copilot_incoming_netflow_cidr" {
-  type        = list(string)
-  description = "Incoming CIDR for Netflow sources to the CoPilot"
-  default     = ["0.0.0.0/0"]
-}
-
-variable "s3_backup_bucket" {
-  type        = string
-  description = "S3 bucket for Controller DB backup"
-  default     = "aviatrix-ha-"
-}
-
-variable "s3_backup_region" {
-  type        = string
-  description = "AWS region of S3 backup bucket"
-  default     = "us-east-1"
-}
-
-variable "use_existing_s3" {
-  type        = bool
-  description = "Whether to use an existing S3 bucket"
-  default     = false
-}
-
-variable "termination_protection" {
-  type        = bool
-  description = "Enable/disable switch for termination protection"
-  default     = true
-}
-
-variable "admin_email" {
-  type        = string
-  description = "Controller admin email address"
-}
-
-variable "asg_notif_email" {
-  type        = string
-  description = "Email address for Controller failover notifications"
-  default     = ""
-}
-
-variable "access_account_name" {
-  type        = string
-  description = "The controller account friendly name (mapping to the AWS account ID)"
-  default     = "aws_admin"
-}
-
-variable "tags" {
-  type        = map(string)
-  description = "Map of common tags which should be used for module resources"
-  default     = {}
-}
-
-variable "controller_version" {
-  type        = string
-  default     = "latest"
-  description = "The initial version of the Aviatrix Controller at launch"
-  validation {
-    condition     = var.controller_version == "latest" ? true : (tonumber(tostring(split(".", var.controller_version)[0])) >= 7 ? true : false)
-    error_message = "Aviatrix Platform HA supports controllers running version 7.0 and later"
-  }
-}
-
-variable "use_existing_keypair" {
-  type        = bool
-  description = "Whether to use an existing keypair"
-  default     = false
-}
-
-variable "use_existing_vpc" {
-  description = "Set to true to use existing VPC."
-  type        = bool
-  default     = false
-}
-
-variable "vpc" {
-  type        = string
-  description = "VPC in which you want launch Aviatrix controller"
-  default     = ""
-}
-
-variable "subnet_ids" {
-  type    = list(string)
-  default = []
-}
-
-variable "name_prefix" {
-  type        = string
-  description = "Additional name prefix for your environment resources"
-  default     = "avx"
-}
-
-variable "license_type" {
-  default     = "BYOL"
-  type        = string
-  description = "Type of billing, can be 'MeteredPlatinum', 'BYOL' or 'Custom'"
-}
-
-locals {
-  name_prefix        = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  images_byol        = jsondecode(data.http.avx_iam_id.response_body).BYOL
-  images_platinum    = jsondecode(data.http.avx_iam_id.response_body).MeteredPlatinum
-  images_custom      = jsondecode(data.http.avx_iam_id.response_body).Custom
-  image_generation   = try(keys(jsondecode(data.http.manifest.response_body).image_generations)[0], "")
-  images_generations = try(jsondecode(data.http.avx_iam_id.response_body)[local.image_generation]["amd64"], "")
-  images_copilot     = jsondecode(data.http.copilot_iam_id.response_body).Copilot
-  images_copilotarm  = jsondecode(data.http.copilot_iam_id.response_body).CopilotARM
-  cop_ami_id         = var.copilot_type == "Copilot" ? local.images_copilot[data.aws_region.current.name] : local.images_copilotarm[data.aws_region.current.name]
-  ami_id             = var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[data.aws_region.current.name] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[data.aws_region.current.name] : var.license_type == "Custom" ? local.images_custom[data.aws_region.current.name] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[data.aws_region.current.name] : local.images_platinum[data.aws_region.current.name]))
-  dr_ami_id          = var.ha_distribution == "inter-region" ? var.license_type == "MeteredPlatinumCopilot" ? local.images_copilot[var.dr_region] : (data.http.manifest.status_code == 200 && local.images_generations != "" ? local.images_generations[var.dr_region] : var.license_type == "Custom" ? local.images_custom[var.dr_region] : (var.license_type == "BYOL" || var.license_type == "byol" ? local.images_byol[var.dr_region] : local.images_platinum[var.dr_region])) : ""
-  // identify gloabl or china region
-  ischina  = regexall("^cn-", var.region)
-  iam_type = contains(local.ischina, "cn-") ? "aws-cn" : "aws"
-  ecr_url  = contains(local.ischina, "cn-") ? "amazonaws.com.cn" : "amazonaws.com"
-
-  common_tags = merge(
-    var.tags, {
-      module    = "aviatrix-controller-build"
-      Createdby = "Terraform+Aviatrix"
-  })
-}
-
-variable "controller_json_url" {
-  type        = string
-  description = "The URL of the JSON file with Controller AMI IDs"
-  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_controller_image_details.json"
-
-}
-
-variable "copilot_json_url" {
-  type        = string
-  description = "The URL of the JSON file with CoPilot AMI IDs"
-  default     = "https://cdn.prod.sre.aviatrix.com/image-details/aws_copilot_image_details.json"
-}
-
-data "http" "avx_iam_id" {
-  url = var.controller_json_url
-  request_headers = {
-    "Accept" = "application/json"
-  }
-}
-
-data "http" "copilot_iam_id" {
-  url = var.copilot_json_url
-  request_headers = {
-    "Accept" = "application/json"
-  }
-}
-
-variable "cdn_server" {
-  type    = string
-  default = "cdn.prod.sre.aviatrix.com"
-}
-
-data "http" "manifest" {
-  url = var.controller_version == "latest" ? "https://${var.cdn_server}/controller/MANIFEST" : "https://${var.cdn_server}/controller/${var.controller_version}/MANIFEST"
-}
-
-variable "dr_region" {
-  type        = string
-  description = "DR Region for Aviatrix Controller"
-  default     = "us-east-2"
-}
-
-variable "dr_vpc_name" {
-  type    = string
-  default = "Aviatrix-DR-VPC"
-}
-
-variable "dr_vpc" {
-  type        = string
-  description = "VPC in which you want launch Aviatrix controller"
-  default     = ""
-}
-
-variable "dr_subnet_ids" {
-  type    = list(string)
-  default = []
-}
-
-variable "dr_vpc_cidr" {
-  type    = string
-  default = "10.0.1.0/24"
-}
-
-variable "dr_keypair" {
-  type        = string
-  description = "Key pair which should be used by Aviatrix controller"
-  default     = "aviatrix-ha-keypair"
-}
-
-variable "zone_name" {
-  type        = string
-  description = "The exisitng route 53 zone name"
-  default     = true
-}
-
-variable "private_zone" {
-  type        = bool
-  description = "private hostzone definition"
-  default     = false
-}
-
-variable "record_name" {
-  type        = string
-  description = "The record name to be created under exisitng route 53 zone"
-  default     = true
-}
-
-variable "inter_region_backup_enabled" {
-  type        = bool
-  description = "Specifies whether backups should be enabled on the primary controller in an inter-region deployment"
-  default     = false
-}
-
-variable "avx_customer_id_ssm_path" {
-  type        = string
-  description = "The path to the Aviatrix customer ID"
-  default     = "/aviatrix/controller/customer_id"
-}
-
-variable "avx_customer_id_ssm_region" {
-  type        = string
-  description = "The region the customer ID parameter is in"
-  default     = "us-east-1"
-}
-
-variable "avx_password_ssm_path" {
-  type        = string
-  description = "The path to the Aviatrix password"
-  default     = "/aviatrix/controller/password"
-}
-
-variable "avx_copilot_password_ssm_path" {
-  type        = string
-  description = "The path to the password for CoPilot"
-  default     = "/aviatrix/copilot/password"
-}
-
-variable "avx_password_ssm_region" {
-  type        = string
-  description = "The region the password parameter is in"
-  default     = "us-east-1"
-}
-
-variable "avx_customer_id" {
-  type        = string
-  description = "The customer ID"
-  default     = ""
-}
-
-variable "avx_password" {
-  type        = string
-  description = "The admin password for the Aviatrix Controller"
-  default     = ""
-}
-
-variable "avx_copilot_password" {
-  type        = string
-  description = "The service account password for the Aviatrix CoPilot"
-  default     = ""
-}
-
-variable "use_existing_eip" {
-  type        = bool
-  description = "Set to true if using an existing EIP"
-  default     = false
-}
-
-variable "existing_eip" {
-  type        = string
-  description = "Existing EIP to associate with the Aviatrix Controller"
-  default     = ""
-}
-
-variable "existing_dr_eip" {
-  type        = string
-  description = "Existing EIP to associate with the DR Aviatrix Controller"
-  default     = ""
-}
-
-variable "use_existing_copilot_eip" {
-  type        = bool
-  description = "Set to true if using an existing EIP for CoPilot"
-  default     = false
-}
-
-variable "existing_copilot_eip" {
-  type        = string
-  description = "Existing EIP to associate with the Aviatrix CoPilot (Main Node, in a Fault-Tolerant deployment)"
-  default     = ""
-}
-
-variable "existing_copilot_dr_eip" {
-  type        = string
-  description = "Existing EIP to associate with the DR Aviatrix CoPilot"
-  default     = ""
+  description = "aviatrix customer license id"
 }
 
 variable "controller_ami_id" {
   type        = string
-  description = "The Aviatrix Controller AMI ID"
+  description = "AMI ID for controller. If unset, use official image."
   default     = ""
 }
 
-variable "dr_controller_ami_id" {
+variable "controller_user_data" {
   type        = string
-  description = "The DR Aviatrix Controller AMI ID"
+  description = "User data for starting the controller"
   default     = ""
 }
 
-variable "copilot_ami_id" {
+variable "use_existing_keypair" {
+  type        = bool
+  default     = false
+  description = "Flag to indicate whether to use an existing key pair"
+}
+
+variable "key_pair_name" {
   type        = string
-  description = "The Aviatrix CoPilot AMI ID"
+  description = "Key pair name"
   default     = ""
 }
 
-variable "dr_copilot_ami_id" {
+variable "controller_admin_email" {
   type        = string
-  description = "The DR Aviatrix ConPilot AMI ID"
-  default     = ""
+  description = "aviatrix controller admin email address"
 }
 
-variable "user_data" {
+variable "controller_admin_password" {
   type        = string
-  description = "The base64-encoded user data to provide when launching the instance."
-  default     = ""
+  description = "aviatrix controller admin password"
 }
 
-variable "load_balancer_type" {
+variable "controller_name" {
   type        = string
-  description = "Configure Load Balance type for Aviatrix Controller/Copilit FrontEnd"
-  default     = "network"
+  description = "Customized Name for Aviatrix Controller"
+  default     = "Aviatrix-Controller"
+
   validation {
-    condition     = contains(["network", "application"], var.load_balancer_type)
-    error_message = "Valid values for var: load_balancer_type are (network, application)."
+    condition     = can(regex("^[^\\\\/\"\\[\\]:|<>+=;,?*@&~!#$%^()_{}']*$", var.controller_name))
+    error_message = "Input string cannot contain the following special characters: `\\` `/` `\"` `[` `]` `:` `|` `<` `>` `+` `=` `;` `,` `?` `*` `@` `&` `~` `!` `#` `$` `%` `^` `(` `)` `_` `{` `}` `'`"
   }
 }
 
-variable "configure_waf" {
+variable "controller_wait_for_setup_duration" {
+  type        = string
+  description = "Duration to wait for controller setup to complete"
+  default     = "10m"
+}
+
+variable "copilot_name" {
+  type        = string
+  description = "Customized Name for Aviatrix Copilot"
+  default     = "Aviatrix-Copilot"
+}
+
+variable "controlplane_subnet_cidr" {
+  type        = string
+  description = "CIDR for controlplane subnet."
+  default     = "10.0.0.0/24"
+}
+
+variable "controller_version" {
+  type        = string
+  description = "Aviatrix Controller version"
+  default     = "latest"
+}
+
+variable "controller_virtual_machine_admin_username" {
+  type        = string
+  description = "Admin Username for the controller virtual machine."
+  default     = "aviatrix"
+}
+
+variable "controller_virtual_machine_admin_password" {
+  type        = string
+  description = "Admin Password for the controller virtual machine."
+  default     = "aviatrix1234!"
+}
+
+variable "controller_virtual_machine_size" {
+  type        = string
+  description = "Virtual Machine size for the controller."
+  default     = "t3a.large"
+}
+
+variable "incoming_ssl_cidrs" {
+  type        = list(string)
+  description = "Incoming cidrs for security group used by controller"
+}
+
+variable "region" {
+  type        = string
+  description = "Deployment region for Aviatrix Controller"
+  default     = "us-east-1"
+}
+
+variable "use_existing_vpc" {
   type        = bool
-  description = "Whether WAF is enabled for the controller"
+  description = "Flag to indicate whether to use an existing VPC"
   default     = false
 }
 
-variable "alb_cert_arn" {
+variable "vpc_name" {
   type        = string
-  description = "The ARN of the ACM certificate to use with the application load balancer in the primary region"
+  description = "VPC name, only required when use_existing_vpc is true"
   default     = ""
 }
 
-variable "dr_alb_cert_arn" {
+variable "subnet_name" {
   type        = string
-  description = "The ARN of the ACM certificate to use with the application load balancer in the DR region"
+  description = "subnet name, only required when use_existing_vpc is true"
   default     = ""
 }
 
-variable "cft_stack_name" {
+variable "subnet_id" {
   type        = string
-  description = "The name of the CloudFormation stack used for basic deployments"
-  default     = "aviatrix-controlplane"
+  description = "Subnet ID, only required when use_existing_vpc is true"
+  default     = ""
+}
+
+variable "virtual_machine_admin_username" {
+  default = "avx_admin"
+}
+
+variable "virtual_machine_admin_password" {
+  default = ""
+}
+
+variable "module_config" {
+  default = {
+    controller_iam            = true,
+    controller_deployment     = true,
+    controller_initialization = true,
+    copilot_deployment        = true,
+    copilot_initialization    = true,
+  }
 }
