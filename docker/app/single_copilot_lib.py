@@ -606,16 +606,15 @@ class CoPilotAPI:
             raise (f"Error logging in via session: {str(err)}")
 
     def _make_session_request(self, method: str, endpoint: str, request_data={}):
-        request_url = f"https://{self._copilot_ip}"
+        request_url = f"https://{self._copilot_ip}/api/{endpoint}"
+        print(f"request_url: {request_url}")
         try:
-            if method == "get":
-                resp = self._session.get(f"{request_url}{endpoint}", verify=False)
-            elif method == "delete":
-                resp = self._session.delete(f"{request_url}{endpoint}", verify=False)
-            elif method == "post":
-                resp = self._session.post(
-                    f"{request_url}{endpoint}", data=request_data, verify=False
-                )
+            if method.upper() == "GET":
+                resp = self._session.get(request_url, verify=False)
+            elif method.upper() == "DELETE":
+                resp = self._session.delete(request_url, verify=False)
+            elif method.upper() == "POST":
+                resp = self._session.post(request_url, data=request_data, verify=False)
             else:
                 resp = f"Unsupported method: {method}"
             return resp
@@ -624,27 +623,86 @@ class CoPilotAPI:
                 f"Error making a '{method}' request to '{endpoint}' in the session: {str(err)}"
             )
 
-    def set_data_backup_policy(self, policy_details) -> bool:
-        backup_policy = {
-            "csp": "Amazon Web Services",
-            "accessAccount": policy_details["access_account"],
-            "S3": policy_details["bucket_name"],
-            "backupRetained": policy_details.get("backup_retained", 30),
-            "time": policy_details.get(
-                "backup_time", datetime.datetime.now().isoformat()
-            ),
-            "frequencyRepeat": policy_details.get("frequency_repeat", "Weekly"),
-            "frequencyMonth": policy_details.get("frequency_month", "January"),
-            "frequencyDay": policy_details.get("frequency_day", "Sunday"),
-            "frequencyDate": policy_details.get("frequency_date", "1"),
-            "minutes": policy_details.get("frequency_minutes", 0),
-            "hours": policy_details.get("frequency_hours", 1),
-        }
-        return self._make_session_request("post", "/api/backup/policy", backup_policy)
+    def get_controller_config(self) -> Dict[str, Any]:
+        return self._make_session_request("GET", "backup/controller/config")
 
-    def create_repo(self, bucket_name) -> bool:
+    def create_repo(self, backupCloudProvider, backupExternalStorage) -> Dict[str, Any]:
         repo_policy = {
-            "backupCloudProvider": "Amazon Web Services",
-            "backupExternalStorage": bucket_name,
+            "backupCloudProvider": backupCloudProvider,
+            "backupExternalStorage": backupExternalStorage,
         }
-        return self._make_session_request("post", "/api/backup/repo", repo_policy)
+        return self._make_session_request(
+            "POST", "backup/repo", request_data=repo_policy
+        )
+
+    def create_data_backup_policy(self) -> Dict[str, Any]:
+        backup_policy = {
+            "backupRetained": 30,
+            "time": datetime.datetime.now().isoformat(),
+            "frequencyRepeat": "Weekly",
+            "frequencyMonth": "January",
+            "frequencyDay": "Sunday",
+            "frequencyDate": "1",
+            "minutes": 0,
+            "hours": 1,
+        }
+        return self._make_session_request(
+            "POST", "backup/policy", request_data=backup_policy
+        )
+
+    def _enable_copilot_data_backup(self):
+        try:
+            # 1. get controller config
+            controller_config = self.get_controller_config()
+            print(
+                f"enable_copilot_data_backup - controller_config: {controller_config}"
+            )
+            controller_config = controller_config.json()
+            if not controller_config.get(
+                "backupCloudProvider", ""
+            ) and not controller_config.get("backupExternalStorage", ""):
+                print(
+                    f"Unable to get controller config on the CoPilot: {controller_config}"
+                )
+                return False
+            # 2. create repo
+            create_repo_resp = self.create_repo(
+                controller_config["backupCloudProvider"],
+                controller_config["backupExternalStorage"],
+            )
+            if create_repo_resp.status_code > 300:
+                print(
+                    f"Unable to create data backup repo on the CoPilot: {create_repo_resp}"
+                )
+                return False
+            # 3. create backup policy
+            create_data_backup_policy_resp = self.create_data_backup_policy()
+            if create_data_backup_policy_resp.status_code > 300:
+                print(
+                    f"Unable to create data backup policy on the CoPilot: {create_data_backup_policy_resp}"
+                )
+                return False
+            return True
+        except Exception as err:
+            print(f"Unable to enable CoPilot data backup: {err}")
+            return False
+
+    # 2 minutes
+    def retry_enable_copilot_data_backup(self):
+        attempts = 1
+        retries = 4
+        delay = 30
+        api_response = False
+        while attempts <= retries:
+            print(f"Enable CoPilot data backup attempt: {attempts} / {retries}")
+            api_response = self._enable_copilot_data_backup()
+            if api_response:
+                print(f"Enable data backup successful")
+                return api_response
+            else:
+                print(f"Enable data backup failed")
+            attempts += 1
+            if attempts <= retries:
+                print(f"Waiting {delay} seconds and then retry")
+                time.sleep(delay)
+        return api_response

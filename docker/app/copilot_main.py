@@ -775,20 +775,18 @@ def handle_event(event):
         password=event["copilot_info"]["user_info"]["password"],
     )
     print(f"copilot session login response: {response}")
-    # 4. create a backup repo
-    response = copilot_api.create_repo(event["s3_backup_bucket"])
-    print(f"Create a data backup repo: {response}")
-    if response and response.status_code == 204:
-        # 5. create a data backup policy
-        print("Creating a data backup policy")
-        backup_policy = {
-            "access_account": event["primary_account_name"],
-            "bucket_name": event["s3_backup_bucket"],
-        }
-        response = copilot_api.set_data_backup_policy(backup_policy)
-        print(f"copilot set backup policy response1: {response}")
-        if response and response.status_code == 204:
-            print(f"The CoPilot Data Backup Policy has been created.")
-    else:
-        print(f"Unable to create a data backup repo: {response}")
-        print("Please create the The CoPilot Data Backup Policy manually")
+
+    response = copilot_api.get_copilot_backup_status()
+    print(f"get_copilot_backup: {response}")
+
+    # 4. enable copilot data backup
+    print("Enabling CoPilot data backup")
+    enable_data_backup_resp = copilot_api.retry_enable_copilot_data_backup()
+    print(f"enable_copilot_data_backup: {response}")
+    if not enable_data_backup_resp:
+        # return if unable to create data back up
+        print(
+            "Unable to create CoPilot data backup setup - please backup the data manually"
+        )
+        return
+    print("CoPilot data backup enabled")
