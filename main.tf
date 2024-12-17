@@ -816,7 +816,7 @@ resource "aws_lambda_function" "healthcheck_region1" {
 
   environment {
     variables = {
-      bucket_name        = aws_s3_bucket.stop[0].id
+      bucket_name        = aws_s3_bucket.stop_region1[0].id
       ecs_cluster        = module.region1[0].ecs_cluster_name
       ecs_security_group = module.region1[0].aviatrix_sg_id
       ecs_subnet_1       = module.region1[0].subnet_id1
@@ -921,7 +921,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
 
   environment {
     variables = {
-      bucket_name        = aws_s3_bucket.stop[0].id
+      bucket_name        = aws_s3_bucket.stop_region1[0].id
       ecs_cluster        = module.region2[0].ecs_cluster_name
       ecs_security_group = module.region2[0].aviatrix_sg_id
       ecs_subnet_1       = module.region2[0].subnet_id1
@@ -1005,7 +1005,7 @@ resource "aws_route53_record" "primary" {
   }
 
   set_identifier  = "primary-stop"
-  health_check_id = aws_route53_health_check.stop[0].id
+  health_check_id = aws_route53_health_check.calculated[0].id
 }
 
 resource "aws_route53_record" "secondary" {
@@ -1024,34 +1024,58 @@ resource "aws_route53_record" "secondary" {
   set_identifier = "secondary-stop"
 }
 
-resource "aws_s3_bucket" "stop" {
-  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
-  provider = aws.region2
+resource "aws_s3_bucket" "stop_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  bucket_prefix = "aviatrix-ha-stop-"
+  bucket_prefix = "aviatrix-ha-region1-"
   force_destroy = true
 }
 
-resource "aws_s3_bucket_public_access_block" "stop" {
+resource "aws_s3_bucket" "stop_region2" {
   count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
-  bucket                  = aws_s3_bucket.stop[0].id
+  bucket_prefix = "aviatrix-ha-region2-"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "stop_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  bucket                  = aws_s3_bucket.stop_region1[0].id
   block_public_acls       = true
   block_public_policy     = false
   ignore_public_acls      = true
   restrict_public_buckets = false
 }
 
-resource "aws_s3_bucket_policy" "allow_access_from_another_account" {
+resource "aws_s3_bucket_public_access_block" "stop_region2" {
   count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
   provider = aws.region2
 
-  bucket = aws_s3_bucket.stop[0].id
-  policy = data.aws_iam_policy_document.getobject[0].json
+  bucket                  = aws_s3_bucket.stop_region2[0].id
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
 }
 
-data "aws_iam_policy_document" "getobject" {
+resource "aws_s3_bucket_policy" "stop_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  bucket = aws_s3_bucket.stop_region1[0].id
+  policy = data.aws_iam_policy_document.getobject_region1[0].json
+}
+
+resource "aws_s3_bucket_policy" "stop_region2" {
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  provider = aws.region2
+
+  bucket = aws_s3_bucket.stop_region2[0].id
+  policy = data.aws_iam_policy_document.getobject_region2[0].json
+}
+
+data "aws_iam_policy_document" "getobject_region1" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
   statement {
@@ -1065,16 +1089,36 @@ data "aws_iam_policy_document" "getobject" {
     ]
 
     resources = [
-      aws_s3_bucket.stop[0].arn,
-      "${aws_s3_bucket.stop[0].arn}/*",
+      aws_s3_bucket.stop_region1[0].arn,
+      "${aws_s3_bucket.stop_region1[0].arn}/*",
     ]
   }
 }
 
-resource "aws_route53_health_check" "stop" {
+data "aws_iam_policy_document" "getobject_region2" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
-  fqdn               = aws_s3_bucket.stop[0].bucket_regional_domain_name
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    actions = [
+      "s3:GetObject",
+    ]
+
+    resources = [
+      aws_s3_bucket.stop_region2[0].arn,
+      "${aws_s3_bucket.stop_region2[0].arn}/*"
+    ]
+  }
+}
+
+resource "aws_route53_health_check" "stop_region1" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  fqdn               = aws_s3_bucket.stop_region1[0].bucket_regional_domain_name
   port               = 443
   type               = "HTTPS"
   resource_path      = "/initiate-failover.html"
@@ -1083,6 +1127,34 @@ resource "aws_route53_health_check" "stop" {
   invert_healthcheck = true
 
   tags = {
-    Name = "HC-Initiate-Disaster-Recovery"
+    Name = "Aviatrix-HA-Region1-Health-Check"
+  }
+}
+
+resource "aws_route53_health_check" "stop_region2" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  fqdn               = aws_s3_bucket.stop_region2[0].bucket_regional_domain_name
+  port               = 443
+  type               = "HTTPS"
+  resource_path      = "/initiate-failover.html"
+  failure_threshold  = "5"
+  request_interval   = "30"
+  invert_healthcheck = true
+
+  tags = {
+    Name = "Aviatrix-HA-Region2-Health-Check"
+  }
+}
+
+resource "aws_route53_health_check" "calculated" {
+  count = var.ha_distribution == "inter-region-v2" ? 1 : 0
+
+  type                   = "CALCULATED"
+  child_health_threshold = 2
+  child_healthchecks     = [aws_route53_health_check.stop_region1[0].id, aws_route53_health_check.stop_region2[0].id]
+
+  tags = {
+    Name = "Aviatrix-HA-Calculated-Health-Check"
   }
 }
