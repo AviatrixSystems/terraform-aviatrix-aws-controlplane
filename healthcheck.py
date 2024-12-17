@@ -72,7 +72,8 @@ def _lambda_handler(event, context):
 
     message = json.dumps(
         {
-            "BucketName": os.environ.get("bucket_name"),
+            "BucketName1": os.environ.get("bucket_name_1"),
+            "BucketName2": os.environ.get("bucket_name_2"),
             "FailingEIP": eip,
             "FailingPrivIP": ip,
             "FailingRegion": os.environ.get("peer_region"),

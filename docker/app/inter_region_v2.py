@@ -15,7 +15,8 @@ def health_check_handler(msg_json):
     print("Using inter_region_v2 code")
     start_time = time.time()
 
-    bucket_name = msg_json.get("BucketName")
+    bucket_name_1 = msg_json.get("BucketName1")
+    bucket_name_2 = msg_json.get("BucketName2")
     local_region = msg_json.get("LocalRegion")
     failing_region = msg_json.get("FailingRegion")
     health_check_rule = msg_json.get("HealthCheckRule")
@@ -154,14 +155,16 @@ def health_check_handler(msg_json):
                 "Failing region is region1 %s. Creating failover trigger file in S3."
                 % region1
             )
-            create_file_in_s3(bucket_name, "initiate-failover.html", "aviatrix-ha")
+            create_file_in_s3(bucket_name_1, "initiate-failover.html", "aviatrix-ha")
+            create_file_in_s3(bucket_name_2, "initiate-failover.html", "aviatrix-ha")
 
         else:
             print(
                 "Failing region is region2 %s. Deleting failover trigger file from S3."
                 % region2
             )
-            delete_file_from_s3(bucket_name, "initiate-failover.html")
+            delete_file_from_s3(bucket_name_1, "initiate-failover.html")
+            delete_file_from_s3(bucket_name_2, "initiate-failover.html")
 
         # Clear cached values in Lambda environment variables
         print("Clearing cached values for peer_priv_ip and peer_eip")
