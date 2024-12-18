@@ -60,6 +60,19 @@ def health_check_handler(msg_json):
     local_priv_ip = local_env.get("PRIV_IP")
     print(f"local_priv_ip : {local_priv_ip}")
 
+    if check_port(local_priv_ip, 443):
+        print("Successfully connected to", local_priv_ip)
+    else:
+        print("Failed to connect to", local_priv_ip)
+        print("Retrieving private IP from Controller object", local_instanceobj)
+        local_priv_ip = local_instanceobj.get("NetworkInterfaces")[0].get(
+            "PrivateIpAddress"
+        )
+        print(
+            "Updated local_priv_ip to",
+            local_instanceobj.get("NetworkInterfaces")[0].get("PrivateIpAddress"),
+        )
+
     failing_eip = msg_json.get("FailingEIP")
     print(f"failing_eip : {failing_eip}")
 
@@ -303,3 +316,31 @@ def fetch_environment_variables(region, task_def_family):
     except Exception as e:
         print(f"Error fetching environment variables: {e}")
         return {}
+
+
+def check_port(ip, port, retries=3, interval=60, timeout=5):
+    try:
+        for i in range(retries):
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            result = s.connect_ex((ip, port))
+
+            if result == 0:
+                print(f"Successfully connected to {ip} on port {port}.")
+                return True
+
+            if i < retries - 1:
+                print(
+                    f"Failed to connect to {ip} on port {port}. Sleeping for {interval} seconds."
+                )
+                time.sleep(interval)
+            else:
+                print(
+                    f"Failed to connect to {ip} on port {port} after {retries} retries."
+                )
+        return False
+    except:
+        print(f"Failed to connect to {ip} on port {port}.")
+        return False
+    finally:
+        s.close()
