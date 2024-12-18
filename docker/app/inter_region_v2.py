@@ -1,5 +1,6 @@
 import boto3
 import os
+import socket
 import time
 import aws_controller
 import aws_utils
@@ -148,24 +149,6 @@ def health_check_handler(msg_json):
             % (local_env.get("RECORD_NAME"), local_region)
         )
 
-        # Creating a file in S3 causes the standby in region2 to take over.
-        # Deleting the file in S3 reverts back to region1.
-        if failing_region == region1:
-            print(
-                "Failing region is region1 %s. Creating failover trigger file in S3."
-                % region1
-            )
-            create_file_in_s3(bucket_name_1, "initiate-failover.html", "aviatrix-ha")
-            create_file_in_s3(bucket_name_2, "initiate-failover.html", "aviatrix-ha")
-
-        else:
-            print(
-                "Failing region is region2 %s. Deleting failover trigger file from S3."
-                % region2
-            )
-            delete_file_from_s3(bucket_name_1, "initiate-failover.html")
-            delete_file_from_s3(bucket_name_2, "initiate-failover.html")
-
         # Clear cached values in Lambda environment variables
         print("Clearing cached values for peer_priv_ip and peer_eip")
         response = update_lamba_env_vars(
@@ -187,6 +170,24 @@ def health_check_handler(msg_json):
                 "STANDBY_REGION": failing_region,
             },
         )
+
+        # Creating a file in S3 causes the standby in region2 to take over.
+        # Deleting the file in S3 reverts back to region1.
+        if failing_region == region1:
+            print(
+                "Failing region is region1 %s. Creating failover trigger file in S3."
+                % region1
+            )
+            create_file_in_s3(bucket_name_1, "initiate-failover.html", "aviatrix-ha")
+            create_file_in_s3(bucket_name_2, "initiate-failover.html", "aviatrix-ha")
+
+        else:
+            print(
+                "Failing region is region2 %s. Deleting failover trigger file from S3."
+                % region2
+            )
+            delete_file_from_s3(bucket_name_1, "initiate-failover.html")
+            delete_file_from_s3(bucket_name_2, "initiate-failover.html")
 
         # Enable health check Lambda in failing region
         response = enable_health_check(failing_region, health_check_rule)
@@ -275,6 +276,9 @@ def create_file_in_s3(bucket_name, file_name, file_content):
         print(f"Error creating file: {e}")
 
 
+# The delete needs to be retried indefinitely otherwise it will cause an incorrect
+# Route 53 failover when the S3 bucket becomes accessible again.
+@retry
 def delete_file_from_s3(bucket_name, file_name):
     s3 = boto3.client("s3")
     try:
