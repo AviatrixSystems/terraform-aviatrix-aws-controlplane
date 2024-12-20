@@ -4,7 +4,7 @@ import socket
 import time
 import aws_controller
 import aws_utils
-from tenacity import retry
+from tenacity import retry, wait_fixed
 
 
 HANDLE_HA_TIMEOUT = 1200
@@ -291,7 +291,7 @@ def create_file_in_s3(bucket_name, file_name, file_content):
 
 # The delete needs to be retried indefinitely otherwise it will cause an incorrect
 # Route 53 failover when the S3 bucket becomes accessible again.
-@retry
+@retry(wait=wait_fixed(60))
 def delete_file_from_s3(bucket_name, file_name):
     s3 = boto3.client("s3")
     try:
@@ -299,6 +299,7 @@ def delete_file_from_s3(bucket_name, file_name):
         print(f"File {file_name} successfully deleted from {bucket_name}")
     except Exception as e:
         print(f"Error deleting file: {e}")
+        raise (Exception)
 
 
 def fetch_environment_variables(region, task_def_family):
