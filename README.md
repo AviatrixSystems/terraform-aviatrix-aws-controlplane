@@ -440,6 +440,83 @@ Enable HA by updating the Auto Scaling Group(s):
 - Click on Update to save the changes.
 - Repeat this process for the other Auto Scaling Group if necessary.
 
+#### Temporarily Disabling HA With Inter-Region-v2
+
+Using Terraform, HA with `inter-region-v2` can be temporarily disabled using the same process as the others.
+
+Disable HA using Terraform when using `inter-region-v2`:
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to false.
+- Run `terraform apply`.
+
+Manually disabling HA when using `inter-region-v2` requires updating two components:
+
+1. Disable the health check in the standby region (specifically disable the EventBridge Rule that triggers the health check)
+2. Update the Auto Scaling Group(s)
+
+Disable the health check coming from the standby region
+
+Make a note of which region is the active region. This can be done by performing an `nslookup` on the `record_name`. In the following example, the active region is `us-east-1` which means the other region is the standby region.
+
+```
+nslookup controller.example.com
+Server:		192.168.0.1
+Address:	192.168.0.1#53
+
+Non-authoritative answer:
+controller.example.com	canonical name = avx-aviatrixcontrollerlb-8c1b375cf5e10fea.elb.us-east-1.amazonaws.com.
+Name:	avx-aviatrixcontrollerlb-8c1b375cf5e10fea.elb.us-east-1.amazonaws.com
+Address: 1.2.3.4
+Name:	avx-aviatrixcontrollerlb-8c1b375cf5e10fea.elb.us-east-1.amazonaws.com
+Address: 10.20.30.40
+```
+
+From the AWS console, switch to the standby region. This is because in `inter-region-v2`, the health check comes from the standby region.
+Go to Amazon EventBridge. Under Buses, select Rules. Select the `aviatrix-healthcheck-rule` and click on "Disable".
+
+Update the Auto Scaling Group(s):
+
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Click on Suspended processes and check the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
+
+#### Re-enabling HA With Inter-Region-v2
+
+Using Terraform, HA can be re-enabled using the same process as the others.
+
+Enable HA using Terraform when using `inter-region-v2`:
+
+- Set `controller_ha_enabled` and/or `copilot_ha_enabled` to true.
+- Run `terraform apply`.
+
+Manually re-enabling HA when using `inter-region-v2` requires updating two components:
+
+1. Re-enable the health check in the standby region
+2. Update the Auto Scaling Group(s)
+
+From the AWS console, switch to the standby region.
+Go to Amazon EventBridge. Under Buses, select Rules. Select the `aviatrix-healthcheck-rule` and click on "Enable".
+
+Update the Auto Scaling Group(s):
+
+- Go to EC2 -> Auto Scaling -> Auto Scaling Groups.
+- Select the Auto Scaling Group (avtx_controller or avtx_copilot).
+- Go to Advanced configurations -> Edit.
+- Under Suspended processes, remove the following processes:
+  - Launch
+  - Terminate
+  - HealthCheck
+  - Replace Unhealthy
+- Click on Update to save the changes.
+- Repeat this process for the other Auto Scaling Group if necessary.
+
 ### Warm Pool instance state of AWS Autoscaling Group
 
 The instance state in the AWS ASG Warm Pool is configurable, but it is only supported in the Inter-AZ use case. If the instance state is modified after deployment, the new change will only be effective after a failover.

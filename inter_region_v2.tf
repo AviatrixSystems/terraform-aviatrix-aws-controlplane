@@ -279,13 +279,7 @@ resource "aws_cloudwatch_event_rule" "healthcheck_region1" {
   name                = "aviatrix-healthcheck-rule"
   description         = "Aviatrix Healthcheck"
   schedule_expression = "rate(${var.healthcheck_interval} minutes)"
-  state               = "DISABLED"
-
-  lifecycle {
-    ignore_changes = [
-      state
-    ]
-  }
+  state               = var.controller_ha_enabled ? (local.is_region2_active ? "ENABLED" : "DISABLED") : "DISABLED"
 }
 
 resource "aws_cloudwatch_event_target" "healthcheck_region1" {
@@ -386,13 +380,7 @@ resource "aws_cloudwatch_event_rule" "healthcheck_region2" {
   name                = "aviatrix-healthcheck-rule"
   description         = "Aviatrix Healthcheck"
   schedule_expression = "rate(${var.healthcheck_interval} minutes)"
-  state               = "ENABLED"
-
-  lifecycle {
-    ignore_changes = [
-      state
-    ]
-  }
+  state               = var.controller_ha_enabled ? (local.is_region2_active ? "DISABLED" : "ENABLED") : "DISABLED"
 }
 
 resource "aws_cloudwatch_event_target" "healthcheck_region2" {
@@ -583,4 +571,21 @@ resource "aws_route53_health_check" "calculated" {
   tags = {
     Name = "Aviatrix-HA-Calculated-Health-Check"
   }
+}
+
+data "aws_s3_objects" "region1" {
+  count  = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  bucket = aws_s3_bucket.stop_region1[0].id
+}
+
+data "aws_s3_objects" "region2" {
+  count    = var.ha_distribution == "inter-region-v2" ? 1 : 0
+  provider = aws.region2
+  bucket   = aws_s3_bucket.stop_region2[0].id
+}
+
+locals {
+  region1_object_exists = try(contains(data.aws_s3_objects.region1[0].keys, "initiate-failover.html"), false)
+  region2_object_exists = try(contains(data.aws_s3_objects.region2[0].keys, "initiate-failover.html"), false)
+  is_region2_active     = local.region1_object_exists || local.region2_object_exists
 }
