@@ -448,7 +448,7 @@ resource "docker_image" "ecr_image" {
 
   build {
     context    = local.image_path
-    dockerfile = "Dockerfile.aws"
+    dockerfile = "Dockerfile"
     no_cache   = true
     tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
   }
