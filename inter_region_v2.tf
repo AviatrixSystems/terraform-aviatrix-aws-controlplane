@@ -231,7 +231,7 @@ resource "aws_lambda_function" "healthcheck_region1" {
   count = var.ha_distribution == "inter-region-v2" ? 1 : 0
 
   filename         = "healthcheck_payload.zip"
-  function_name    = "aviatrix_healthcheck"
+  function_name    = "aviatrix-ha-healthcheck"
   role             = aws_iam_role.iam_for_healthcheck[0].arn
   handler          = "healthcheck.lambda_handler"
   source_code_hash = data.archive_file.healthcheck[0].output_base64sha256
@@ -331,7 +331,7 @@ resource "aws_lambda_function" "healthcheck_region2" {
   provider = aws.region2
 
   filename         = "healthcheck_payload.zip"
-  function_name    = "aviatrix_healthcheck"
+  function_name    = "aviatrix-ha-healthcheck"
   role             = aws_iam_role.iam_for_healthcheck[0].arn
   handler          = "healthcheck.lambda_handler"
   source_code_hash = data.archive_file.healthcheck[0].output_base64sha256

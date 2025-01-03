@@ -117,7 +117,7 @@ module "region1" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  ecr_image = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecr_image = "${aws_ecr_repository.aviatrix_ha_repo.repository_url}:latest"
 }
 
 module "region2" {
@@ -205,7 +205,8 @@ module "region2" {
   copilot_json_url                 = var.copilot_json_url
   cdn_server                       = var.cdn_server
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
-  ecr_image  = "${aws_ecr_repository.repo.repository_url}:latest"
+  ecr_image = "${aws_ecr_repository.aviatrix_ha_repo.repository_url}:latest"
+
   depends_on = [null_resource.region_conflict]
 }
 
@@ -425,59 +426,6 @@ resource "aws_s3_bucket" "backup" {
   count         = var.ha_distribution == "basic" ? 0 : var.use_existing_s3 ? 0 : 1
   bucket_prefix = var.s3_backup_bucket
   force_destroy = true
-}
-
-##################################
-# Create ECS Resources
-##################################
-
-locals {
-  image_name = "avx_platform_ha"
-  image_path = "${path.module}/docker"
-  image_tag  = "latest"
-}
-
-resource "aws_ecr_repository" "repo" {
-  name         = "avx_platform_ha"
-  force_delete = true
-  tags         = local.common_tags
-}
-
-resource "docker_image" "ecr_image" {
-  name = local.image_name
-
-  build {
-    context    = local.image_path
-    dockerfile = "Dockerfile"
-    no_cache   = true
-    tag        = ["${aws_ecr_repository.repo.repository_url}:${local.image_tag}"]
-  }
-  triggers = {
-    dir_sha1 = sha1(join("", [for f in fileset(local.image_path, "app/*") : filesha1("${local.image_path}/${f}")]))
-  }
-  depends_on = [
-    aws_ecr_repository.repo
-  ]
-}
-
-resource "null_resource" "push_ecr_image" {
-  triggers = {
-    dir_sha1 = sha1(join("", [for f in fileset(local.image_path, "app/*") : filesha1("${local.image_path}/${f}")]))
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOF
-    aws ecr get-login-password \
-      --region ${var.region} \
-      | docker login \
-      --username AWS \
-      --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.${local.ecr_url}
-    docker push ${aws_ecr_repository.repo.repository_url}:${local.image_tag}
-    EOF
-  }
-  depends_on = [
-    docker_image.ecr_image
-  ]
 }
 
 data "aws_caller_identity" "current" {}

@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.12-alpine
+FROM --platform=linux/amd64 public.ecr.aws/docker/library/python:3.12-alpine
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
