@@ -52,7 +52,7 @@ def _lambda_handler(event, context):
         eip = get_task_def_env_value(peer_region, TASK_DEF_FAMILY, "EIP")
         print("Setting peer_eip to", eip)
         response = update_lamba_env_vars(
-            "aviatrix_healthcheck", region, "peer_eip", eip
+            "aviatrix-ha-healthcheck", region, "peer_eip", eip
         )
         print(response)
 
@@ -63,7 +63,7 @@ def _lambda_handler(event, context):
         ip = get_task_def_env_value(peer_region, TASK_DEF_FAMILY, "PRIV_IP")
         print("Setting peer_priv_ip to", ip)
         response = update_lamba_env_vars(
-            "aviatrix_healthcheck", region, "peer_priv_ip", ip
+            "aviatrix-ha-healthcheck", region, "peer_priv_ip", ip
         )
         print(response)
 
