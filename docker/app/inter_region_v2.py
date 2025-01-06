@@ -165,11 +165,11 @@ def health_check_handler(msg_json):
         # Clear cached values in Lambda environment variables
         print("Clearing cached values for peer_priv_ip and peer_eip")
         response = update_lamba_env_vars(
-            "aviatrix_healthcheck", local_region, "peer_priv_ip", ""
+            "aviatrix-ha-healthcheck", local_region, "peer_priv_ip", ""
         )
         print("Clearing peer_priv_ip:", response)
         response = update_lamba_env_vars(
-            "aviatrix_healthcheck", local_region, "peer_eip", ""
+            "aviatrix-ha-healthcheck", local_region, "peer_eip", ""
         )
         print("Clearing peer_ip:", response)
 
