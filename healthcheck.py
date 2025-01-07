@@ -54,7 +54,7 @@ def _lambda_handler(event, context):
         response = update_lamba_env_vars(
             "aviatrix-ha-healthcheck", region, "peer_eip", eip
         )
-        print(response)
+        print("Setting peer_ip response:", response)
 
     # Get the peer private IP if not set
     ip = os.environ.get("peer_priv_ip")
@@ -65,7 +65,7 @@ def _lambda_handler(event, context):
         response = update_lamba_env_vars(
             "aviatrix-ha-healthcheck", region, "peer_priv_ip", ip
         )
-        print(response)
+        print("Setting peer_priv_ip response:", response)
 
     print(f"The private IP of the Controller in {peer_region} is {ip}.")
     print(f"Checking port 443 on {ip}.")
@@ -92,13 +92,13 @@ def _lambda_handler(event, context):
 
         print("Publishing message to SNS")
         response = publish_message_to_sns(sns_topic_arn, message, region)
-        print(response)
+        print("Publishing message to SNS response:", response)
 
         print("Triggering ECS")
         response = run_ecs_task(
             ecs_cluster, ecs_task_def, subnets, security_groups, "ENABLED", region
         )
-        print(response)
+        print("Triggering ECS response:", response)
 
 
 def publish_message_to_sns(topic_arn, message, region):

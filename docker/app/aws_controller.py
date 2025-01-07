@@ -114,7 +114,7 @@ def ecs_handler():
     ### Beginning of Inter-Region V2 code
 
     # Check for healthcheck code
-    print(event)
+    print("The event is:", event)
     try:
         msg_json = json.loads(event["Message"])
         msg_service = msg_json.get("Service")
@@ -343,9 +343,9 @@ def update_env_dict(ecs_client, replace_dict={}):
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
     new_task_def["tags"] = current_task_def["tags"]
 
-    print("Updating task definition")
-    ecs_client.register_task_definition(**new_task_def)
-    print("Updated environment dictionary")
+    print("Updating environment variables in task definition")
+    response = ecs_client.register_task_definition(**new_task_def)
+    print("Updating environment variables response:", response)
 
 
 def sync_env_var(ecs_client, env_dict, replace_dict={}):
@@ -376,9 +376,9 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
     new_task_def["tags"] = current_task_def["tags"]
 
-    print("Updating task definition")
-    ecs_client.register_task_definition(**new_task_def)
-    print("Updated environment dictionary")
+    print("Updating environment variables in task definition")
+    response = ecs_client.register_task_definition(**new_task_def)
+    print("Updating environment variables response:", response)
 
 
 def get_api_token(ip_addr):
@@ -607,8 +607,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
     new_task_def["containerDefinitions"][0]["environment"] = new_env_list
     new_task_def["tags"] = current_task_def["tags"]
 
-    print("Updating task definition")
-    ecs_client.register_task_definition(**new_task_def)
+    print("Updating environment variables in task definition")
+    response = ecs_client.register_task_definition(**new_task_def)
+    print("Updating environment variables response:", response)
     os.environ.update(env_dict)
 
 

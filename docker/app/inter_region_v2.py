@@ -167,11 +167,11 @@ def health_check_handler(msg_json):
         response = update_lamba_env_vars(
             "aviatrix-ha-healthcheck", local_region, "peer_priv_ip", ""
         )
-        print("Clearing peer_priv_ip:", response)
+        print("Clearing peer_priv_ip reponse:", response)
         response = update_lamba_env_vars(
             "aviatrix-ha-healthcheck", local_region, "peer_eip", ""
         )
-        print("Clearing peer_ip:", response)
+        print("Clearing peer_ip response:", response)
 
         # Update ECS environment variables
         print("Update ACTIVE_REGION & STANDBY_REGION in new active region")
