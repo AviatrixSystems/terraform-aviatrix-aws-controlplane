@@ -214,6 +214,22 @@ variable "s3_backup_region" {
   description = "AWS region of S3 backup bucket"
 }
 
+variable "s3_backup_bucket2" {
+  type        = string
+  description = "Second S3 bucket for Controller DB backup"
+}
+
+variable "s3_backup_region2" {
+  type        = string
+  description = "AWS region of second S3 backup bucket"
+}
+
+variable "enable_secondary_backup" {
+  type        = bool
+  description = "Whether to back up the Controller to mulitple S3 buckets"
+  default     = false
+}
+
 variable "termination_protection" {
   type        = bool
   description = "Enable/disable switch for termination protection"

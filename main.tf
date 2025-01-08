@@ -48,6 +48,9 @@ module "region1" {
   access_account_name              = var.access_account_name
   s3_backup_bucket                 = var.use_existing_s3 ? var.s3_backup_bucket : aws_s3_bucket.backup[0].id
   s3_backup_region                 = var.s3_backup_region
+  s3_backup_bucket2                = var.enable_secondary_backup ? (var.use_existing_s3 ? var.s3_backup_bucket2 : aws_s3_bucket.backup2[0].id) : ""
+  s3_backup_region2                = var.enable_secondary_backup ? var.s3_backup_region2 : ""
+  enable_secondary_backup          = var.enable_secondary_backup
   termination_protection           = var.termination_protection
   create_iam_roles                 = var.create_iam_roles
   ec2_role_name                    = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
@@ -136,6 +139,9 @@ module "region2" {
   access_account_name              = var.access_account_name
   s3_backup_bucket                 = var.use_existing_s3 ? var.s3_backup_bucket : aws_s3_bucket.backup[0].id
   s3_backup_region                 = var.s3_backup_region
+  s3_backup_bucket2                = var.enable_secondary_backup ? (var.use_existing_s3 ? var.s3_backup_bucket2 : aws_s3_bucket.backup2[0].id) : ""
+  s3_backup_region2                = var.enable_secondary_backup ? var.s3_backup_region2 : ""
+  enable_secondary_backup          = var.enable_secondary_backup
   termination_protection           = var.termination_protection
   create_iam_roles                 = var.create_iam_roles
   ec2_role_name                    = var.create_iam_roles ? module.aviatrix-iam-roles[0].aviatrix-role-ec2-name : var.ec2_role_name
@@ -425,6 +431,18 @@ resource "aws_s3_bucket" "backup" {
   provider      = aws.s3_region
   count         = var.ha_distribution == "basic" ? 0 : var.use_existing_s3 ? 0 : 1
   bucket_prefix = var.s3_backup_bucket
+  force_destroy = true
+}
+
+resource "aws_s3_bucket" "backup2" {
+  #checkov:skip=CKV_AWS_18: Ensure the S3 bucket has access logging enabled - AVXIT-7605
+  #checkov:skip=CKV_AWS_144: Ensure that S3 bucket has cross-region replication enabled - AVXIT-7607
+  #checkov:skip=CKV_AWS_21: Ensure all data stored in the S3 bucket have versioning enabled - AVXIT-7609
+  #checkov:skip=CKV_AWS_145: Ensure that S3 buckets are encrypted with KMS by default - AVXIT-7610
+  #checkov:skip=CKV2_AWS_6: Ensure that S3 bucket has a Public Access block - AVXIT-7611
+  provider      = aws.s3_region2
+  count         = var.ha_distribution != "basic" && !var.use_existing_s3 && var.enable_secondary_backup ? 1 : 0
+  bucket_prefix = var.s3_backup_bucket2
   force_destroy = true
 }
 

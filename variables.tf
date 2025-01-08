@@ -262,6 +262,24 @@ variable "s3_backup_region" {
   default     = "us-east-1"
 }
 
+variable "s3_backup_bucket2" {
+  type        = string
+  description = "Second S3 bucket for Controller DB backup"
+  default     = "aviatrix-ha-"
+}
+
+variable "s3_backup_region2" {
+  type        = string
+  description = "AWS region of second S3 backup bucket"
+  default     = "us-east-2"
+}
+
+variable "enable_secondary_backup" {
+  type        = bool
+  description = "Whether to back up the Controller to mulitple S3 buckets"
+  default     = false
+}
+
 variable "use_existing_s3" {
   type        = bool
   description = "Whether to use an existing S3 bucket"

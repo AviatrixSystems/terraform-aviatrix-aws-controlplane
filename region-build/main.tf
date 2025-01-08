@@ -141,6 +141,18 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.s3_backup_region
         },
         {
+          name  = "S3_BUCKET_BACK2",
+          value = var.s3_backup_bucket2
+        },
+        {
+          name  = "S3_BUCKET_REGION2",
+          value = var.s3_backup_region2
+        },
+        {
+          name  = "ENABLE_SECONDARY_BACKUP",
+          value = var.enable_secondary_backup
+        },         
+        {
           name  = "API_PRIVATE_ACCESS",
           value = "False"
         },
@@ -298,6 +310,18 @@ resource "aws_ecs_task_definition" "task_def" {
           name  = "S3_BUCKET_REGION",
           value = var.s3_backup_region
         },
+        {
+          name  = "S3_BUCKET_BACK2",
+          value = var.s3_backup_bucket2
+        },
+        {
+          name  = "S3_BUCKET_REGION2",
+          value = var.s3_backup_region2
+        },
+        {
+          name  = "ENABLE_SECONDARY_BACKUP",
+          value = var.enable_secondary_backup
+        },        
         {
           name  = "API_PRIVATE_ACCESS",
           value = "False"
