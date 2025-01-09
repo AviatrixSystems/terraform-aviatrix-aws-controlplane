@@ -1214,18 +1214,21 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     else:
         cloud_type = "1"
 
-    base_url = "https://%s/v1/api" % controller_ip
+    base_url = "https://%s/v2/api" % controller_ip
 
     post_data = {
         "action": "enable_cloudn_backup_config",
         "CID": cid,
         "cloud_type": cloud_type,
-        "account_name": acc_name,
+        "acct_name": acc_name,
         "bucket_name": os.environ.get("S3_BUCKET_BACK"),
         "multiple": "true",
-        "region": os.environ.get("S3_BUCKET_REGION"),
         "now": now,
     }
+
+    if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
+        print("enable_secondary_backup is true so configure backups to two S3 buckets")
+        post_data["bucket_name2"] = os.environ.get("S3_BUCKET_BACK2")
 
     print("Creating S3 backup: " + str(json.dumps(obj=post_data)))
 
@@ -1246,7 +1249,7 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
             output = {"return": False, "reason": str(err)}
     else:
         output = response.json()
-
+    print("Creating S3 backup response:", output)
     return output
 
 
