@@ -38,15 +38,24 @@ resource "aws_s3_object" "docker_source_upload" {
   source_hash = md5(join("", fileset("${path.module}/docker/", "**/*")))
 
   depends_on = [
+    aws_s3_bucket.docker_artifacts,
+    aws_s3_bucket_public_access_block.docker_artifacts,
     null_resource.docker_source_change,
     data.archive_file.docker_source_zip,
+    aws_iam_role.codebuild_role,
+    data.aws_iam_policy_document.codebuild_assume_role,
+    data.aws_iam_policy_document.codebuild_permissions,
+    aws_iam_policy.codebuild_policy,
+    aws_iam_role_policy_attachment.codebuild_policy_attachment,
+    aws_codebuild_project.docker_build,
+    aws_ecr_repository.aviatrix_ha_repo,
     aws_s3_bucket_notification.artifact_upload_notification,
+    data.archive_file.lambda_function,
     aws_lambda_function.codebuild_trigger,
     aws_lambda_permission.s3_invoke_lambda,
     aws_iam_role.lambda_execution_role,
     aws_iam_role_policy_attachment.lambda_basic_execution,
-    aws_iam_role_policy.lambda_codebuild_start,
-    data.archive_file.lambda_function
+    aws_iam_role_policy.lambda_codebuild_start
   ]
 }
 
