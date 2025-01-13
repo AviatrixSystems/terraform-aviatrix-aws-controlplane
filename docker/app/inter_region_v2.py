@@ -77,12 +77,33 @@ def health_check_handler(msg_json):
     print(f"failing_eip : {failing_eip}")
 
     # 3. Trying to find Instance in DR region
-    if aws_controller.is_region2_latest_backup_file(local_priv_ip, failing_private_ip):
-        s3_file = "CloudN_" + failing_private_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + failing_private_ip + "_save_cloudx_version.txt"
-    else:
-        s3_file = "CloudN_" + local_priv_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
+    try:
+        if aws_controller.is_region2_latest_backup_file(
+            local_priv_ip,
+            failing_private_ip,
+            os.environ.get("S3_BUCKET_REGION"),
+            os.environ.get("S3_BUCKET_BACK"),
+        ):
+            s3_file = "CloudN_" + failing_private_ip + "_save_cloudx_config.enc"
+            version_file = "CloudN_" + failing_private_ip + "_save_cloudx_version.txt"
+        else:
+            s3_file = "CloudN_" + local_priv_ip + "_save_cloudx_config.enc"
+            version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
+    except Exception as err:
+        print(err)
+        if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
+            print("enable_secondary_backup is true, retrying in second region")
+            if aws_controller.is_region2_latest_backup_file(
+                local_priv_ip,
+                failing_private_ip,
+                os.environ.get("S3_BUCKET_REGION2"),
+                os.environ.get("S3_BUCKET_BACK2"),
+            ):
+                s3_file = "CloudN_" + failing_private_ip + "_save_cloudx_config.enc"
+                version_file = "CloudN_" + failing_private_ip + "_save_cloudx_version.txt"
+            else:
+                s3_file = "CloudN_" + local_priv_ip + "_save_cloudx_config.enc"
+                version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
 
     print("API Access to Controller will use IP : " + str(local_priv_ip))
 

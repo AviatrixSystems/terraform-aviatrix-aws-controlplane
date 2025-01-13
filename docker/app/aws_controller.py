@@ -629,54 +629,55 @@ def verify_iam(controller_instanceobj):
     return True
 
 
-def verify_bucket(controller_instanceobj):
-    """Verify S3 and Controller account credentials"""
+# def verify_bucket(controller_instanceobj):
+#     """Verify S3 and Controller account credentials"""
 
-    print("Verifying bucket")
-    try:
-        s3_client = boto3.client("s3")
-        resp = s3_client.get_bucket_location(Bucket=os.environ.get("S3_BUCKET_BACK"))
-    except Exception as err:
-        print(f"S3 bucket used for backup is not valid. {str(err)}")
-        return False, ""
+#     print("Verifying bucket")
+#     try:
+#         s3_client = boto3.client("s3")
+#         resp = s3_client.get_bucket_location(Bucket=os.environ.get("S3_BUCKET_BACK"))
+#     except Exception as err:
+#         print(f"S3 bucket used for backup is not valid. {str(err)}")
+#         return False, ""
 
-    try:
-        bucket_region = resp["LocationConstraint"]
+#     try:
+#         bucket_region = resp["LocationConstraint"]
 
-        # Buckets in Region us-east-1 have a LocationConstraint of null
-        if bucket_region is None:
-            print(f"Bucket region is None. Setting to {AWS_US_EAST_REGION}")
-            bucket_region = AWS_US_EAST_REGION
-    except KeyError:
-        print(
-            "Key LocationConstraint not found in get_bucket_location response %s" % resp
-        )
-        return False, ""
+#         # Buckets in Region us-east-1 have a LocationConstraint of null
+#         if bucket_region is None:
+#             print(f"Bucket region is None. Setting to {AWS_US_EAST_REGION}")
+#             bucket_region = AWS_US_EAST_REGION
+#     except KeyError:
+#         print(
+#             "Key LocationConstraint not found in get_bucket_location response %s" % resp
+#         )
+#         return False, ""
 
-    print("S3 bucket is valid.")
-    eip = controller_instanceobj["NetworkInterfaces"][0]["Association"].get("PublicIp")
-    print(eip)
+#     print("S3 bucket is valid.")
+#     eip = controller_instanceobj["NetworkInterfaces"][0]["Association"].get("PublicIp")
+#     print(eip)
 
-    return True, bucket_region
+#     return True, bucket_region
 
 
-def is_region2_latest_backup_file(priv_ip, dr_priv_ip):
+def is_region2_latest_backup_file(
+    priv_ip,
+    dr_priv_ip,
+    region=os.environ.get("S3_BUCKET_REGION"),
+    bucket=os.environ.get("S3_BUCKET_BACK"),
+):
     """Check latest backup among two regions"""
     backup_file = f"CloudN_{priv_ip}_save_cloudx_config.enc"
     dr_backup_file = f"CloudN_{dr_priv_ip}_save_cloudx_config.enc"
     try:
-        s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION"])
+        s3c = boto3.client("s3", region_name=region)
         try:
-            pri_file_obj = s3c.get_object(
-                Key=backup_file, Bucket=os.environ.get("S3_BUCKET_BACK")
-            )
+            pri_file_obj = s3c.get_object(Key=backup_file, Bucket=bucket)
         except Exception as err:
             pri_file_obj = ""
             print(f"{backup_file} not found in the container: {str(err)}")
         try:
-            dr_file_obj = s3c.get_object(
-                Key=dr_backup_file, Bucket=os.environ.get("S3_BUCKET_BACK")
-            )
+            dr_file_obj = s3c.get_object(Key=dr_backup_file, Bucket=bucket)
         except Exception as err:
             dr_file_obj = ""
             print(f"{dr_backup_file} not found in the container: {str(err)}")
@@ -705,15 +706,17 @@ def is_region2_latest_backup_file(priv_ip, dr_priv_ip):
         raise AvxError(f"Checking which region has latest backup, Error: {str(err)}")
 
 
-def is_backup_file_is_recent(backup_file):
+def is_backup_file_is_recent(
+    backup_file,
+    region=os.environ.get("S3_BUCKET_REGION"),
+    bucket=os.environ.get("S3_BUCKET_BACK"),
+):
     """Check if backup file is not older than MAXIMUM_BACKUP_AGE"""
 
     try:
-        s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION"])
+        s3c = boto3.client("s3", region_name=region)
         try:
-            file_obj = s3c.get_object(
-                Key=backup_file, Bucket=os.environ.get("S3_BUCKET_BACK")
-            )
+            file_obj = s3c.get_object(Key=backup_file, Bucket=bucket)
         except botocore.exceptions.ClientError as err:
             print(str(err))
             return False
@@ -735,15 +738,31 @@ def retrieve_controller_version(version_file, ip_addr="", cid=""):
     """Get the controller version from backup file"""
 
     print("Retrieving version from file " + str(version_file))
-    s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION"])
+    try:
+        s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION"])
+    except Exception as err:
+        print(err)
+        print("Unable to create S3 client, retrying in second region")
+        s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION2"])
+
     try:
         with open("/tmp/version_ctrlha.txt", "wb") as data:
             s3c.download_fileobj(os.environ.get("S3_BUCKET_BACK"), version_file, data)
-    except botocore.exceptions.ClientError as err:
-        if err.response["Error"]["Code"] == "404":
-            print("The object does not exist.")
-            raise AvxError("The cloudx version file does not exist") from err
-        raise
+    except Exception as err:
+        print(err)
+        print("Unable to download from first S3 bucket, retryign in second bucket")
+
+        try:
+            with open("/tmp/version_ctrlha.txt", "wb") as data:
+                s3c.download_fileobj(
+                    os.environ.get("S3_BUCKET_BACK2"), version_file, data
+                )
+
+        except botocore.exceptions.ClientError as err:
+            if err.response["Error"]["Code"] == "404":
+                print("The object does not exist.")
+                raise AvxError("The cloudx version file does not exist") from err
+            raise
 
     if not os.path.exists("/tmp/version_ctrlha.txt"):
         raise AvxError("Unable to open version file")
@@ -1453,12 +1472,33 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     print(f"dr_private_ip : {dr_private_ip}")
 
     # 3. Trying to find Instance in DR region
-    if is_region2_latest_backup_file(priv_ip, dr_private_ip):
-        s3_file = "CloudN_" + dr_private_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + dr_private_ip + "_save_cloudx_version.txt"
-    else:
-        s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
-        version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
+    try:
+        if is_region2_latest_backup_file(
+            priv_ip,
+            dr_private_ip,
+            os.environ.get("S3_BUCKET_REGION"),
+            os.environ.get("S3_BUCKET_BACK"),
+        ):
+            s3_file = "CloudN_" + dr_private_ip + "_save_cloudx_config.enc"
+            version_file = "CloudN_" + dr_private_ip + "_save_cloudx_version.txt"
+        else:
+            s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
+            version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
+    except Exception as err:
+        print(err)
+        if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
+            print("enable_secondary_backup is true, retrying in second region")
+            if is_region2_latest_backup_file(
+                priv_ip,
+                dr_private_ip,
+                os.environ.get("S3_BUCKET_REGION2"),
+                os.environ.get("S3_BUCKET_BACK2"),
+            ):
+                s3_file = "CloudN_" + dr_private_ip + "_save_cloudx_config.enc"
+                version_file = "CloudN_" + dr_private_ip + "_save_cloudx_version.txt"
+            else:
+                s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
+                version_file = "CloudN_" + priv_ip + "_save_cloudx_version.txt"
 
     dr_api_ip = dr_instanceobj["PublicIpAddress"]
     print("DR API Access to Controller will use IP : " + str(dr_api_ip))
@@ -1735,11 +1775,34 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
         s3_file = "CloudN_" + priv_ip + "_save_cloudx_config.enc"
         print(f"S3 backup file name is {s3_file}")
 
-        if not is_backup_file_is_recent(s3_file):
-            raise AvxError(
-                f"HA event failed. Backup file does not exist or is older"
-                f" than {MAXIMUM_BACKUP_AGE}"
-            )
+        try:
+            if not is_backup_file_is_recent(
+                s3_file, os.environ.get("S3_BUCKET_REGION")
+            ):
+                print(
+                    "Backup file is not recent in",
+                    os.environ.get("S3_BUCKET_REGION"),
+                )
+        except Exception as err:
+            print(err)
+            if os.environ.get("ENABLE_SECONDARDY_BACKUP") == "true":
+                print("enable_secondary_backup is true, retrying in second region")
+                if not is_backup_file_is_recent(
+                    s3_file, os.environ.get("S3_BUCKET_REGION2")
+                ):
+                    print(
+                        "Backup file is not recent in",
+                        os.environ.get("S3_BUCKET_REGION2"),
+                    )
+                    raise AvxError(
+                        f"HA event failed. Backup file does not exist or is older"
+                        f" than {MAXIMUM_BACKUP_AGE}"
+                    )
+            else:
+                raise AvxError(
+                    f"HA event failed. Backup file does not exist or is older"
+                    f" than {MAXIMUM_BACKUP_AGE}"
+                )
 
     try:
         if not duplicate:
