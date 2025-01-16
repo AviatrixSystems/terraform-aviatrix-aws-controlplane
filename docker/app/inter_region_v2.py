@@ -78,6 +78,7 @@ def health_check_handler(msg_json):
 
     # 3. Trying to find Instance in DR region
     try:
+        print("Checking S3 bucket:", os.environ.get("S3_BUCKET_BACK"))
         if aws_controller.is_region2_latest_backup_file(
             local_priv_ip,
             failing_private_ip,
@@ -92,7 +93,8 @@ def health_check_handler(msg_json):
     except Exception as err:
         print(err)
         if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
-            print("enable_secondary_backup is true, retrying in second region")
+            print("enable_secondary_backup is true, retrying in secondary region")
+            print("Checking S3 bucket:", os.environ.get("S3_BUCKET_BACK2"))
             if aws_controller.is_region2_latest_backup_file(
                 local_priv_ip,
                 failing_private_ip,
@@ -100,7 +102,9 @@ def health_check_handler(msg_json):
                 os.environ.get("S3_BUCKET_BACK2"),
             ):
                 s3_file = "CloudN_" + failing_private_ip + "_save_cloudx_config.enc"
-                version_file = "CloudN_" + failing_private_ip + "_save_cloudx_version.txt"
+                version_file = (
+                    "CloudN_" + failing_private_ip + "_save_cloudx_version.txt"
+                )
             else:
                 s3_file = "CloudN_" + local_priv_ip + "_save_cloudx_config.enc"
                 version_file = "CloudN_" + local_priv_ip + "_save_cloudx_version.txt"
@@ -155,7 +159,7 @@ def health_check_handler(msg_json):
         response_json = aws_controller.restore_backup(
             cid, local_priv_ip, s3_file, local_env["PRIMARY_ACC_NAME"]
         )
-        print(response_json)
+        print("Restore backup response:", response_json)
         if response_json["return"] == True:
             failover = "completed"
 

@@ -675,12 +675,12 @@ def is_region2_latest_backup_file(
             pri_file_obj = s3c.get_object(Key=backup_file, Bucket=bucket)
         except Exception as err:
             pri_file_obj = ""
-            print(f"{backup_file} not found in the container: {str(err)}")
+            print(f"{backup_file} not found in the bucket {bucket}: {str(err)}")
         try:
             dr_file_obj = s3c.get_object(Key=dr_backup_file, Bucket=bucket)
         except Exception as err:
             dr_file_obj = ""
-            print(f"{dr_backup_file} not found in the container: {str(err)}")
+            print(f"{dr_backup_file} not found in the bucket {bucket}: {str(err)}")
         if pri_file_obj != "" and dr_file_obj == "":
             print(f"{backup_file} exist")
             return False
@@ -689,7 +689,7 @@ def is_region2_latest_backup_file(
             return True
         elif pri_file_obj != "" and dr_file_obj != "":
             print(
-                f"Container has backups from both regions, so checking for latest backup among both the files"
+                f"Bucket has backups from both regions, so checking for latest backup among both the files"
             )
             pri_file_obj_age = pri_file_obj["LastModified"].timestamp()
             dr_file_obj_age = dr_file_obj["LastModified"].timestamp()
@@ -742,27 +742,37 @@ def retrieve_controller_version(version_file, ip_addr="", cid=""):
         s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION"])
     except Exception as err:
         print(err)
-        print("Unable to create S3 client, retrying in second region")
+        print("Unable to create S3 client, retrying in secondary region")
         s3c = boto3.client("s3", region_name=os.environ["S3_BUCKET_REGION2"])
 
     try:
         with open("/tmp/version_ctrlha.txt", "wb") as data:
             s3c.download_fileobj(os.environ.get("S3_BUCKET_BACK"), version_file, data)
     except Exception as err:
-        print(err)
-        print("Unable to download from first S3 bucket, retryign in second bucket")
+        print(
+            "Unable to download from S3 bucket",
+            os.environ.get("S3_BUCKET_BACK"),
+            ":",
+            err,
+        )
 
-        try:
-            with open("/tmp/version_ctrlha.txt", "wb") as data:
-                s3c.download_fileobj(
-                    os.environ.get("S3_BUCKET_BACK2"), version_file, data
-                )
+        if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
+            print(
+                "enable_secondary_backup is true, retrying with secondary bucket",
+                os.environ.get("S3_BUCKET_BACK2"),
+            )
 
-        except botocore.exceptions.ClientError as err:
-            if err.response["Error"]["Code"] == "404":
-                print("The object does not exist.")
-                raise AvxError("The cloudx version file does not exist") from err
-            raise
+            try:
+                with open("/tmp/version_ctrlha.txt", "wb") as data:
+                    s3c.download_fileobj(
+                        os.environ.get("S3_BUCKET_BACK2"), version_file, data
+                    )
+
+            except botocore.exceptions.ClientError as err:
+                if err.response["Error"]["Code"] == "404":
+                    print("The object does not exist.")
+                    raise AvxError("The cloudx version file does not exist") from err
+                raise
 
     if not os.path.exists("/tmp/version_ctrlha.txt"):
         raise AvxError("Unable to open version file")
@@ -838,8 +848,7 @@ def upgrade_controller(ip_addr, cid, version=None):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing "
-                "create account API. Ignoring response"
+                "Server closed the connection while executing create account API. Ignoring response."
             )
             output = {
                 "return": True,
@@ -894,8 +903,7 @@ def run_initial_setup(ip_addr, cid, ctrl_version):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing initial setup API."
-                " Ignoring response"
+                "Server closed the connection while executing initial setup API. Ignoring response."
             )
             response_json = {
                 "return": True,
@@ -1081,8 +1089,7 @@ def create_cloud_account(cid, controller_ip, account_name):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing create account API."
-                " Ignoring response"
+                "Server closed the connection while executing create account API. Ignoring response."
             )
             output = {
                 "return": True,
@@ -1119,22 +1126,81 @@ def restore_backup(cid, controller_ip, s3_file, account_name):
 
     try:
         response = requests.post(base_url, data=restore_data, verify=False)
-    except requests.exceptions.ConnectionError as err:
+        print("restore_cloudx_config response:", response.json())
+
+        if (
+            not response.json().get("return")
+            and os.environ.get("ENABLE_SECONDARY_BACKUP") == "true"
+        ):
+            print(
+                "Restore from backup failed from primary S3 bucket",
+                os.environ.get("S3_BUCKET_BACK"),
+            )
+            print(
+                "enable_secondary_backup is true, attempting to restore from secondary S3 bucket",
+                os.environ.get("S3_BUCKET_BACK2"),
+            )
+            restore_data["bucket_name"] = os.environ.get("S3_BUCKET_BACK2")
+            print("Trying to restore config with data %s\n" % str(restore_data))
+
+            try:
+                response = requests.post(base_url, data=restore_data, verify=False)
+                print("restore_cloudx_config response:", response.json())
+
+            except requests.exceptions.RequestException as err:
+                if "Remote end closed connection without response" in str(err):
+                    print(
+                        "Server closed the connection while executing restore_cloudx_config API. Ignoring response."
+                    )
+                    response_json = {
+                        "return": True,
+                        "reason": "Warning!! Server closed the connection",
+                    }
+                else:
+                    print(
+                        f"Error occurred while restoring from secondary bucket: {err}"
+                    )
+                    response_json = {"return": False, "reason": str(err)}
+
+    except requests.exceptions.RequestException as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing restore_cloudx_config API."
-                " Ignoring response"
+                "Server closed the connection while executing restore_cloudx_config API. Ignoring response."
             )
             response_json = {
                 "return": True,
                 "reason": "Warning!! Server closed the connection",
             }
         else:
-            print(str(err))
-            response_json = {"return": False, "reason": str(err)}
+            if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
+                print(
+                    "enable_secondary_backup is true, attempting to restore from secondary S3 bucket"
+                )
+                restore_data["bucket_name"] = os.environ.get("S3_BUCKET_BACK2")
+                print("Trying to restore config with data %s\n" % str(restore_data))
+
+                try:
+                    response = requests.post(base_url, data=restore_data, verify=False)
+                    print("restore_cloudx_config response:", response.json())
+                except requests.exceptions.RequestException as err:
+                    if "Remote end closed connection without response" in str(err):
+                        print(
+                            "Server closed the connection while executing restore_cloudx_config API. Ignoring response."
+                        )
+                        response_json = {
+                            "return": True,
+                            "reason": "Warning!! Server closed the connection",
+                        }
+                    else:
+                        print(
+                            f"Error occurred while restoring from secondary bucket: {err}"
+                        )
+                        response_json = {"return": False, "reason": str(err)}
+            else:
+                print(f"Error occurred while restoring from primary bucket: {err}")
+                response_json = {"return": False, "reason": str(err)}
     else:
         response_json = response.json()
-
     return response_json
 
 
@@ -1202,8 +1268,7 @@ def set_customer_id(cid, controller_api_ip):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing setup_customer_id API."
-                " Ignoring response"
+                "Server closed the connection while executing setup_customer_id API. Ignoring response."
             )
             response_json = {
                 "return": True,
@@ -1246,7 +1311,7 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     }
 
     if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
-        print("enable_secondary_backup is true so configure backups to two S3 buckets")
+        print("enable_secondary_backup is true, configure backups to two S3 buckets")
         post_data["bucket_name2"] = os.environ.get("S3_BUCKET_BACK2")
 
     print("Creating S3 backup: " + str(json.dumps(obj=post_data)))
@@ -1256,8 +1321,7 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing create account API."
-                " Ignoring response"
+                "Server closed the connection while executing create account API. Ignoring response."
             )
             output = {
                 "return": True,
@@ -1292,8 +1356,7 @@ def set_admin_email(controller_ip, cid, admin_email):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing create account API."
-                " Ignoring response"
+                "Server closed the connection while executing create account API. Ignoring response."
             )
             output = {
                 "return": True,
@@ -1354,8 +1417,7 @@ def set_admin_password(controller_ip, cid, old_admin_password):
     except requests.exceptions.ConnectionError as err:
         if "Remote end closed connection without response" in str(err):
             print(
-                "Server closed the connection while executing create account API."
-                " Ignoring response"
+                "Server closed the connection while executing create account API. Ignoring response."
             )
             output = {
                 "return": True,
@@ -1473,6 +1535,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
 
     # 3. Trying to find Instance in DR region
     try:
+        print("Checking S3 bucket:", os.environ.get("S3_BUCKET_BACK"))
         if is_region2_latest_backup_file(
             priv_ip,
             dr_private_ip,
@@ -1487,7 +1550,8 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     except Exception as err:
         print(err)
         if os.environ.get("ENABLE_SECONDARY_BACKUP") == "true":
-            print("enable_secondary_backup is true, retrying in second region")
+            print("enable_secondary_backup is true, retrying with secondary bucket")
+            print("Checking S3 bucket:", os.environ.get("S3_BUCKET_BACK2"))
             if is_region2_latest_backup_file(
                 priv_ip,
                 dr_private_ip,
@@ -1568,7 +1632,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
             response_json = restore_backup(
                 cid, dr_api_ip, s3_file, pri_env["PRIMARY_ACC_NAME"]
             )
-            print(response_json)
+            print("Restore backup response:", response_json)
             if response_json["return"] == True:
                 failover = "completed"
 
@@ -1786,7 +1850,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
         except Exception as err:
             print(err)
             if os.environ.get("ENABLE_SECONDARDY_BACKUP") == "true":
-                print("enable_secondary_backup is true, retrying in second region")
+                print("enable_secondary_backup is true, retrying in secondary region")
                 if not is_backup_file_is_recent(
                     s3_file, os.environ.get("S3_BUCKET_REGION2")
                 ):
@@ -2063,7 +2127,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                 response_json = restore_backup(
                     cid, controller_api_ip, s3_file, temp_acc_name
                 )
-                print(response_json)
+                print("Restore backup response:", response_json)
 
                 ## Create a new backup so that filename uses new_private_ip
                 if response_json.get("return", False) is True:
