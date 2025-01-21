@@ -125,7 +125,12 @@ variable "root_volume_kms_key_id" {
 
 data "aws_region" "current" {}
 
-data "aws_availability_zones" "all" {}
+data "aws_availability_zones" "all" {
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
+}
 
 data "aws_ec2_instance_type_offering" "offering" {
   for_each = toset(data.aws_availability_zones.all.names)
