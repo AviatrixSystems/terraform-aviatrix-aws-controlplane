@@ -113,6 +113,21 @@ module "inter_region" {
 
 ![Inter-Region](images/inter-region.png)
 
+#### Inter-Region-V2
+
+```
+module "inter_region_v2" {
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr           = ["x.x.x.x/32"]
+  admin_email                 = "admin@example.com"
+  ha_distribution             = "inter-region-v2"
+  zone_name                   = "example.com"
+  record_name                 = "controller.example.com"
+  inter_region_backup_enabled = true
+  enable_secondary_backup     = true
+}
+```
+
 #### China Deployment
 
 ```
