@@ -107,6 +107,7 @@ module "inter_region" {
   zone_name                   = "example.com"
   record_name                 = "controller.example.com"
   inter_region_backup_enabled = true
+  enable_secondary_backup     = true
 }
 ```
 
@@ -232,7 +233,7 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | ecs_policy_name                  | aviatrix-ecs-policy                     | The name of the ECS policy                                                                                                                                                                                                                |
 | ecs_role_name                    | aviatrix-role-ecs                       | The name of the ECS role                                                                                                                                                                                                                  |
 | ecs_task_execution_role_name     | aviatrix-role-ecs-task-exec             | The name of the ECS task execution role                                                                                                                                                                                                   |
-| enable_secondary_backup          | false                                   | Whether to back up the Controller to mulitple S3 buckets                                                                                                                                                                                  |
+| enable_secondary_backup          | false                                   | Whether to back up the Controller to multiple S3 buckets. If `ha_distribution` is `inter-region` or `inter-region-v2`, `enable_secondary_backup` must be `true`.                                                                          |
 | eventbridge_policy_name          | aviatrix-eventbridge-policy             | The name of the EventBridge policy                                                                                                                                                                                                        |
 | eventbridge_role_name            | aviatrix-role-eventbridge               | The name of the EventBridge role                                                                                                                                                                                                          |
 | existing_copilot_dr_eip          | ""                                      | The existing EIP to use for the DR CoPilot. The EIP must already be allocated in the AWS account. Only applicable if `use_existing_copilot_eip` is `true`.                                                                                |

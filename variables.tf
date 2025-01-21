@@ -276,8 +276,12 @@ variable "s3_backup_region2" {
 
 variable "enable_secondary_backup" {
   type        = bool
-  description = "Whether to back up the Controller to mulitple S3 buckets"
+  description = "Whether to back up the Controller to multiple S3 buckets"
   default     = false
+  validation {
+    condition     = !(var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2") || var.enable_secondary_backup
+    error_message = "When ha_distribution is 'inter-region' or 'inter-region-v2', enable_secondary_backup must be set to true."
+  }
 }
 
 variable "use_existing_s3" {
