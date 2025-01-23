@@ -397,6 +397,41 @@ There are several different resources avaiable for deeper inspection of the Clou
 
 - In this case of an HA event occurring for both the Controller and the CoPilot in an inter-region HA deployment, both the Controller and the CoPilot will restored in the DR region. This case assumes a regional outage, because both the Controller and the CoPilot have an HA event.
 
+#### Disabling Controller Security Group Management
+
+The [Controller Security Group Management](https://docs.aviatrix.com/documentation/latest/platform-administration/controller/controller-security-group.html) feature manages the Controller instance's inbound rules for communication with Aviatrix Gateways. However, there are scenarios where this feature might need to be disabled.
+
+##### Reasons to Disable
+
+1. Direct Management Required: Security groups are managed by another team or through CI/CD pipelines.
+2. Scale Limits: The number of planned Aviatrix Gateways exceeds the maximum rules the security groups can accomodate.
+
+##### Considerations by Scenario
+
+1. Customer-Managed Security Groups
+
+   When security groups are managed manually:
+
+   - Ensure the VPC CIDR is allowed on TCP port 443 to support health checks.
+   - Ensure each Gateway's public IP is alllowed on TCP port 443.
+   - For `inter-region` or `inter-region-v2` deployments, you must manage the security groups in both the Active and Standby regions.
+     - The same rules for Gateways must be added to the security group in the Standy region
+     - Ensure the VPC CIDR of the Standy region is allowed on TCP port 443 in the Standy region's security group.
+
+2. Scaling Beyond Security Group Limits
+
+   The Controller instance's security groups must have a rule that allows `0.0.0.0/0` on TCP port 443. Access will be managed directly by the Controller. If depoying `inter-region` or `inter-region-v2`, the security group in the Standy region must also have a rule that allows `0.0.0.0/0` on TCP port 443.
+
+   Configuration Steps on the Controller:
+
+   - Disable Controller Security Group Management
+   - Enable Controller Access Allow List (check the Enforce option)
+   - Add the following IPs/CIDRs to the Controller Access Allow List:
+     - The VPC's CIDR should be allowed on TCP port 443 to support health checks
+       - If deploying `inter-region` or `inter-region-v2`, also add the Standby region's VPC CIDR
+     - Any other IPs/CIDRs that require connectivity to the Controller
+       Note: Aviatrix Gateway IPs do not need to be added, they are automatically allowed.
+
 #### Private Mode Support
 
 - Private-mode with controller HA is supported 7.1 onwards.
