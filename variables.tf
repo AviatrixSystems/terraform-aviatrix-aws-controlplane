@@ -439,11 +439,27 @@ variable "dr_vpc" {
   type        = string
   description = "VPC in which you want launch Aviatrix controller"
   default     = ""
+
+  validation {
+    condition = (
+      !(var.use_existing_vpc && (var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2")) ||
+      (var.dr_vpc != "")
+    )
+    error_message = "dr_vpc cannot be empty when use_existing_vpc is true and ha_distribution is either 'inter-region' or 'inter-region-v2'."
+  }
 }
 
 variable "dr_subnet_ids" {
   type    = list(string)
   default = []
+
+  validation {
+    condition = (
+      !(var.use_existing_vpc && (var.ha_distribution == "inter-region" || var.ha_distribution == "inter-region-v2")) ||
+      (length(var.dr_subnet_ids) > 0)
+    )
+    error_message = "dr_subnet_ids cannot be empty when use_existing_vpc is true and ha_distribution is either 'inter-region' or 'inter-region-v2'."
+  }
 }
 
 variable "dr_vpc_cidr" {
