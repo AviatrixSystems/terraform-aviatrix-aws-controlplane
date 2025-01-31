@@ -947,7 +947,11 @@ def get_public_ip():
 def temp_add_security_group_access(client, controller_instanceobj, api_private_access):
     """Temporarily add ECS IP rule in one security group"""
 
-    sgs = [sg_["GroupId"] for sg_ in controller_instanceobj["SecurityGroups"]]
+    sgs = [
+        sg_["GroupId"]
+        for sg_ in controller_instanceobj["SecurityGroups"]
+        if not sg_["GroupName"].startswith("Aviatrix-SG-")
+    ]
     if api_private_access == "True":
         return True, sgs[0]
 
@@ -2132,6 +2136,10 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                 ## Create a new backup so that filename uses new_private_ip
                 if response_json.get("return", False) is True:
                     print("Successfully restored backup")
+
+                    print(" Pause before setting up new backup")
+                    # Sleep to avoid [AVXERR-MAINTENANCE-004] Upgrade/Restore/Migration in progress message
+                    time.sleep(60)
 
                     # If restore succeeded, update private IP to that of the new instance now.
                     print("Creating new backup")
