@@ -74,10 +74,24 @@ module "basic" {
 
 ```
 module "single_az" {
-  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
-  incoming_ssl_cidr           = ["x.x.x.x/32"]
-  admin_email                 = "admin@example.com"
-  ha_distribution             = "single-az"
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  ha_distribution   = "single-az"
+}
+```
+
+#### Single-AZ with Existing VPC
+
+```
+module "single_az_existing_vpc" {
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  ha_distribution   = "single-az"
+  region            = "xxxxx"
+  vpc               = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids        = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
 }
 ```
 
@@ -87,10 +101,24 @@ module "single_az" {
 
 ```
 module "inter_az" {
-  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
-  incoming_ssl_cidr           = ["x.x.x.x/32"]
-  admin_email                 = "admin@example.com"
-  ha_distribution             = "inter-az"
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  ha_distribution   = "single-az"
+}
+```
+
+#### Inter-AZ with Existing VPC
+
+```
+module "inter_az_existing_vpc" {
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  ha_distribution   = "inter-az"
+  region            = "xxxxx"
+  vpc               = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids        = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
 }
 ```
 
@@ -111,6 +139,28 @@ module "inter_region" {
 }
 ```
 
+#### Inter-Region with Existing VPCs
+
+```
+module "inter_region_existing_vpcs" {
+  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr           = ["x.x.x.x/32"]
+  admin_email                 = "admin@example.com"
+  ha_distribution             = "inter-region"
+  zone_name                   = "example.com"
+  record_name                 = "controller.example.com"
+  inter_region_backup_enabled = true
+  enable_secondary_backup     = true
+  use_existing_vpc            = true
+  region                      = "xxxxx"
+  vpc                         = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids                  = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+  dr_region                   = "xxxxx"
+  dr_vpc                      = "vpc-xxxxxxxxxxxxxxxxx"
+  dr_subnet_ids               = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+}
+```
+
 ![Inter-Region](images/inter-region.png)
 
 #### Inter-Region-V2
@@ -127,6 +177,45 @@ module "inter_region_v2" {
   enable_secondary_backup     = true
 }
 ```
+
+#### Inter-Region-V2 with Existing VPCs
+
+```
+module "inter_region_v2_existing_vpcs" {
+  source                        = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr             = ["x.x.x.x/32"]
+  admin_email                   = "admin@example.com"
+  ha_distribution               = "inter-region-v2"
+  zone_name                     = "example.com"
+  record_name                   = "controller.example.com"
+  inter_region_backup_enabled   = true
+  enable_secondary_backup       = true
+  use_existing_vpc              = true
+  region                        = "xxxxx"
+  vpc                           = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids                    = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+  dr_region                     = "xxxxx"
+  dr_vpc                        = "vpc-xxxxxxxxxxxxxxxxx"
+  dr_subnet_ids                 = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+  healthcheck_subnet_ids        = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+  healthcheck_public_rt_ids     = ["rtb-xxxxxxxxxxxxxxxxx"]
+  healthcheck_private_rt_ids    = ["rtb-xxxxxxxxxxxxxxxxx", "rtb-xxxxxxxxxxxxxxxxx"]
+  healthcheck_dr_subnet_ids     = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
+  healthcheck_dr_public_rt_ids  = ["rtb-xxxxxxxxxxxxxxxxx"]
+  healthcheck_dr_private_rt_ids = ["rtb-xxxxxxxxxxxxxxxxx", "rtb-xxxxxxxxxxxxxxxxx"]
+}
+```
+
+##### Additional Notes About Inter-Region-V2 with Existing VPCs
+
+- `healthcheck_subnet_ids` and `healthcheck_dr_subnet_ids` must be private subnets.
+- `healthcheck_public_rt_ids` and `healthcheck_dr_public_rt_ids` correspond to the route table(s) associated with the subnet(s) used by the Controller (i.e. `subnet_ids` and `dr_subnet_ids`).
+- `healthcheck_private_rt_ids` and `healthcheck_dr_private_rt_ids` correspond to the route table(s) associated with the subnet(s) used by the healthcheck Lambda function (i.e. `healthcheck_subnet_ids` and `healthcheck_dr_subnet_ids`).
+- `healthcheck_subnet_ids` and `healthcheck_dr_subnet_ids` must have internet access (i.e. via a NAT Gateway). The healthcheck requires access to the following service enpoints:
+  - ECS
+  - Lambda
+  - SNS
+- VPC endpoints are not sufficient as the healthcheck function must initially query ECS in the peer region to retrieve the Controller's Elastic IP (EIP) and private IP.
 
 #### China Deployment
 
