@@ -62,11 +62,25 @@ The following resources should be created before running Terraform. The module w
 
 ```
 module "basic" {
-  source                      = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
-  incoming_ssl_cidr           = ["x.x.x.x/32"]
-  admin_email                 = "admin@example.com"
-  avx_password                = <password>
-  avx_customer_id             = <customer_id>
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  avx_password      = <password>
+  avx_customer_id   = <customer_id>
+}
+```
+
+#### Basic with Existing VPC
+
+```
+module "basic" {
+  source            = "github.com/aviatrix/terraform-aviatrix-aws-controlplane"
+  incoming_ssl_cidr = ["x.x.x.x/32"]
+  admin_email       = "admin@example.com"
+  avx_password      = <password>
+  avx_customer_id   = <customer_id>
+  vpc               = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids        = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
 }
 ```
 
