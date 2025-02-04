@@ -194,12 +194,12 @@ module "inter_region_v2_existing_vpcs" {
   region                        = "xxxxx"
   vpc                           = "vpc-xxxxxxxxxxxxxxxxx"
   subnet_ids                    = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
-  dr_region                     = "xxxxx"
-  dr_vpc                        = "vpc-xxxxxxxxxxxxxxxxx"
-  dr_subnet_ids                 = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
   healthcheck_subnet_ids        = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
   healthcheck_public_rt_ids     = ["rtb-xxxxxxxxxxxxxxxxx"]
   healthcheck_private_rt_ids    = ["rtb-xxxxxxxxxxxxxxxxx", "rtb-xxxxxxxxxxxxxxxxx"]
+  dr_region                     = "xxxxx"
+  dr_vpc                        = "vpc-xxxxxxxxxxxxxxxxx"
+  dr_subnet_ids                 = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
   healthcheck_dr_subnet_ids     = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-xxxxxxxxxxxxxxxxx"]
   healthcheck_dr_public_rt_ids  = ["rtb-xxxxxxxxxxxxxxxxx"]
   healthcheck_dr_private_rt_ids = ["rtb-xxxxxxxxxxxxxxxxx", "rtb-xxxxxxxxxxxxxxxxx"]
