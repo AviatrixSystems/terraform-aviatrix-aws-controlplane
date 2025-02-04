@@ -669,25 +669,44 @@ variable "healthcheck_subnet_ids" {
   type        = list(string)
   description = "The list of private subnets to use for the healthcheck Lambda in the primary region"
   default     = []
+
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_subnet_ids) == 0)
+    error_message = "healthcheck_subnet_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
 }
 
 variable "healthcheck_dr_subnet_ids" {
   type        = list(string)
   description = "The list of private subnets to use for the healthcheck Lambda in the DR region"
   default     = []
-}
 
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_dr_subnet_ids) == 0)
+    error_message = "healthcheck_dr_subnet_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
+}
 
 variable "healthcheck_public_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
   default     = []
+
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_public_rt_ids) == 0)
+    error_message = "healthcheck_public_rt_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
 }
 
 variable "healthcheck_dr_public_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
   default     = []
+
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_dr_public_rt_ids) == 0)
+    error_message = "healthcheck_dr_public_rt_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
 }
 
 
@@ -695,12 +714,22 @@ variable "healthcheck_private_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the primary region to reach the other VPC's CIDR via the PCX connection"
   default     = []
+
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_private_rt_ids) == 0)
+    error_message = "healthcheck_private_rt_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
 }
 
 variable "healthcheck_dr_private_rt_ids" {
   type        = list(string)
   description = "Add a route to these route tables in the DR region to reach the other VPC's CIDR via the PCX connection"
   default     = []
+
+  validation {
+    condition     = !(var.use_existing_vpc && var.ha_distribution == "inter-region-v2" && length(var.healthcheck_dr_private_rt_ids) == 0)
+    error_message = "healthcheck_dr_private_rt_ids must be provided when use_existing_vpc is true and ha_distribution is inter-region-v2."
+  }
 }
 
 variable "cft_stack_name" {
