@@ -345,11 +345,21 @@ variable "vpc" {
   type        = string
   description = "VPC in which you want launch Aviatrix controller"
   default     = ""
+
+  validation {
+    condition     = var.use_existing_vpc == false || var.vpc != ""
+    error_message = "vpc must be specified if use_existing_vpc is true."
+  }
 }
 
 variable "subnet_ids" {
   type    = list(string)
   default = []
+
+  validation {
+    condition     = var.use_existing_vpc == false || length(var.subnet_ids) > 0
+    error_message = "subnet_ids cannot be empty when use_existing_vpc is true."
+  }
 }
 
 variable "name_prefix" {
