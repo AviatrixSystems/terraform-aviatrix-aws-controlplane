@@ -1,3 +1,9 @@
+# Local Docker image build Instructions:
+# 1. Uncomment this file to enable local Docker image build
+# 2. Make the following changes to the region1/region2 modules in main.tf:
+#    - Update `ecr_image` to the appropriate image repository
+#    - Add `aws_s3_object.docker_source_upload` to `depends_on`
+
 # Create S3 Bucket for Docker artifacts
 resource "aws_s3_bucket" "docker_artifacts" {
   bucket_prefix = "aviatrix-ha-docker-"

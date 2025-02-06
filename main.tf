@@ -121,6 +121,8 @@ module "region1" {
   cdn_server                       = var.cdn_server
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.aviatrix_ha_repo.repository_url}:latest"
+
+  depends_on = [aws_s3_object.docker_source_upload]
 }
 
 module "region2" {
@@ -213,7 +215,10 @@ module "region2" {
   # ecr_image                        = "public.ecr.aws/n9d6j0n9/aviatrix_aws_ha:latest"
   ecr_image = "${aws_ecr_repository.aviatrix_ha_repo.repository_url}:latest"
 
-  depends_on = [null_resource.region_conflict]
+  depends_on = [
+    null_resource.region_conflict,
+    aws_s3_object.docker_source_upload
+  ]
 }
 
 resource "random_id" "aviatrix" {
