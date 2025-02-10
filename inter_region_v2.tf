@@ -479,6 +479,8 @@ resource "aws_s3_bucket_policy" "stop_region1" {
 
   bucket = aws_s3_bucket.stop_region1[0].id
   policy = data.aws_iam_policy_document.getobject_region1[0].json
+
+  depends_on = [aws_s3_bucket_public_access_block.stop_region1]
 }
 
 resource "aws_s3_bucket_policy" "stop_region2" {
@@ -487,6 +489,8 @@ resource "aws_s3_bucket_policy" "stop_region2" {
 
   bucket = aws_s3_bucket.stop_region2[0].id
   policy = data.aws_iam_policy_document.getobject_region2[0].json
+
+  depends_on = [aws_s3_bucket_public_access_block.stop_region2]
 }
 
 data "aws_iam_policy_document" "getobject_region1" {
