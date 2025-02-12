@@ -21,6 +21,15 @@ import botocore
 import copilot_main as cp_lib
 import aws_utils as aws_utils
 import inter_region_v2
+from tenacity import (
+    retry,
+    retry_any,
+    retry_if_exception,
+    retry_if_result,
+    wait_fixed,
+    stop_after_attempt,
+    RetryCallState,
+)
 
 
 urllib3.disable_warnings(InsecureRequestWarning)
@@ -1293,6 +1302,27 @@ def set_customer_id(cid, controller_api_ip):
         )
 
 
+def print_before(retry_state: RetryCallState):
+    """Prints retry attempts before executing the function again"""
+    print(f"Creating S3 backup attempt #{retry_state.attempt_number}")
+
+
+# Retry conditions
+retry_conditions = retry_any(
+    retry_if_exception(
+        lambda e: isinstance(e, requests.exceptions.HTTPError)
+        and e.response.status_code in [500, 503]
+    ),
+    retry_if_result(lambda result: result.get("return") is False),
+)
+
+
+@retry(
+    retry=retry_conditions,
+    wait=wait_fixed(60),
+    stop=stop_after_attempt(10),
+    before=print_before,
+)
 def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
     """Enable S3 backup"""
     ec2_client = boto3.client("ec2")
@@ -1322,20 +1352,24 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
 
     try:
         response = requests.post(base_url, data=post_data, verify=False)
-    except requests.exceptions.ConnectionError as err:
-        if "Remote end closed connection without response" in str(err):
-            print(
-                "Server closed the connection while executing create account API. Ignoring response."
-            )
-            output = {
-                "return": True,
-                "reason": "Warning!! Server closed the connection",
-            }
-            time.sleep(INITIAL_SETUP_DELAY)
-        else:
-            output = {"return": False, "reason": str(err)}
-    else:
-        output = response.json()
+
+        print(
+            "Attempting to create S3 backup status code:",
+            response.status_code,
+            "response:",
+            response.text,
+        )
+        response.raise_for_status()
+
+        try:
+            output = response.json()
+        except ValueError:
+            output = {"return": False, "reason": "Invalid JSON response"}
+
+    except requests.exceptions.HTTPError as err:
+        output = {"return": False, "reason": str(err)}
+        raise
+
     print("Creating S3 backup response:", output)
     return output
 
@@ -2136,10 +2170,6 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
                 ## Create a new backup so that filename uses new_private_ip
                 if response_json.get("return", False) is True:
                     print("Successfully restored backup")
-
-                    print(" Pause before setting up new backup")
-                    # Sleep to avoid [AVXERR-MAINTENANCE-004] Upgrade/Restore/Migration in progress message
-                    time.sleep(60)
 
                     # If restore succeeded, update private IP to that of the new instance now.
                     print("Creating new backup")

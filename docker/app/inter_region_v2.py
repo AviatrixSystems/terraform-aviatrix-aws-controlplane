@@ -167,10 +167,6 @@ def health_check_handler(msg_json):
         if response_json.get("return", False) is True:
             print("Successfully restored backup")
 
-            print("Pause before setting up new backup")
-            # Sleep to avoid [AVXERR-MAINTENANCE-004] Upgrade/Restore/Migration in progress message
-            time.sleep(60)
-
             # If restore succeeded, update private IP to that of the new instance now.
             print("Creating new backup")
             aws_controller.setup_ctrl_backup(
