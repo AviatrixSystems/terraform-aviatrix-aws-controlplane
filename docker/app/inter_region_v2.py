@@ -163,15 +163,8 @@ def health_check_handler(msg_json):
         if response_json["return"] == True:
             failover = "completed"
 
-        ## Create a new backup so that filename uses new_private_ip
         if response_json.get("return", False) is True:
             print("Successfully restored backup")
-
-            # If restore succeeded, update private IP to that of the new instance now.
-            print("Creating new backup")
-            aws_controller.setup_ctrl_backup(
-                local_priv_ip, cid, local_env["PRIMARY_ACC_NAME"], "true"
-            )
 
         # 5. Migrate IP
 
