@@ -284,6 +284,7 @@ def update_env_dict(ecs_client, replace_dict={}):
         "INTER_REGION": os.environ.get("INTER_REGION"),
         "HA_DISTRIBUTION": os.environ.get("HA_DISTRIBUTION"),
         "PRIV_IP": task_def_env_dict.get("PRIV_IP", ""),
+        "REGION": os.environ.get("REGION"),
         "S3_BUCKET_BACK": os.environ.get("S3_BUCKET_BACK"),
         "S3_BUCKET_REGION": os.environ.get("S3_BUCKET_REGION"),
         "S3_BUCKET_BACK2": os.environ.get("S3_BUCKET_BACK2", ""),

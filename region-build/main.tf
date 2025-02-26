@@ -151,7 +151,7 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "ENABLE_SECONDARY_BACKUP",
           value = var.enable_secondary_backup
-        },         
+        },
         {
           name  = "API_PRIVATE_ACCESS",
           value = "False"
@@ -171,6 +171,10 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "HA_DISTRIBUTION",
           value = var.ha_distribution
+        },
+        {
+          name  = "REGION",
+          value = var.region
         },
         {
           name  = "DR_REGION",
@@ -321,7 +325,7 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "ENABLE_SECONDARY_BACKUP",
           value = var.enable_secondary_backup
-        },        
+        },
         {
           name  = "API_PRIVATE_ACCESS",
           value = "False"
@@ -341,6 +345,14 @@ resource "aws_ecs_task_definition" "task_def" {
         {
           name  = "HA_DISTRIBUTION",
           value = var.ha_distribution
+        },
+        {
+          name  = "REGION",
+          value = var.region
+        },
+        {
+          name  = "DR_REGION",
+          value = var.region # DR region is the same as the primary region for single-az and inter-az
         },
         {
           name  = "SQS_QUEUE_NAME",
