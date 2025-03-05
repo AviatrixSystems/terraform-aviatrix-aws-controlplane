@@ -1,4 +1,4 @@
-""" Aviatrix Controller Deployment with HA script """
+"""Aviatrix Controller Deployment with HA script"""
 
 import time
 import copy
@@ -1250,10 +1250,25 @@ def set_customer_id(cid, controller_api_ip):
 
     print("Setting up Customer ID")
     if os.environ.get("AVX_CUSTOMER_ID", "") == "":
-        customer_id = get_ssm_parameter_value(
-            os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
-            os.environ.get("REGION"),
-        )
+        ssm_path = os.environ.get("AVX_CUSTOMER_ID_SSM_PATH")
+        region = os.environ.get("REGION")
+        dr_region = os.environ.get("DR_REGION", "")
+
+        try:
+            print("Trying to get customer ID from SSM in primary region", region)
+            customer_id = get_ssm_parameter_value(ssm_path, region)
+        except AvxError as err:
+            print("Failed to get customer ID from SSM in primary region", region)
+            if dr_region:
+                print("Trying to get customer ID from SSM in DR region", dr_region)
+                try:
+                    customer_id = get_ssm_parameter_value(ssm_path, dr_region)
+                except AvxError:
+                    print("Failed to get customer ID from SSM in DR region", dr_region)
+                    customer_id = ""
+            else:
+                print("There is no DR region set")
+                customer_id = ""
     else:
         customer_id = os.environ.get("AVX_CUSTOMER_ID", "")
 
