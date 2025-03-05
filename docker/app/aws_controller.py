@@ -260,14 +260,12 @@ def update_env_dict(ecs_client, replace_dict={}):
         "AVIATRIX_TAG": os.environ.get("AVIATRIX_TAG"),
         "AVX_CUSTOMER_ID": os.environ.get("AVX_CUSTOMER_ID", ""),
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
-        "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH"
         ),
-        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION"),
         "AWS_ROLE_APP_NAME": os.environ.get("AWS_ROLE_APP_NAME"),
         "AWS_ROLE_EC2_NAME": os.environ.get("AWS_ROLE_EC2_NAME"),
         "COP_ASG": os.environ.get("COP_ASG"),
@@ -569,14 +567,12 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         "SQS_QUEUE_REGION": os.environ.get("SQS_QUEUE_REGION"),
         "AVX_CUSTOMER_ID": os.environ.get("AVX_CUSTOMER_ID", ""),
         "AVX_CUSTOMER_ID_SSM_PATH": os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
-        "AVX_CUSTOMER_ID_SSM_REGION": os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
         "AVX_PASSWORD": os.environ.get("AVX_PASSWORD", ""),
         "AVX_COP_PASSWORD": os.environ.get("AVX_COP_PASSWORD", ""),
         "AVX_PASSWORD_SSM_PATH": os.environ.get("AVX_PASSWORD_SSM_PATH"),
         "AVX_COPILOT_PASSWORD_SSM_PATH": os.environ.get(
             "AVX_COPILOT_PASSWORD_SSM_PATH", ""
         ),
-        "AVX_PASSWORD_SSM_REGION": os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
         "COP_USERNAME": os.environ.get("COP_USERNAME", ""),
         "COP_AUTH_IP": os.environ.get("COP_AUTH_IP", ""),
         "COP_EMAIL": os.environ.get("COP_EMAIL", ""),
@@ -1256,7 +1252,7 @@ def set_customer_id(cid, controller_api_ip):
     if os.environ.get("AVX_CUSTOMER_ID", "") == "":
         customer_id = get_ssm_parameter_value(
             os.environ.get("AVX_CUSTOMER_ID_SSM_PATH"),
-            os.environ.get("AVX_CUSTOMER_ID_SSM_REGION"),
+            os.environ.get("REGION"),
         )
     else:
         customer_id = os.environ.get("AVX_CUSTOMER_ID", "")
@@ -1390,7 +1386,7 @@ def set_admin_password(controller_ip, cid, old_admin_password):
 
     if os.environ.get("AVX_PASSWORD", "") == "":
         # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-        ssm_client = boto3.client("ssm", os.environ.get("AVX_PASSWORD_SSM_REGION"))
+        ssm_client = boto3.client("ssm", os.environ.get("REGION"))
         resp = ssm_client.get_parameter(
             Name=os.environ.get("AVX_PASSWORD_SSM_PATH"), WithDecryption=True
         )
@@ -1594,7 +1590,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     if os.environ.get("AVX_PASSWORD", "") == "":
         creds = get_ssm_parameter_value(
             os.environ.get("AVX_PASSWORD_SSM_PATH"),
-            os.environ.get("AVX_PASSWORD_SSM_REGION"),
+            os.environ.get("REGION"),
         )
     else:
         creds = os.environ.get("AVX_PASSWORD", "")

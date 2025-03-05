@@ -95,10 +95,8 @@ module "region1" {
   record_name                      = var.record_name
   inter_region_backup_enabled      = var.inter_region_backup_enabled
   avx_customer_id_ssm_path         = var.avx_customer_id_ssm_path
-  avx_customer_id_ssm_region       = var.avx_customer_id_ssm_region
   avx_password_ssm_path            = var.avx_password_ssm_path
   avx_copilot_password_ssm_path    = var.avx_copilot_password_ssm_path
-  avx_password_ssm_region          = var.avx_password_ssm_region
   avx_customer_id                  = var.avx_customer_id
   avx_password                     = var.avx_password
   avx_copilot_password             = var.avx_copilot_password
@@ -188,10 +186,8 @@ module "region2" {
   record_name                      = var.record_name
   inter_region_backup_enabled      = var.inter_region_backup_enabled
   avx_customer_id_ssm_path         = var.avx_customer_id_ssm_path
-  avx_customer_id_ssm_region       = var.avx_customer_id_ssm_region
   avx_password_ssm_path            = var.avx_password_ssm_path
   avx_copilot_password_ssm_path    = var.avx_copilot_password_ssm_path
-  avx_password_ssm_region          = var.avx_password_ssm_region
   avx_customer_id                  = var.avx_customer_id
   avx_password                     = var.avx_password
   avx_copilot_password             = var.avx_copilot_password
@@ -323,9 +319,9 @@ resource "aws_iam_policy" "ecs-policy" {
       "Action": ["ssm:GetParameter"],
       "Effect": "Allow",
       "Resource": [
-        "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
-        "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
-        "arn:${local.iam_type}:ssm:${var.avx_customer_id_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
+        "arn:${local.iam_type}:ssm:*:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}",
+        "arn:${local.iam_type}:ssm:*:${data.aws_caller_identity.current.account_id}:parameter${var.avx_copilot_password_ssm_path}",
+        "arn:${local.iam_type}:ssm:*:${data.aws_caller_identity.current.account_id}:parameter${var.avx_customer_id_ssm_path}"
       ]
     },
     {

@@ -213,20 +213,12 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.avx_customer_id_ssm_path
         },
         {
-          name  = "AVX_CUSTOMER_ID_SSM_REGION",
-          value = var.avx_customer_id_ssm_region
-        },
-        {
           name  = "AVX_PASSWORD_SSM_PATH",
           value = var.avx_password_ssm_path
         },
         {
           name  = "AVX_COPILOT_PASSWORD_SSM_PATH",
           value = var.avx_copilot_password_ssm_path
-        },
-        {
-          name  = "AVX_PASSWORD_SSM_REGION",
-          value = var.avx_password_ssm_region
         },
         {
           name  = "AVX_CUSTOMER_ID",
@@ -367,20 +359,12 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.avx_customer_id_ssm_path
         },
         {
-          name  = "AVX_CUSTOMER_ID_SSM_REGION",
-          value = var.avx_customer_id_ssm_region
-        },
-        {
           name  = "AVX_PASSWORD_SSM_PATH",
           value = var.avx_password_ssm_path
         },
         {
           name  = "AVX_COPILOT_PASSWORD_SSM_PATH",
           value = var.avx_copilot_password_ssm_path
-        },
-        {
-          name  = "AVX_PASSWORD_SSM_REGION",
-          value = var.avx_password_ssm_region
         },
         {
           name  = "AVX_CUSTOMER_ID",

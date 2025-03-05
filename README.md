@@ -241,8 +241,6 @@ module "china" {
   ha_distribution             = "inter-az"
   region                      = "cn-north-1"
   dr_region                   = "cn-northwest-1" //dr region in china must be specified, either in single-az or inter-az case
-  avx_customer_id_ssm_region  = "cn-north-1"
-  avx_password_ssm_region     = "cn-north-1"
 }
 ```
 
@@ -311,10 +309,8 @@ To deploy Aviatrix Platform HA with an existing Controller, perform the followin
 | avx_copilot_password_ssm_path    | /aviatrix/copilot/password              | The path to the CoPilot password                                                                                                                                                                                                          |
 | avx_customer_id                  |                                         | The Aviatrix customer ID. WARNING: The Customer ID will be viewable in the container's environment variables. It is recommended to store the customer ID in an SSM parameter and to not use `avx_customer_id` for production deployments. |
 | avx_customer_id_ssm_path         | /aviatrix/controller/customer_id        | The path to the Aviatrix customer ID. Only applicable if `avx_customer_id` is not specified.                                                                                                                                              |
-| avx_customer_id_ssm_region       | us-east-1                               | The region the customer ID parameter is in. Only applicable if `avx_customer_id` is not specified.                                                                                                                                        |
 | avx_password                     |                                         | The Controller admin password. WARNING: The password will be viewable in the container's environment variables. It is recommended to store the password in an SSM parameter and to not use `avx_password` for production deployments.     |
 | avx_password_ssm_path            | /aviatrix/controller/password           | The path to the Aviatrix password. Only applicable if `avx_password` is not specified.                                                                                                                                                    |
-| avx_password_ssm_region          | us-east-1                               | The region the Aviatrix password parameter is in. Only applicable if `avx_password` is not specified.                                                                                                                                     |
 | cft_stack_name                   | aviatrix-controlplane                   | The name of the CloudFormation stack. Only applies when `ha_distribution` is "basic".                                                                                                                                                     |
 | configure_waf                    | false                                   | Whether AWS WAF is enabled for Controller access                                                                                                                                                                                          |
 | controller_ami_id                | ""                                      | The Aviatrix Controller AMI ID                                                                                                                                                                                                            |

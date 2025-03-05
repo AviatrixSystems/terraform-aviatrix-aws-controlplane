@@ -425,12 +425,6 @@ variable "avx_customer_id_ssm_path" {
   default     = "/aviatrix/controller/customer_id"
 }
 
-variable "avx_customer_id_ssm_region" {
-  type        = string
-  description = "The region the customer ID parameter is in"
-  default     = "us-east-1"
-}
-
 variable "avx_password_ssm_path" {
   type        = string
   description = "The path to the Aviatrix password"
@@ -441,12 +435,6 @@ variable "avx_copilot_password_ssm_path" {
   type        = string
   description = "The path to the password for CoPilot"
   default     = "/aviatrix/controller/password"
-}
-
-variable "avx_password_ssm_region" {
-  type        = string
-  description = "The region the password parameter is in"
-  default     = "us-east-1"
 }
 
 variable "avx_customer_id" {

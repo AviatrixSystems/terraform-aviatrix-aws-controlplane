@@ -84,7 +84,7 @@ resource "aws_iam_policy" "healthcheck-policy" {
       "Action":[
         "ssm:GetParameter"
       ],
-      "Resource": "arn:${local.iam_type}:ssm:${var.avx_password_ssm_region}:${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}"
+      "Resource": "arn:${local.iam_type}:ssm::${data.aws_caller_identity.current.account_id}:parameter${var.avx_password_ssm_path}"
     }
   ]
 }

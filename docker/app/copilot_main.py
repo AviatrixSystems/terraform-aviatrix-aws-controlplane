@@ -63,7 +63,7 @@ def get_vm_password(pass_type="copilot"):
             # Fetch Aviatrix CoPilot credentials from encrypted SSM parameter store
             password = get_ssm_parameter_value(
                 os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
-                os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
+                os.environ.get("REGION", ""),
             )
         else:
             password = os.environ.get("AVX_COP_PASSWORD", "")
@@ -72,7 +72,7 @@ def get_vm_password(pass_type="copilot"):
             # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
             password = get_ssm_parameter_value(
                 os.environ.get("AVX_PASSWORD_SSM_PATH", ""),
-                os.environ.get("AVX_PASSWORD_SSM_REGION", ""),
+                os.environ.get("REGION", ""),
             )
         else:
             password = os.environ.get("AVX_PASSWORD", "")
