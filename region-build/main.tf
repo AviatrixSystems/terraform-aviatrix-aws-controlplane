@@ -343,10 +343,6 @@ resource "aws_ecs_task_definition" "task_def" {
           value = var.region
         },
         {
-          name  = "DR_REGION",
-          value = var.region # DR region is the same as the primary region for single-az and inter-az
-        },
-        {
           name  = "SQS_QUEUE_NAME",
           value = aws_sqs_queue.controller_updates_queue.name
         },
