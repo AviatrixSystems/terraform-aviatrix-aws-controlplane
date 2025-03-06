@@ -1401,11 +1401,29 @@ def set_admin_password(controller_ip, cid, old_admin_password):
 
     if os.environ.get("AVX_PASSWORD", "") == "":
         # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-        ssm_client = boto3.client("ssm", os.environ.get("REGION"))
-        resp = ssm_client.get_parameter(
-            Name=os.environ.get("AVX_PASSWORD_SSM_PATH"), WithDecryption=True
-        )
-        new_admin_password = resp["Parameter"]["Value"]
+        ssm_path = os.environ.get("AVX_CUSTOMER_ID_SSM_PATH")
+        region = os.environ.get("REGION")
+        dr_region = os.environ.get("DR_REGION", "")
+
+        try:
+            print("Trying to get password from SSM in primary region", region)
+            ssm_client = boto3.client("ssm", region)
+            resp = ssm_client.get_parameter(Name=ssm_path, WithDecryption=True)
+            new_admin_password = resp["Parameter"]["Value"]
+        except Exception as err:
+            print("Failed to get password from SSM in primary region", region)
+            if dr_region:
+                print("Trying to get password from SSM in DR region", dr_region)
+                try:
+                    ssm_client = boto3.client("ssm", dr_region)
+                    resp = ssm_client.get_parameter(Name=ssm_path, WithDecryption=True)
+                    new_admin_password = resp["Parameter"]["Value"]
+                except Exception as err:
+                    print("Failed to get password from SSM in DR region", dr_region)
+                    new_admin_password = ""
+            else:
+                print("There is no DR region set")
+                new_admin_password = ""
     else:
         new_admin_password = os.environ.get("AVX_PASSWORD", "")
 
