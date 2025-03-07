@@ -1254,21 +1254,7 @@ def set_customer_id(cid, controller_api_ip):
         region = os.environ.get("REGION")
         dr_region = os.environ.get("DR_REGION", "")
 
-        try:
-            print("Trying to get customer ID from SSM in primary region", region)
-            customer_id = get_ssm_parameter_value(ssm_path, region)
-        except AvxError as err:
-            print("Failed to get customer ID from SSM in primary region", region)
-            if dr_region:
-                print("Trying to get customer ID from SSM in DR region", dr_region)
-                try:
-                    customer_id = get_ssm_parameter_value(ssm_path, dr_region)
-                except AvxError:
-                    print("Failed to get customer ID from SSM in DR region", dr_region)
-                    customer_id = ""
-            else:
-                print("There is no DR region set")
-                customer_id = ""
+        customer_id = get_ssm_parameter_value(ssm_path, region, dr_region)
     else:
         customer_id = os.environ.get("AVX_CUSTOMER_ID", "")
 
@@ -1387,13 +1373,30 @@ def set_admin_email(controller_ip, cid, admin_email):
     return output
 
 
-def get_ssm_parameter_value(path, region):
+def get_ssm_parameter_value(path, region, dr_region=""):
     try:
+        print(f"Fetching {path} from SSM in {region}")
         ssm_client = boto3.client("ssm", region)
         resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
+        print(f"Successfully fetched {path} from SSM in {region}")
         return resp["Parameter"]["Value"]
     except Exception as err:
-        raise AvxError(f"Error fetching from ssm")
+        print(f"Error fetching {path} from SSM in {region}: {err}")
+        if dr_region:
+            print(f"Fetching {path} from SSM in {dr_region}")
+            try:
+                ssm_client = boto3.client("ssm", dr_region)
+                resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
+                print(f"Successfully fetched {path} from SSM in {dr_region}")
+                return resp["Parameter"]["Value"]
+            except Exception as err:
+                print(f"Error fetching {path} from SSM in {dr_region}: {err}")
+                raise AvxError(
+                    f"Failed to fetch parameter from both primary and DR regions"
+                )
+        else:
+            print("No DR region to fetch parameter from")
+            raise AvxError(f"Failed to fetch parameter from SSM")
 
 
 def set_admin_password(controller_ip, cid, old_admin_password):
@@ -1401,29 +1404,10 @@ def set_admin_password(controller_ip, cid, old_admin_password):
 
     if os.environ.get("AVX_PASSWORD", "") == "":
         # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-        ssm_path = os.environ.get("AVX_CUSTOMER_ID_SSM_PATH")
+        ssm_path = os.environ.get("AVX_PASSWORD_SSM_PATH")
         region = os.environ.get("REGION")
         dr_region = os.environ.get("DR_REGION", "")
-
-        try:
-            print("Trying to get password from SSM in primary region", region)
-            ssm_client = boto3.client("ssm", region)
-            resp = ssm_client.get_parameter(Name=ssm_path, WithDecryption=True)
-            new_admin_password = resp["Parameter"]["Value"]
-        except Exception as err:
-            print("Failed to get password from SSM in primary region", region)
-            if dr_region:
-                print("Trying to get password from SSM in DR region", dr_region)
-                try:
-                    ssm_client = boto3.client("ssm", dr_region)
-                    resp = ssm_client.get_parameter(Name=ssm_path, WithDecryption=True)
-                    new_admin_password = resp["Parameter"]["Value"]
-                except Exception as err:
-                    print("Failed to get password from SSM in DR region", dr_region)
-                    new_admin_password = ""
-            else:
-                print("There is no DR region set")
-                new_admin_password = ""
+        new_admin_password = get_ssm_parameter_value(ssm_path, region, dr_region)
     else:
         new_admin_password = os.environ.get("AVX_PASSWORD", "")
 
@@ -1624,6 +1608,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
         creds = get_ssm_parameter_value(
             os.environ.get("AVX_PASSWORD_SSM_PATH"),
             os.environ.get("REGION"),
+            os.environ.get("DR_REGION", ""),
         )
     else:
         creds = os.environ.get("AVX_PASSWORD", "")

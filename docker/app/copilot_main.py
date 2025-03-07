@@ -8,16 +8,7 @@ import requests
 import single_copilot_lib as single_cplt
 import cluster_copilot_lib as cluster_cplt
 import aws_utils as aws_utils
-
-
-def get_ssm_parameter_value(path, region):
-    try:
-        ssm_client = boto3.client("ssm", region)
-        resp = ssm_client.get_parameter(Name=path, WithDecryption=True)
-        return resp["Parameter"]["Value"]
-    except Exception as err:
-        print(f"Error fetching from ssm")
-        raise err
+import aws_controller
 
 
 def controller_copilot_setup(api, event):
@@ -61,18 +52,20 @@ def get_vm_password(pass_type="copilot"):
     ):
         if os.environ.get("AVX_COP_PASSWORD", "") == "":
             # Fetch Aviatrix CoPilot credentials from encrypted SSM parameter store
-            password = get_ssm_parameter_value(
+            password = aws_controller.get_ssm_parameter_value(
                 os.environ.get("AVX_COPILOT_PASSWORD_SSM_PATH", ""),
                 os.environ.get("REGION", ""),
+                os.environ.get("DR_REGION", ""),
             )
         else:
             password = os.environ.get("AVX_COP_PASSWORD", "")
     else:
         if os.environ.get("AVX_PASSWORD", "") == "":
             # Fetch Aviatrix Controller credentials from encrypted SSM parameter store
-            password = get_ssm_parameter_value(
+            password = aws_controller.get_ssm_parameter_value(
                 os.environ.get("AVX_PASSWORD_SSM_PATH", ""),
                 os.environ.get("REGION", ""),
+                os.environ.get("DR_REGION", ""),
             )
         else:
             password = os.environ.get("AVX_PASSWORD", "")

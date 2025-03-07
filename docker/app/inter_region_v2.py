@@ -114,9 +114,10 @@ def health_check_handler(msg_json):
     total_time = 0
 
     if os.environ.get("AVX_PASSWORD", "") == "":
-        creds = aws_controller.get_ssm_parameter_value(
+        creds = aws_controller.get_ssm_parameter_value2(
             os.environ.get("AVX_PASSWORD_SSM_PATH"),
-            os.environ.get("AVX_PASSWORD_SSM_REGION"),
+            os.environ.get("REGION"),
+            os.environ.get("DR_REGION"),
         )
     else:
         creds = os.environ.get("AVX_PASSWORD", "")
