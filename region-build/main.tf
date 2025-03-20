@@ -572,7 +572,7 @@ resource "aws_sns_topic_subscription" "asg_updates_for_notif_email" {
   endpoint  = var.asg_notif_email
 }
 
-resource "aws_sqs_queue_policy" "test" {
+resource "aws_sqs_queue_policy" "controller_updates_queue_policy" {
   queue_url = aws_sqs_queue.controller_updates_queue.id
 
   policy = <<POLICY
