@@ -89,9 +89,8 @@ def ecs_handler():
         print("No message in the queue. Exiting.")
         return
 
-    print("Received message from SQS queue")
-    print(queue_messages[0].body)
     event = json.loads(queue_messages[0].body)
+    print("Received message from SQS queue:", json.dumps(event))
 
     # Delete message from SQS
     #
@@ -109,12 +108,14 @@ def ecs_handler():
             }
         ]
     )
-    print("Deleting message %s from SQS queue: %s" % (event["MessageId"], response))
+    print(
+        "Deleting message %s from SQS queue: %s"
+        % (event["MessageId"], json.dumps(response))
+    )
 
     ### Beginning of Inter-Region V2 code
 
     # Check for healthcheck code
-    print("The event is:", event)
     try:
         msg_json = json.loads(event["Message"])
         msg_service = msg_json.get("Service")
@@ -322,7 +323,7 @@ def update_env_dict(ecs_client, replace_dict={}):
 
     env_dict.update(replace_dict)
     os.environ.update(replace_dict)
-    print("Updating environment %s" % env_dict)
+    print("Updating environment variables: %s" % json.dumps(env_dict))
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
@@ -347,7 +348,9 @@ def update_env_dict(ecs_client, replace_dict={}):
 
     print("Updating environment variables in task definition")
     response = ecs_client.register_task_definition(**new_task_def)
-    print("Updating environment variables response:", response)
+    print(
+        f"Updated environment variables in task definition {response["taskDefinition"]["taskDefinitionArn"]} HTTP Status Code: {response["ResponseMetadata"]["HTTPStatusCode"]}"
+    )
 
 
 def sync_env_var(ecs_client, env_dict, replace_dict={}):
@@ -355,7 +358,7 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
 
     env_dict.update(replace_dict)
 
-    print("Updating environment %s" % env_dict)
+    print("Updating environment variables: %s" % json.dumps(env_dict))
     current_task_def = aws_utils.get_task_def(ecs_client)
 
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
@@ -380,7 +383,9 @@ def sync_env_var(ecs_client, env_dict, replace_dict={}):
 
     print("Updating environment variables in task definition")
     response = ecs_client.register_task_definition(**new_task_def)
-    print("Updating environment variables response:", response)
+    print(
+        f"Updated environment variables in task definition {response["taskDefinition"]["taskDefinitionArn"]} HTTP Status Code: {response["ResponseMetadata"]["HTTPStatusCode"]}"
+    )
 
 
 def get_api_token(ip_addr):
@@ -476,7 +481,7 @@ def login_to_controller(ip_addr, username, pwd):
         print(response_json)
         print("Unable to create session. {} {}".format(err, response_json))
         raise AvxError("Unable to create session. {}".format(err)) from err
-    print(response_json)
+    print("Log in to Controller:", json.dumps(response_json))
     return cid
 
 
@@ -587,7 +592,7 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
         env_dict["INTER_REGION_BACKUP_ENABLED"] = os.environ.get(
             "INTER_REGION_BACKUP_ENABLED"
         )
-    print("Setting environment %s" % env_dict)
+    print("Setting environment: %s" % json.dumps(env_dict))
     current_task_def = aws_utils.get_task_def(ecs_client)
     new_task_def = copy.deepcopy(current_task_def["taskDefinition"])
 
@@ -612,7 +617,9 @@ def set_environ(client, ecs_client, controller_instanceobj, eip=None):
 
     print("Updating environment variables in task definition")
     response = ecs_client.register_task_definition(**new_task_def)
-    print("Updating environment variables response:", response)
+    print(
+        f"Updated environment variables in task definition {response["taskDefinition"]["taskDefinitionArn"]} HTTP Status Code: {response["ResponseMetadata"]["HTTPStatusCode"]}"
+    )
     os.environ.update(env_dict)
 
 
@@ -891,7 +898,7 @@ def run_initial_setup(ip_addr, cid, ctrl_version):
         "action": "initial_setup",
         "subaction": "run",
     }
-    print("Trying to run initial setup %s\n" % str(post_data))
+    print("Trying to run initial setup: %s\n" % str(json.dumps(post_data)))
     post_data["CID"] = cid
     base_url = "https://" + ip_addr + "/v1/api"
 
@@ -912,7 +919,7 @@ def run_initial_setup(ip_addr, cid, ctrl_version):
         response_json = response.json()
         # Controllers running 6.4 and above would be unresponsive after initial_setup
 
-    print(response_json)
+    print(json.dumps(response_json))
 
     time.sleep(INITIAL_SETUP_API_WAIT)
 
@@ -1082,7 +1089,7 @@ def create_cloud_account(cid, controller_ip, account_name):
             "aws_iam": "true",
         }
 
-    print("Trying to create account with data %s\n" % str(post_data))
+    print("Trying to create account with data: %s\n" % str(json.dumps(post_data)))
     post_data["CID"] = cid
 
     try:
@@ -1334,7 +1341,7 @@ def setup_ctrl_backup(controller_ip, cid, acc_name, now=None):
             output = {"return": False, "reason": str(err)}
     else:
         output = response.json()
-    print("Creating S3 backup response:", output)
+    print("Creating S3 backup response:", json.dumps(output))
     return output
 
 
@@ -1592,9 +1599,7 @@ def handle_ctrl_inter_region_event(pri_region, dr_region):
     )
     if not dr_duplicate:
         update_env_dict(dr_ecs_client, {"CONTROLLER_TMP_SG_GRP": dr_sg_modified})
-        print(
-            f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {os.environ.items()}"
-        )
+        print(f"created tmp access - updated CONTROLLER_TMP_SG_GRP: {dr_sg_modified}")
     print(
         "Temporary rule is %s present %s"
         % (
@@ -2012,7 +2017,7 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
 
             if not initial_setup_complete:
                 response_json = get_initial_setup_status(controller_api_ip, cid)
-                print(f"Initial setup status {response_json}")
+                print(f"Initial setup status: {json.dumps(response_json)}")
 
                 if response_json.get("return", False) is True:
                     initial_setup_complete = True
@@ -2213,13 +2218,15 @@ def handle_ctrl_ha_event(client, ecs_client, event, asg_inst, asg_orig, asg_dest
             LifecycleHookName=msg_json["LifecycleHookName"],
         )
 
-        print(f"Complete lifecycle action response {response}")
+        print(f"Complete lifecycle action response: {json.dumps(response)}")
         if not duplicate:
             print(f"Reverting sg {sg_modified}")
             task_def = ecs_client.describe_task_definition(
                 taskDefinition=TASK_DEF_FAMILY,
             )
-            print(f"handle_ctrl_ha_event.1 - task_def - {task_def}")
+            print(
+                f"Task definition ARN: {task_def["taskDefinition"]["taskDefinitionArn"]}"
+            )
             env_vars = copy.deepcopy(
                 task_def["taskDefinition"]["containerDefinitions"][0]["environment"]
             )
