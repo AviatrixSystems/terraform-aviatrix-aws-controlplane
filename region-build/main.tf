@@ -607,7 +607,8 @@ POLICY
 }
 
 module "aviatrix_eventbridge" {
-  source = "./modules/terraform-aws-eventbridge"
+  source  = "terraform-aws-modules/eventbridge/aws"
+  version = "3.14.3"
 
   create_bus        = false
   create_role       = false
@@ -701,7 +702,8 @@ module "aviatrix_eventbridge" {
 module "ecs_cluster" {
   #checkov:skip=CKV_AWS_224: Ensure ECS Cluster logging is enabled and client to container communication uses CMK - AVXIT-7611
   #checkov:skip=CKV_AWS_65: Ensure container insights are enabled on ECS cluster - AVXIT-7612
-  source = "./modules/terraform-aws-ecs"
+  source  = "terraform-aws-modules/ecs/aws"
+  version = "5.12.0"
 
   cluster_name = "avx_platform_ha"
   cluster_settings = {
@@ -720,6 +722,11 @@ module "ecs_cluster" {
       }
     }
   }
+
+  # The updated version of the ECS module creates the CloudWatch log group by default,
+  # explicitly setting this to false to minimize other changes for now, we can consider
+  # removing this in the future if it makes sense to have the module create the log group
+  create_cloudwatch_log_group = false
 
   # Capacity provider
   fargate_capacity_providers = {
