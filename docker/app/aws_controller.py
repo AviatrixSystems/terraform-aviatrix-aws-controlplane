@@ -1,4 +1,4 @@
-""" Aviatrix Controller Deployment with HA script """
+"""Aviatrix Controller Deployment with HA script"""
 
 import time
 import copy
