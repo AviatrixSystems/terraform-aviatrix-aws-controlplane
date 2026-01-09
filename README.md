@@ -1,3 +1,7 @@
+> [!CAUTION]
+> Please be aware that this module is deprecated and no longer maintained. For greenfield deployments, please use this module:
+> https://github.com/terraform-aviatrix-modules/terraform-aviatrix-aws-controlplane
+
 ## Aviatrix with High Availability
 
 ### Goals
