@@ -21,7 +21,6 @@ import botocore
 import copilot_main as cp_lib
 import aws_utils as aws_utils
 
-
 urllib3.disable_warnings(InsecureRequestWarning)
 
 VERSION = "0.10.5"  # x-release-please-version

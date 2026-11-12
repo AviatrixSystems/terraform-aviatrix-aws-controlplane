@@ -31,16 +31,16 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so follow-up steps can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@v12.2138.0
+        uses: bridgecrewio/checkov-action@d760887e9ca1a14f871195ab650988ac39c90a0a # v12.2138.0
         with:
           directory: .
           config_file: .checkov.yml
         
       # - name: Upload SARIF file
-      #   uses: github/codeql-action/upload-sarif@v2
+      #   uses: github/codeql-action/upload-sarif@b8d3b6e8af63cde30bdc382c0bc28114f4346c88 # v2.28.1
         
       #   # Results are generated only on a success or failure
       #   # this is required since GitHub by default won't run the next step
