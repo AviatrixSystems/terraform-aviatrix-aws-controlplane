@@ -12,15 +12,15 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
         with:
           ref: ${{ github.head_ref }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1 # v2.0.3
 
       - name: Black Python Formatting
-        uses: psf/black@stable
+        uses: psf/black@258e7dbf348bc23cb70b8cdf693481c04634ebcc # 26.10.1
         with:
           options: "-v"
           src: "./docker/app/"
@@ -29,7 +29,7 @@ jobs:
         run: terraform fmt -recursive
 
       - name: Commit Formatting Changes
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@3ea6ae190baf489ba007f7c92608f33ce20ef04a # v4.16.0
         with:
           commit_message: "style: Apply automatic formatting changes"
           branch: ${{ github.head_ref }}
